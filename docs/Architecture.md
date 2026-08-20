@@ -102,3 +102,11 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - A pickup slot with historical orders is disabled rather than hard-deleted.
 - Negative-balance sales require the school setting to be enabled, an admin password, and the resulting balance must not pass the configured minimum.
 - Sale and pre-order email/SMS notifications require both the parent preference and the school-level channel to be enabled.
+
+## Admin sales and order management
+- Admin sales list supports filtering by school, status, sale number, student name and student display code.
+- Full-sale refunds never delete or overwrite the original sale; the sale becomes `REFUNDED`, the family wallet receives a separate positive `REFUND` transaction, and the admin action is written to the Audit Log.
+- Refund wallet transactions retain an explicit `refundOfSaleId` link to the original sale.
+- Sale items retain an immutable product-name snapshot so historical receipts stay readable after catalogue changes.
+- Admin pre-order detail supports label reprinting and marking an uncollected order as `NOT_COLLECTED`.
+- Historical pre-orders and sales remain queryable after fulfilment, cancellation or refund.
