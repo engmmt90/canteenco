@@ -72,3 +72,11 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Email adapter uses Resend when configured; SMS adapter uses Twilio when configured. Provider code is isolated so either service can be replaced later.
 - Failed deliveries retry with exponential backoff up to five attempts.
 - Parent preferences independently control channels and event types, including a configurable low-balance threshold.
+
+## Admin reporting
+- Dashboard sales metric now reads completed sales from the database.
+- Reports support school filtering for Super Admin and automatic school scoping for School Admin.
+- Reports include sales, pre-orders, active students, negative wallets and wallet balances.
+- Student search supports name and display code such as `3C-001`.
+- Sales can be exported as CSV from an authenticated admin endpoint.
+- Family-wallet review exposes shared balance alongside all active children attached to the parent.
