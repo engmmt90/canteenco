@@ -414,6 +414,7 @@ model PickupSlot {
 model PreOrder {
   id              String         @id @default(cuid())
   orderNumber     String         @unique
+  idempotencyKey  String         @unique
   schoolId        String
   studentId       String
   walletId        String

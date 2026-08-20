@@ -71,3 +71,12 @@ button:disabled { opacity: .6; cursor: wait; }
 .status-text { font-size: 18px !important; }
 .topup-amount { font-size: 28px; font-weight: 850; letter-spacing: -.03em; }
 @media (max-width: 800px) { .wallet-layout { grid-template-columns: 1fr; } .list-row { align-items: start; } }
+
+.print-label { display:none; }
+@media print {
+  body * { visibility:hidden !important; }
+  .print-label, .print-label * { visibility:visible !important; }
+  .print-label { display:grid !important; position:absolute; left:0; top:0; width:62mm; min-height:38mm; padding:4mm; gap:2mm; border:1px solid #000; font-size:11pt; background:#fff; }
+  .label-order { font-size:16pt; }
+  @page { size:62mm 40mm; margin:0; }
+}

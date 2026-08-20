@@ -15,6 +15,6 @@ export default async function ParentDashboardPage() {
       <div className="page-heading"><div><h1 className="brand">Family Dashboard</h1><p className="subtle">Welcome back. Your family wallet is shared by all approved children.</p></div><Link className="primary" href="/parent/wallet">Top Up Wallet</Link></div>
       <div className="grid"><Link className="stat" href="/parent/wallet">Available balance<strong>${balance}</strong></Link><div className="stat">Children<strong>{parent?.students.length ?? 0}</strong></div><div className="stat">Pre-orders<strong>0</strong></div></div>
       <div style={{height:18}}/><section className="panel"><h2>Children</h2>{parent?.students.length ? <div className="student-summary">{parent.students.map((student) => <div className="student-row" key={student.id}><strong>{student.firstName} {student.lastName}</strong><span>{student.displayCode} · Grade {student.grade}{student.classSection ?? ""}</span></div>)}</div> : <p className="subtle">Approved children will appear here with their school, class, student code and purchase history.</p>}</section>
-    </main>
+    <div className="actions-row" style={{marginTop:18}}><a className="secondary" href="/parent/wallet">Family Wallet</a><a className="primary" href="/parent/preorders">Pre-Orders</a></div></main>
   );
 }

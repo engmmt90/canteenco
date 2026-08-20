@@ -53,3 +53,13 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Each sale carries a unique idempotency key to prevent double submission.
 - Negative balances require school policy to allow them, must remain above the configured minimum balance, and require a valid active admin password.
 - The QR token remains independent of the student display code.
+
+## Pre-orders
+- Parent selects an approved child, active products, pickup date and an active school pickup slot.
+- Same-day ordering respects the per-school `preOrderCutoffTime`.
+- The full amount is debited from the shared family wallet at order confirmation.
+- Pre-orders do not permit overdraft in the current release.
+- Workflow: `CONFIRMED -> PREPARING -> READY -> PICKED_UP`.
+- Before preparation, a parent may cancel a confirmed order; the original order remains and a separate refund wallet transaction restores the balance.
+- Cashier label printing uses a compact 62mm x 40mm print layout with order number, student, class and pickup slot.
+- Pre-order creation is idempotent to prevent duplicate debit on double submission.
