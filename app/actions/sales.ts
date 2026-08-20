@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { Prisma, UserRole, UserStatus, StudentStatus, WalletStatus, WalletTransactionType } from "@prisma/client";
+import { queueParentNotification } from "@/lib/notifications";
+import { NotificationEvent, Prisma, UserRole, UserStatus, StudentStatus, WalletStatus, WalletTransactionType } from "@prisma/client";
 
 export async function findCashierStudents(query: string) {
   const session = await auth();
@@ -26,7 +27,7 @@ export async function createCashierSale(input:{studentId:string;items:CartLine[]
  const clean=input.items.filter(x=>Number.isInteger(x.quantity)&&x.quantity>0); if(!clean.length) return {ok:false,error:"Empty sale"};
  try{return await prisma.$transaction(async tx=>{
    const existing=await tx.sale.findUnique({where:{idempotencyKey:input.idempotencyKey}}); if(existing) return {ok:true,saleId:existing.id,duplicate:true};
-   const student=await tx.student.findUnique({where:{id:input.studentId},include:{school:{include:{settings:true}},parent:{include:{wallet:true}}}});
+   const student=await tx.student.findUnique({where:{id:input.studentId},include:{school:{include:{settings:true}},parent:{include:{wallet:true,user:true,notificationPreference:true}}}});
    if(!student||student.status!==StudentStatus.ACTIVE||student.deletedAt) throw new Error("Student is not active");
    const wallet=student.parent.wallet; if(!wallet||wallet.status!==WalletStatus.ACTIVE) throw new Error("Family wallet is not active");
    const ids=[...new Set(clean.map(x=>x.productId))]; const products=await tx.product.findMany({where:{id:{in:ids},isActive:true,deletedAt:null}}); if(products.length!==ids.length) throw new Error("A product is unavailable");
@@ -45,6 +46,32 @@ export async function createCashierSale(input:{studentId:string;items:CartLine[]
    const guarded=await tx.wallet.updateMany({where:{id:wallet.id,balance:wallet.balance},data:{balance:proposed}}); if(guarded.count!==1) throw new Error("Wallet balance changed. Please retry the sale.");
    const sale=await tx.sale.create({data:{saleNumber:`SALE-${Date.now()}-${randomUUID().slice(0,6).toUpperCase()}`,idempotencyKey:input.idempotencyKey,schoolId:student.schoolId,studentId:student.id,walletId:wallet.id,cashierUserId:session.user.id,subtotal:total,total,isOverdraftOverride:proposed.lt(0),overrideApprovedById:approverId,items:{create:clean.map(line=>{const p=map.get(line.productId)!;return {productId:p.id,productNameSnapshot:p.name,unitPrice:p.price,quantity:line.quantity,lineTotal:p.price.mul(line.quantity)}})}}});
    await tx.walletTransaction.create({data:{walletId:wallet.id,studentId:student.id,type:proposed.lt(0)?WalletTransactionType.OVERDRAFT_SALE:WalletTransactionType.SALE_DEBIT,amount:total.neg(),balanceAfter:proposed,description:`Canteen sale ${sale.saleNumber}`,saleId:sale.id}});
+
+   await queueParentNotification({
+     tx,
+     userId: student.parent.user.id,
+     parentId: student.parent.id,
+     event: NotificationEvent.PURCHASE_COMPLETED,
+     preferenceKey: "notifyPurchase",
+     subject: "Canteen purchase completed",
+     message: `${student.firstName} ${student.lastName} purchased $${total.toFixed(2)} from CanteenCo. Family wallet balance: $${proposed.toFixed(2)}.`,
+     metadata: { saleId: sale.id, studentId: student.id, amount: Number(total), balanceAfter: Number(proposed) },
+   });
+
+   const threshold = student.parent.notificationPreference?.lowBalanceThreshold;
+   if (student.parent.notificationPreference?.notifyLowBalance && threshold != null && proposed.lte(threshold)) {
+     await queueParentNotification({
+       tx,
+       userId: student.parent.user.id,
+       parentId: student.parent.id,
+       event: NotificationEvent.LOW_BALANCE,
+       preferenceKey: "notifyLowBalance",
+       subject: "Family wallet balance is low",
+       message: `Your CanteenCo family wallet balance is $${proposed.toFixed(2)}, which is at or below your alert level of $${threshold.toFixed(2)}.`,
+       metadata: { walletId: wallet.id, balance: Number(proposed), threshold: Number(threshold) },
+     });
+   }
+
    return {ok:true,saleId:sale.id,saleNumber:sale.saleNumber,total:total.toFixed(2),balanceAfter:proposed.toFixed(2),overdraft:proposed.lt(0)};
  },{isolationLevel:Prisma.TransactionIsolationLevel.Serializable});}catch(e){return {ok:false,error:e instanceof Error?e.message:"Sale failed"};}
 }

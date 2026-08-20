@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireParent } from "@/lib/authz";
+import { queueParentNotification } from "@/lib/notifications";
+import { NotificationEvent } from "@prisma/client";
 
 export type TopUpFormState = {
   error?: string;
@@ -101,15 +103,16 @@ export async function createTopUpRequest(
       },
     });
 
-    await queueTopUpNotifications(
+    await queueParentNotification({
       tx,
-      session.user.id,
-      parent.id,
-      "TOPUP_REQUESTED",
-      "Top-up request received",
-      `We received your request to add $${amount.toFixed(2)} to your CanteenCo family wallet. The balance will update after cash payment is confirmed by the administrator.`,
-      { topUpRequestId: created.id, amount },
-    );
+      userId: session.user.id,
+      parentId: parent.id,
+      event: NotificationEvent.TOPUP_REQUESTED,
+      preferenceKey: "notifyTopUp",
+      subject: "Top-up request received",
+      message: `We received your request to add $${amount.toFixed(2)} to your CanteenCo family wallet. The balance will update after cash payment is confirmed by the administrator.`,
+      metadata: { topUpRequestId: created.id, amount },
+    });
 
     return created;
   });
@@ -199,19 +202,20 @@ export async function confirmTopUpRequest(formData: FormData) {
       },
     });
 
-    await queueTopUpNotifications(
+    await queueParentNotification({
       tx,
-      request.wallet.parent.user.id,
-      request.wallet.parent.id,
-      "TOPUP_CONFIRMED",
-      "Family wallet topped up",
-      `Your cash payment has been confirmed. $${Number(request.amount).toFixed(2)} was added to your CanteenCo family wallet. New balance: $${Number(wallet.balance).toFixed(2)}.`,
-      {
+      userId: request.wallet.parent.user.id,
+      parentId: request.wallet.parent.id,
+      event: NotificationEvent.TOPUP_CONFIRMED,
+      preferenceKey: "notifyTopUp",
+      subject: "Family wallet topped up",
+      message: `Your cash payment has been confirmed. $${Number(request.amount).toFixed(2)} was added to your CanteenCo family wallet. New balance: $${Number(wallet.balance).toFixed(2)}.`,
+      metadata: {
         topUpRequestId: request.id,
         amount: Number(request.amount),
         balanceAfter: Number(wallet.balance),
       },
-    );
+    });
 
     await tx.auditLog.create({
       data: {

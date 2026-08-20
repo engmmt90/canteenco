@@ -4,8 +4,8 @@ import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { queueParentNotification } from "@/lib/notifications";
 import {
-  NotificationChannel,
   NotificationEvent,
   PreOrderStatus,
   Prisma,
@@ -130,19 +130,16 @@ export async function createParentPreOrder(input: {
         },
       });
 
-      const prefs = await tx.notificationPreference.findUnique({ where: { parentId: parent.id } });
-      if (!prefs || prefs.notifyPreOrder) {
-        await tx.notification.create({
-          data: {
-            userId: session.user.id,
-            channel: NotificationChannel.IN_APP,
-            event: NotificationEvent.PREORDER_CONFIRMED,
-            subject: "Pre-order confirmed",
-            message: `We received pre-order ${order.orderNumber} for ${student.firstName} ${student.lastName}. Pickup: ${slot.label}. Total: $${total.toFixed(2)}.`,
-            metadata: { preOrderId: order.id, studentId: student.id },
-          },
-        });
-      }
+      await queueParentNotification({
+        tx,
+        userId: session.user.id,
+        parentId: parent.id,
+        event: NotificationEvent.PREORDER_CONFIRMED,
+        preferenceKey: "notifyPreOrder",
+        subject: "Pre-order confirmed",
+        message: `We received pre-order ${order.orderNumber} for ${student.firstName} ${student.lastName}. Pickup: ${slot.label}. Total: $${total.toFixed(2)}.`,
+        metadata: { preOrderId: order.id, studentId: student.id },
+      });
 
       return { ok: true, orderId: order.id, orderNumber: order.orderNumber, total: total.toFixed(2), balanceAfter: proposed.toFixed(2) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -178,28 +175,52 @@ export async function updatePreOrderStatus(orderId: string, status: "PREPARING" 
   if (!session?.user?.id || ![UserRole.CASHIER, UserRole.SCHOOL_ADMIN, UserRole.SUPER_ADMIN].includes(session.user.role as UserRole)) return { ok: false, error: "Unauthorized" };
   const target = status as PreOrderStatus;
   try {
-    const order = await prisma.preOrder.findUnique({ where: { id: orderId }, include: { student: { include: { parent: { include: { user: true, notificationPreference: true } } } } } });
-    if (!order) throw new Error("Order not found");
-    if (session.user.role !== UserRole.SUPER_ADMIN && session.user.schoolId !== order.schoolId) throw new Error("Unauthorized");
-    const allowed: Record<string, PreOrderStatus[]> = {
-      CONFIRMED: [PreOrderStatus.PREPARING, PreOrderStatus.READY],
-      PREPARING: [PreOrderStatus.READY],
-      READY: [PreOrderStatus.PICKED_UP],
-    };
-    if (!allowed[order.status]?.includes(target)) throw new Error(`Cannot move ${order.status} to ${target}`);
-    const data: Prisma.PreOrderUpdateInput = { status: target };
-    if (target === PreOrderStatus.READY) data.readyAt = new Date();
-    if (target === PreOrderStatus.PICKED_UP) data.pickedUpAt = new Date();
-    const updated = await prisma.preOrder.update({ where: { id: order.id }, data });
+    return await prisma.$transaction(async tx => {
+      const order = await tx.preOrder.findUnique({
+        where: { id: orderId },
+        include: { student: { include: { parent: { include: { user: true } } } } },
+      });
+      if (!order) throw new Error("Order not found");
+      if (session.user.role !== UserRole.SUPER_ADMIN && session.user.schoolId !== order.schoolId) throw new Error("Unauthorized");
 
-    const pref = order.student.parent.notificationPreference;
-    if (target === PreOrderStatus.READY && (!pref || pref.notifyPreOrder)) {
-      await prisma.notification.create({ data: { userId: order.student.parent.userId, channel: NotificationChannel.IN_APP, event: NotificationEvent.PREORDER_READY, subject: "Order ready", message: `Order ${order.orderNumber} for ${order.student.firstName} is ready for pickup.`, metadata: { preOrderId: order.id } } });
-    }
-    if (target === PreOrderStatus.PICKED_UP && (!pref || pref.notifyPickup)) {
-      await prisma.notification.create({ data: { userId: order.student.parent.userId, channel: NotificationChannel.IN_APP, event: NotificationEvent.PREORDER_PICKED_UP, subject: "Order picked up", message: `Order ${order.orderNumber} for ${order.student.firstName} has been picked up.`, metadata: { preOrderId: order.id } } });
-    }
-    return { ok: true, status: updated.status };
+      const allowed: Record<string, PreOrderStatus[]> = {
+        CONFIRMED: [PreOrderStatus.PREPARING, PreOrderStatus.READY],
+        PREPARING: [PreOrderStatus.READY],
+        READY: [PreOrderStatus.PICKED_UP],
+      };
+      if (!allowed[order.status]?.includes(target)) throw new Error(`Cannot move ${order.status} to ${target}`);
+
+      const data: Prisma.PreOrderUpdateInput = { status: target };
+      if (target === PreOrderStatus.READY) data.readyAt = new Date();
+      if (target === PreOrderStatus.PICKED_UP) data.pickedUpAt = new Date();
+      const updated = await tx.preOrder.update({ where: { id: order.id }, data });
+
+      if (target === PreOrderStatus.READY) {
+        await queueParentNotification({
+          tx,
+          userId: order.student.parent.userId,
+          parentId: order.student.parent.id,
+          event: NotificationEvent.PREORDER_READY,
+          preferenceKey: "notifyPreOrder",
+          subject: "Order ready",
+          message: `Order ${order.orderNumber} for ${order.student.firstName} is ready for pickup.`,
+          metadata: { preOrderId: order.id },
+        });
+      }
+      if (target === PreOrderStatus.PICKED_UP) {
+        await queueParentNotification({
+          tx,
+          userId: order.student.parent.userId,
+          parentId: order.student.parent.id,
+          event: NotificationEvent.PREORDER_PICKED_UP,
+          preferenceKey: "notifyPickup",
+          subject: "Order picked up",
+          message: `Order ${order.orderNumber} for ${order.student.firstName} has been picked up.`,
+          metadata: { preOrderId: order.id },
+        });
+      }
+      return { ok: true, status: updated.status };
+    });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Update failed" };
   }
@@ -249,19 +270,16 @@ export async function cancelOwnPreOrder(orderId: string) {
           description: `Refund for cancelled pre-order ${order.orderNumber}`,
         },
       });
-      const pref = await tx.notificationPreference.findUnique({ where: { parentId: parent.id } });
-      if (!pref || pref.notifyRefund) {
-        await tx.notification.create({
-          data: {
-            userId: session.user.id,
-            channel: NotificationChannel.IN_APP,
-            event: NotificationEvent.PREORDER_CANCELLED,
-            subject: "Pre-order cancelled",
-            message: `Order ${order.orderNumber} was cancelled and $${order.total.toFixed(2)} returned to your family wallet.`,
-            metadata: { preOrderId: order.id },
-          },
-        });
-      }
+      await queueParentNotification({
+        tx,
+        userId: session.user.id,
+        parentId: parent.id,
+        event: NotificationEvent.PREORDER_CANCELLED,
+        preferenceKey: "notifyRefund",
+        subject: "Pre-order cancelled",
+        message: `Order ${order.orderNumber} was cancelled and $${order.total.toFixed(2)} returned to your family wallet.`,
+        metadata: { preOrderId: order.id },
+      });
       return { ok: true, balanceAfter: newBalance.toFixed(2) };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (e) {

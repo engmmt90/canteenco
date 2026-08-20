@@ -63,3 +63,12 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Before preparation, a parent may cancel a confirmed order; the original order remains and a separate refund wallet transaction restores the balance.
 - Cashier label printing uses a compact 62mm x 40mm print layout with order number, student, class and pickup slot.
 - Pre-order creation is idempotent to prevent duplicate debit on double submission.
+
+## Notification delivery
+- Business actions queue notifications; they never wait for an external email/SMS provider.
+- `IN_APP` notifications are available immediately.
+- `EMAIL` and `SMS` notifications are queued in the `Notification` table and processed by `POST /api/internal/notifications/process`.
+- The worker endpoint requires `Authorization: Bearer <NOTIFICATION_WORKER_SECRET>`.
+- Email adapter uses Resend when configured; SMS adapter uses Twilio when configured. Provider code is isolated so either service can be replaced later.
+- Failed deliveries retry with exponential backoff up to five attempts.
+- Parent preferences independently control channels and event types, including a configurable low-balance threshold.

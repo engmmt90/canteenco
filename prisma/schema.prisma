@@ -486,12 +486,17 @@ model Notification {
   sentAt      DateTime?
   failedAt    DateTime?
   failureReason String?
+  attemptCount Int                 @default(0)
+  nextAttemptAt DateTime?
+  processingAt DateTime?
+  providerMessageId String?
   createdAt   DateTime            @default(now())
 
   user        User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId, createdAt])
   @@index([event, createdAt])
+  @@index([channel, sentAt, nextAttemptAt])
 }
 
 model AuditLog {

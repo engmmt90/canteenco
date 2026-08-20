@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { queueParentNotification } from "@/lib/notifications";
+import { NotificationEvent } from "@prisma/client";
 import { requireAdmin } from "@/lib/authz";
 import { buildStudentDisplayCode, normalizeClassCode } from "@/lib/student-code";
 
@@ -223,14 +225,14 @@ export async function approveParentRegistration(formData: FormData) {
       },
     });
 
-    await tx.notification.create({
-      data: {
-        userId: user.id,
-        channel: "IN_APP",
-        event: "ACCOUNT_APPROVED",
-        subject: "CanteenCo account approved",
-        message: "Your CanteenCo parent account and family wallet are now active.",
-      },
+    await queueParentNotification({
+      tx,
+      userId: user.id,
+      parentId: parent.id,
+      event: NotificationEvent.ACCOUNT_APPROVED,
+      subject: "CanteenCo account approved",
+      message: "Your CanteenCo parent account and family wallet are now active.",
+      metadata: { registrationRequestId: request.id },
     });
 
     await tx.auditLog.create({
