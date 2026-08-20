@@ -87,3 +87,11 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Super Admin can create Cashier or School Admin accounts; School Admin is scoped to its own school.
 - Staff passwords are hashed with bcrypt and never stored as plaintext.
 - Active/inactive state is represented explicitly for schools, products and staff.
+
+## Parent and student administration
+- Admin search supports student name, official school ID and display code such as `3C-001`.
+- Parent detail shows all linked children and the single shared family-wallet balance.
+- Changing a student's class allocates the next sequence in the destination class and updates the display code (for example `3C-004` to `4A-007`).
+- The student's immutable internal ID and QR token do not change when the display code changes.
+- Students can be suspended, reactivated or archived without deleting financial history.
+- Wallet history remains attached to the family wallet, with student references on student-specific debits.
