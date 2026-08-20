@@ -291,10 +291,15 @@ export async function cancelOwnPreOrder(orderId: string) {
 }
 
 
-export async function cancelOwnPreOrderFromForm(formData: FormData) {
+export async function cancelOwnPreOrderFromForm(formData: FormData): Promise<void> {
   const orderId = String(formData.get("orderId") ?? "");
+
   const result = await cancelOwnPreOrder(orderId);
+
+  if (!result.ok) {
+    throw new Error(result.error ?? "Cancellation failed");
+  }
+
   revalidatePath("/parent/preorders");
   revalidatePath("/parent/wallet");
-  return result;
 }
