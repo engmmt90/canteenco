@@ -14,14 +14,15 @@ const links = [
   ["Pre-Orders", "/admin/orders"],
   ["Sales", "/admin/sales"],
   ["Reports", "/admin/reports"],
-  ["Notifications", "#"],
-  ["Settings", "#"],
+  ["Notifications", "/admin/notifications"],
+  ["Audit Log", "/admin/audit"],
+  ["Settings", "/admin/settings"],
 ] as const;
 
 export default async function AdminDashboardPage() {
   const today = new Date(); today.setHours(0,0,0,0);
   const salesToday = await prisma.sale.aggregate({ where: { status: "COMPLETED", createdAt: { gte: today } }, _sum: { total: true } });
-  const [pendingRegistrations, pendingTopUps, activeSchools, negativeWallets, preOrdersToday] = await Promise.all([
+  const [pendingRegistrations, pendingTopUps, activeSchools, negativeWallets, preOrdersToday, failedNotifications] = await Promise.all([
     prisma.parentRegistrationRequest.count({ where: { status: "PENDING" } }),
     prisma.topUpRequest.count({ where: { status: "PENDING" } }),
     prisma.school.count({ where: { isActive: true, deletedAt: null } }),
@@ -35,6 +36,7 @@ export default async function AdminDashboardPage() {
         status: { in: ["CONFIRMED", "PREPARING", "READY"] },
       },
     }),
+    prisma.notification.count({ where: { failedAt: { not: null } } }),
   ]);
 
   return (
@@ -53,6 +55,7 @@ export default async function AdminDashboardPage() {
           <div className="stat">Pre-orders today<strong>{preOrdersToday}</strong></div>
           <Link className="stat" href="/admin/wallets?negative=1">Negative wallets<strong>{negativeWallets}</strong></Link>
           <div className="stat">Schools<strong>{activeSchools}</strong></div>
+          <Link className="stat" href="/admin/notifications?state=failed">Failed notifications<strong>{failedNotifications}</strong></Link>
         </div>
       </section>
     </main>

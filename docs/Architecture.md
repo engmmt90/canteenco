@@ -110,3 +110,10 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Sale items retain an immutable product-name snapshot so historical receipts stay readable after catalogue changes.
 - Admin pre-order detail supports label reprinting and marking an uncollected order as `NOT_COLLECTED`.
 - Historical pre-orders and sales remain queryable after fulfilment, cancellation or refund.
+
+## Audit and operational monitoring
+- Admins have a searchable Audit Log for administrative actions.
+- School Admin audit access is restricted to activity performed by staff assigned to that school; Super Admin sees the platform-wide log.
+- Admin notification monitoring exposes queued, sent and failed delivery jobs without exposing provider secrets.
+- System Settings shows readiness for database, authentication, email, SMS and notification worker configuration, but never displays secret values.
+- The Super Admin dashboard surfaces failed-notification count for operational follow-up.
