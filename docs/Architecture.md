@@ -80,3 +80,10 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Student search supports name and display code such as `3C-001`.
 - Sales can be exported as CSV from an authenticated admin endpoint.
 - Family-wallet review exposes shared balance alongside all active children attached to the parent.
+
+## Admin management
+- Super Admin can create schools with timezone/settings foundation.
+- Admins can create catalogue products used by cashier and pre-order flows.
+- Super Admin can create Cashier or School Admin accounts; School Admin is scoped to its own school.
+- Staff passwords are hashed with bcrypt and never stored as plaintext.
+- Active/inactive state is represented explicitly for schools, products and staff.
