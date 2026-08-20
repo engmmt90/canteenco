@@ -10,14 +10,18 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "echo \"Use npm run db:seed:dev for development only\" && exit 1",
     "check:static": "node scripts/validate-project.mjs",
     "typecheck": "tsc --noEmit",
     "db:smoke": "tsx scripts/db-smoke.ts",
-    "verify": "npm run check:static && npm run prisma:generate && npm run typecheck && npm run build",
+    "verify": "npm run check:static && npm run schema:invariants && npm run migration:preflight && npm run prisma:generate && npm run typecheck && npm run build",
     "env:doctor": "node --env-file=.env scripts/env-doctor.mjs",
     "db:deploy": "prisma migrate deploy",
-    "production:check": "npm run env:doctor && npm run check:static && npm run prisma:generate && npm run db:smoke"
+    "production:check": "npm run env:doctor && npm run check:static && npm run schema:invariants && NODE_ENV=production npm run migration:preflight && npm run prisma:generate && npm run db:smoke",
+    "db:seed:dev": "tsx prisma/seed.ts",
+    "bootstrap:admin": "tsx scripts/bootstrap-super-admin.ts",
+    "schema:invariants": "node scripts/schema-invariants.mjs",
+    "migration:preflight": "node scripts/migration-preflight.mjs"
   },
   "dependencies": {
     "@prisma/adapter-neon": "^7.0.0",
