@@ -13,7 +13,7 @@ import {
   UserRole,
   WalletStatus,
   WalletTransactionType,
-} from "@prisma/client";
+} from "@/generated/prisma/client";
 
 function localDateTime(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {

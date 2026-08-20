@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireParent } from "@/lib/authz";
 import { queueParentNotification } from "@/lib/notifications";
-import { NotificationEvent } from "@prisma/client";
+import { NotificationEvent } from "@/generated/prisma/client";
 
 export type TopUpFormState = {
   error?: string;

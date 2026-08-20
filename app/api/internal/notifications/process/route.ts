@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, sendSms } from "@/lib/notification-providers";
-import { NotificationChannel } from "@prisma/client";
+import { NotificationChannel } from "@/generated/prisma/client";
 
 const MAX_ATTEMPTS = 5;
 

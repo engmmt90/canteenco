@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { queueParentNotification } from "@/lib/notifications";
-import { NotificationEvent, Prisma, SaleStatus, WalletTransactionType } from "@prisma/client";
+import { NotificationEvent, Prisma, SaleStatus, WalletTransactionType } from "@/generated/prisma/client";
 
 function str(f:FormData,k:string){return String(f.get(k)??"").trim()}
 

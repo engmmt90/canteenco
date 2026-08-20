@@ -1,4 +1,4 @@
-import { NotificationChannel, NotificationEvent, Prisma } from "@prisma/client";
+import { NotificationChannel, NotificationEvent, Prisma } from "@/generated/prisma/client";
 
 type PreferenceKey =
   | "notifyTopUp"

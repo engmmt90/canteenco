@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { queueParentNotification } from "@/lib/notifications";
-import { NotificationEvent } from "@prisma/client";
+import { NotificationEvent } from "@/generated/prisma/client";
 import { requireAdmin } from "@/lib/authz";
 import { buildStudentDisplayCode, normalizeClassCode } from "@/lib/student-code";
 

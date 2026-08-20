@@ -40,3 +40,15 @@ The application uses Auth.js credentials authentication with role checks on the 
 8. Run `npm run dev`.
 
 Do not use real parent/student data until the production database, backups, access controls and deployment environment have been reviewed.
+
+## Verification
+
+After dependencies and Neon environment variables are configured:
+
+```bash
+npm run check:static
+npm run db:smoke
+npm run verify
+```
+
+See `docs/Testing.md` for the full end-to-end acceptance checklist and financial invariants.

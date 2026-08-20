@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { queueParentNotification } from "@/lib/notifications";
-import { NotificationEvent, Prisma, UserRole, UserStatus, StudentStatus, WalletStatus, WalletTransactionType } from "@prisma/client";
+import { NotificationEvent, Prisma, UserRole, UserStatus, StudentStatus, WalletStatus, WalletTransactionType } from "@/generated/prisma/client";
 
 export async function findCashierStudents(query: string) {
   const session = await auth();

@@ -10,7 +10,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "check:static": "node scripts/validate-project.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:smoke": "tsx scripts/db-smoke.ts",
+    "verify": "npm run check:static && npm run prisma:generate && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@prisma/adapter-neon": "^7.0.0",
