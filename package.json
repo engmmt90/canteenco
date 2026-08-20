@@ -1,0 +1,51 @@
+{
+  "name": "canteenco",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "db:seed": "echo \"Use npm run db:seed:dev for development only\" && exit 1",
+    "check:static": "node scripts/validate-project.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:smoke": "tsx scripts/db-smoke.ts",
+    "verify": "npm run check:static && npm run schema:invariants && npm run migration:preflight && npm run prisma:generate && npm run typecheck && npm run build",
+    "env:doctor": "node --env-file=.env scripts/env-doctor.mjs",
+    "db:deploy": "prisma migrate deploy",
+    "production:check": "npm run env:doctor && npm run check:static && npm run schema:invariants && NODE_ENV=production npm run migration:preflight && npm run prisma:generate && npm run db:smoke",
+    "db:seed:dev": "tsx prisma/seed.ts",
+    "bootstrap:admin": "tsx scripts/bootstrap-super-admin.ts",
+    "schema:invariants": "node scripts/schema-invariants.mjs",
+    "migration:preflight": "node scripts/migration-preflight.mjs",
+    "staging:doctor": "node --env-file=.env.staging scripts/neon-staging-doctor.mjs",
+    "staging:gate": "node --env-file=.env.staging scripts/staging-migration-gate.mjs",
+    "staging:deploy": "npm run staging:doctor && npm run staging:gate && prisma migrate deploy && npm run db:smoke"
+  },
+  "dependencies": {
+    "@prisma/adapter-neon": "^7.0.0",
+    "@prisma/client": "^7.0.0",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^17.2.2",
+    "next": "16.3.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.5",
+    "next-auth": "5.0.0-beta.32"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.3.0",
+    "prisma": "^7.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  },
+  "type": "module"
+}
