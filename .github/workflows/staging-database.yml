@@ -1,0 +1,37 @@
+name: Staging Database Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    env:
+      NODE_ENV: development
+      STAGING_DATABASE_ACK: CANTEENCO_STAGING
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
+      AUTH_SECRET: ${{ secrets.STAGING_AUTH_SECRET }}
+      NOTIFICATION_WORKER_SECRET: ${{ secrets.STAGING_NOTIFICATION_WORKER_SECRET }}
+      ALLOW_DEMO_SEED: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run prisma:generate
+      - name: Validate staging connection layout
+        run: node scripts/neon-staging-doctor.mjs
+      - name: Require committed migrations
+        run: node scripts/staging-migration-gate.mjs
+      - name: Apply committed migrations
+        run: npx prisma migrate deploy
+      - name: Database smoke test
+        run: npm run db:smoke

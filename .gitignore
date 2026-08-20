@@ -7,3 +7,5 @@ generated/prisma
 coverage
 .DS_Store
 tsconfig.tsbuildinfo
+
+.env.staging
