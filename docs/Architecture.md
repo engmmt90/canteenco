@@ -35,3 +35,12 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 
 ## Main modules
 `auth`, `schools`, `parents`, `students`, `wallets`, `products`, `sales`, `preorders`, `notifications`, `reports`, `audit`.
+
+## Cash Top-Up Workflow
+- Parents submit a top-up request for AUD $5, $10, $20, $50, $100, or a validated custom amount.
+- Creating a request never changes the family wallet balance.
+- A request starts as `PENDING` and may be cancelled while still pending.
+- Only an authorised admin can confirm a request after physically receiving the cash.
+- Confirmation is atomic and idempotent: the request is conditionally moved from `PENDING` to `CONFIRMED`, the family wallet is credited once, and a `TOP_UP` wallet transaction is created in the same database transaction.
+- `WalletTransaction.topUpRequestId` is unique, providing an additional database-level guard against duplicate credits.
+- Every confirmed cash top-up creates an audit-log entry and queues notifications according to the parent's notification preferences.

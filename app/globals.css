@@ -59,3 +59,15 @@ button, input, select { font: inherit; }
 .danger { border: 1px solid #fecaca; border-radius: 10px; padding: 12px 15px; background: #fff; color: #991b1b; font-weight: 750; cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
 @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } .page-heading { display: grid; } }
+.amount-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.amount-chip { border: 1px solid #d1d5db; background: white; border-radius: 999px; padding: 9px 13px; font-weight: 750; cursor: pointer; }
+.amount-chip-active { background: #111827; border-color: #111827; color: white; }
+.wallet-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 18px; }
+.list-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid #e5e7eb; }
+.list-row:last-child { border-bottom: 0; }
+.small-button { padding: 8px 11px; }
+.money-block { display: grid; text-align: right; gap: 3px; }
+.money-block span { color: #6b7280; font-size: 13px; }
+.status-text { font-size: 18px !important; }
+.topup-amount { font-size: 28px; font-weight: 850; letter-spacing: -.03em; }
+@media (max-width: 800px) { .wallet-layout { grid-template-columns: 1fr; } .list-row { align-items: start; } }

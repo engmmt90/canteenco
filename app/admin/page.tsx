@@ -10,7 +10,7 @@ const links = [
   ["Cashiers", "#"],
   ["Products", "#"],
   ["Wallets", "#"],
-  ["Top-up Requests", "#"],
+  ["Top-up Requests", "/admin/topups"],
   ["Pre-Orders", "#"],
   ["Sales", "#"],
   ["Reports", "#"],
@@ -47,7 +47,7 @@ export default async function AdminDashboardPage() {
         <div className="grid">
           <div className="stat">Today&apos;s sales<strong>$0.00</strong></div>
           <Link className="stat" href="/admin/registrations">Pending registrations<strong>{pendingRegistrations}</strong></Link>
-          <div className="stat">Pending top-ups<strong>{pendingTopUps}</strong></div>
+          <Link className="stat" href="/admin/topups">Pending top-ups<strong>{pendingTopUps}</strong></Link>
           <div className="stat">Pre-orders today<strong>{preOrdersToday}</strong></div>
           <div className="stat">Negative wallets<strong>{negativeWallets}</strong></div>
           <div className="stat">Schools<strong>{activeSchools}</strong></div>
