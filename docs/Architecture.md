@@ -44,3 +44,12 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - Confirmation is atomic and idempotent: the request is conditionally moved from `PENDING` to `CONFIRMED`, the family wallet is credited once, and a `TOP_UP` wallet transaction is created in the same database transaction.
 - `WalletTransaction.topUpRequestId` is unique, providing an additional database-level guard against duplicate credits.
 - Every confirmed cash top-up creates an audit-log entry and queues notifications according to the parent's notification preferences.
+
+
+## Cashier sales
+- Student lookup accepts QR token, display code such as `3C-001`, or name.
+- Product prices are always recalculated server-side from the active product catalogue.
+- Family-wallet debit, Sale, SaleItems and WalletTransaction are committed in one serializable database transaction.
+- Each sale carries a unique idempotency key to prevent double submission.
+- Negative balances require school policy to allow them, must remain above the configured minimum balance, and require a valid active admin password.
+- The QR token remains independent of the student display code.

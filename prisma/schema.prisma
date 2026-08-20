@@ -353,6 +353,7 @@ model Product {
 model Sale {
   id                   String     @id @default(cuid())
   saleNumber           String     @unique
+  idempotencyKey       String     @unique
   schoolId             String
   studentId            String
   walletId             String
