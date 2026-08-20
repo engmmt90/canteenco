@@ -21,6 +21,14 @@ enum UserStatus {
   DISABLED
 }
 
+
+enum RegistrationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 enum StudentStatus {
   PENDING_APPROVAL
   ACTIVE
@@ -105,9 +113,26 @@ model School {
   pickupSlots PickupSlot[]
   sales       Sale[]
   preOrders   PreOrder[]
+  registrationStudents StudentRegistrationRequest[]
+  classStudentSequences ClassStudentSequence[]
 
   @@index([isActive])
   @@index([deletedAt])
+}
+
+
+model ClassStudentSequence {
+  id           String   @id @default(cuid())
+  schoolId     String
+  classCode    String
+  nextSequence Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  @@unique([schoolId, classCode])
+  @@index([schoolId])
 }
 
 model SchoolSettings {
@@ -149,10 +174,51 @@ model User {
   requestedTopUps   TopUpRequest[]   @relation("TopUpRequester")
   auditLogs         AuditLog[]
   notifications     Notification[]
+  approvedRegistrations ParentRegistrationRequest[] @relation("RegistrationApprover")
 
   @@index([role, status])
   @@index([schoolId])
   @@index([deletedAt])
+}
+
+model ParentRegistrationRequest {
+  id               String                    @id @default(cuid())
+  fullName         String
+  email            String
+  phone            String?
+  passwordHash     String
+  status           RegistrationRequestStatus @default(PENDING)
+  approvedByUserId String?
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  approvedBy User?                        @relation("RegistrationApprover", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+  students   StudentRegistrationRequest[]
+
+  @@index([status, createdAt])
+  @@index([email, status])
+}
+
+model StudentRegistrationRequest {
+  id                    String   @id @default(cuid())
+  registrationRequestId String
+  schoolId              String
+  firstName             String
+  lastName              String
+  grade                  String
+  classSection           String?
+  officialSchoolId       String?
+  photoUrl               String?
+  createdAt              DateTime @default(now())
+
+  registrationRequest ParentRegistrationRequest @relation(fields: [registrationRequestId], references: [id], onDelete: Cascade)
+  school              School                    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  @@index([registrationRequestId])
+  @@index([schoolId])
 }
 
 model ParentProfile {
@@ -171,6 +237,8 @@ model Student {
   id              String        @id @default(cuid())
   parentId        String
   schoolId        String
+  classCode       String
+  sequenceNumber  Int
   displayCode     String
   firstName       String
   lastName        String
@@ -193,8 +261,10 @@ model Student {
   preOrders         PreOrder[]
 
   @@unique([schoolId, displayCode])
+  @@unique([schoolId, classCode, sequenceNumber])
   @@index([parentId])
   @@index([schoolId, status])
+  @@index([schoolId, classCode])
   @@index([firstName, lastName])
   @@index([deletedAt])
 }

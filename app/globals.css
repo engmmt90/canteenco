@@ -37,3 +37,25 @@ button, input, select { font: inherit; }
 @media (max-width: 800px) { .dashboard { grid-template-columns: 1fr; } .sidebar { display:none; } .cashier-grid { grid-template-columns:1fr; } }
 
 .alert { margin: 0 0 16px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; border-radius: 10px; padding: 11px 12px; font-size: 14px; line-height: 1.4; }
+
+.register-shell { align-items: start; }
+.registration-card { width: min(100%, 760px); }
+.section-title { margin: 0 0 6px; font-size: 18px; }
+.student-block { border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.student-block legend { padding: 0 8px; font-weight: 800; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.text-button { border: 0; background: transparent; padding: 0; text-align: left; font-weight: 700; cursor: pointer; color: #991b1b; }
+.success { margin: 0 0 16px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; border-radius: 10px; padding: 11px 12px; font-size: 14px; line-height: 1.4; }
+.page-heading { display: flex; justify-content: space-between; gap: 20px; align-items: start; margin-bottom: 18px; }
+.request-list { display: grid; gap: 14px; }
+.request-card { display: grid; gap: 16px; }
+.request-head { display: flex; justify-content: space-between; gap: 12px; }
+.badge { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: #fff7ed; color: #9a3412; font-size: 12px; font-weight: 800; }
+.compact { margin: 4px 0 0; }
+.student-summary { display: grid; gap: 8px; }
+.student-row { display: grid; gap: 3px; padding: 11px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fafafa; }
+.student-row span { color: #6b7280; font-size: 14px; }
+.actions-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.danger { border: 1px solid #fecaca; border-radius: 10px; padding: 12px 15px; background: #fff; color: #991b1b; font-weight: 750; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } .page-heading { display: grid; } }
