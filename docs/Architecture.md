@@ -95,3 +95,10 @@ CanteenCo is a multi-school canteen platform for parent-managed family wallets, 
 - The student's immutable internal ID and QR token do not change when the display code changes.
 - Students can be suspended, reactivated or archived without deleting financial history.
 - Wallet history remains attached to the family wallet, with student references on student-specific debits.
+
+## School operational settings
+- Each school owns its timezone, currency, pre-order availability, same-day cutoff time, overdraft policy and notification-channel switches.
+- Pickup slots are configurable per school and can be enabled/disabled without deleting historical pre-orders.
+- A pickup slot with historical orders is disabled rather than hard-deleted.
+- Negative-balance sales require the school setting to be enabled, an admin password, and the resulting balance must not pass the configured minimum.
+- Sale and pre-order email/SMS notifications require both the parent preference and the school-level channel to be enabled.

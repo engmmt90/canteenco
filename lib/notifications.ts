@@ -17,6 +17,7 @@ type QueueInput = {
   message: string;
   metadata?: Prisma.InputJsonValue;
   preferenceKey?: PreferenceKey;
+  schoolId?: string;
 };
 
 export async function queueParentNotification(input: QueueInput) {
@@ -25,6 +26,10 @@ export async function queueParentNotification(input: QueueInput) {
   });
 
   if (prefs && input.preferenceKey && !prefs[input.preferenceKey]) return;
+
+  const schoolSettings = input.schoolId
+    ? await input.tx.schoolSettings.findUnique({ where: { schoolId: input.schoolId } })
+    : null;
 
   const rows: Prisma.NotificationCreateManyInput[] = [{
     userId: input.userId,
@@ -35,7 +40,7 @@ export async function queueParentNotification(input: QueueInput) {
     metadata: input.metadata,
   }];
 
-  if (!prefs || prefs.emailEnabled) {
+  if ((!prefs || prefs.emailEnabled) && (schoolSettings?.emailNotificationsEnabled ?? true)) {
     rows.push({
       userId: input.userId,
       channel: NotificationChannel.EMAIL,
@@ -47,7 +52,7 @@ export async function queueParentNotification(input: QueueInput) {
     });
   }
 
-  if (prefs?.smsEnabled) {
+  if (prefs?.smsEnabled && (schoolSettings?.smsNotificationsEnabled ?? true)) {
     rows.push({
       userId: input.userId,
       channel: NotificationChannel.SMS,

@@ -56,6 +56,7 @@ export async function createCashierSale(input:{studentId:string;items:CartLine[]
      subject: "Canteen purchase completed",
      message: `${student.firstName} ${student.lastName} purchased $${total.toFixed(2)} from CanteenCo. Family wallet balance: $${proposed.toFixed(2)}.`,
      metadata: { saleId: sale.id, studentId: student.id, amount: Number(total), balanceAfter: Number(proposed) },
+     schoolId: student.schoolId,
    });
 
    const threshold = student.parent.notificationPreference?.lowBalanceThreshold;
@@ -69,6 +70,7 @@ export async function createCashierSale(input:{studentId:string;items:CartLine[]
        subject: "Family wallet balance is low",
        message: `Your CanteenCo family wallet balance is $${proposed.toFixed(2)}, which is at or below your alert level of $${threshold.toFixed(2)}.`,
        metadata: { walletId: wallet.id, balance: Number(proposed), threshold: Number(threshold) },
+       schoolId: student.schoolId,
      });
    }
 

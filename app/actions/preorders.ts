@@ -139,6 +139,7 @@ export async function createParentPreOrder(input: {
         subject: "Pre-order confirmed",
         message: `We received pre-order ${order.orderNumber} for ${student.firstName} ${student.lastName}. Pickup: ${slot.label}. Total: $${total.toFixed(2)}.`,
         metadata: { preOrderId: order.id, studentId: student.id },
+        schoolId: student.schoolId,
       });
 
       return { ok: true, orderId: order.id, orderNumber: order.orderNumber, total: total.toFixed(2), balanceAfter: proposed.toFixed(2) };
@@ -205,6 +206,7 @@ export async function updatePreOrderStatus(orderId: string, status: "PREPARING" 
           subject: "Order ready",
           message: `Order ${order.orderNumber} for ${order.student.firstName} is ready for pickup.`,
           metadata: { preOrderId: order.id },
+          schoolId: order.schoolId,
         });
       }
       if (target === PreOrderStatus.PICKED_UP) {
@@ -217,6 +219,7 @@ export async function updatePreOrderStatus(orderId: string, status: "PREPARING" 
           subject: "Order picked up",
           message: `Order ${order.orderNumber} for ${order.student.firstName} has been picked up.`,
           metadata: { preOrderId: order.id },
+          schoolId: order.schoolId,
         });
       }
       return { ok: true, status: updated.status };
