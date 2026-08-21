@@ -340,7 +340,7 @@ export default function CashierClient() {
                       alignItems: "center",
                       justifyContent: "flex-start",
                       gap: 7,
-                      minHeight: 170,
+                      minHeight: 195,
                       textAlign: "center",
                       overflow: "hidden",
                     }}
@@ -349,7 +349,7 @@ export default function CashierClient() {
                     <div
                       style={{
                         width: "100%",
-                        height: 95,
+                        height: 120,
                         borderRadius: 10,
                         overflow: "hidden",
                         background: "#f3f4f6",
@@ -431,14 +431,14 @@ export default function CashierClient() {
                       alignItems: "center",
                       gap: 10,
                       padding: "8px 0",
-                      minHeight: 58,
+                      minHeight: 52,
                     }}
                   >
                     {/* Small current-sale image */}
                     <div
                       style={{
-                        width: 42,
-                        height: 42,
+                        width: 36,
+                        height: 36,
                         borderRadius: 8,
                         overflow: "hidden",
                         background: "#f3f4f6",
@@ -526,9 +526,7 @@ export default function CashierClient() {
 
               <span>
                 Projected balance: $
-                {(balance - total).toFixed(
-                  2,
-                )}
+                {(balance - total).toFixed(2)}
               </span>
 
               <div
@@ -615,9 +613,7 @@ export default function CashierClient() {
                     Current balance:{" "}
                     <strong>
                       $
-                      {balance.toFixed(
-                        2,
-                      )}
+                      {balance.toFixed(2)}
                     </strong>
                   </div>
 
@@ -625,9 +621,7 @@ export default function CashierClient() {
                     Sale total:{" "}
                     <strong>
                       $
-                      {total.toFixed(
-                        2,
-                      )}
+                      {total.toFixed(2)}
                     </strong>
                   </div>
 
@@ -708,7 +702,6 @@ export default function CashierClient() {
                         "Enter"
                       ) {
                         event.preventDefault();
-
                         void approveNegativeSale();
                       }
                     }}
