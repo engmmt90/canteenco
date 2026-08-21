@@ -312,66 +312,204 @@ export default function CashierClient() {
           </div>
 
           <section className="cashier-grid">
+            {/* PRODUCTS */}
             <div className="panel">
               <h2>Products</h2>
 
-              <div className="products">
+              <div
+                className="products"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fill, minmax(140px, 1fr))",
+                  gap: 12,
+                }}
+              >
                 {products.map((product) => (
                   <button
                     type="button"
                     className="product"
                     key={product.id}
                     onClick={() =>
-                      addProduct(
-                        product.id,
-                      )
+                      addProduct(product.id)
                     }
+                    style={{
+                      padding: 10,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      gap: 7,
+                      minHeight: 170,
+                      textAlign: "center",
+                      overflow: "hidden",
+                    }}
                   >
-                    <strong>
+                    {/* Product image */}
+                    <div
+                      style={{
+                        width: "100%",
+                        height: 95,
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        background: "#f3f4f6",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: "#9ca3af",
+                          }}
+                        >
+                          No image
+                        </span>
+                      )}
+                    </div>
+
+                    <strong
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 1.2,
+                      }}
+                    >
                       {product.name}
                     </strong>
 
-                    <br />
+                    <span
+                      style={{
+                        fontWeight: 700,
+                      }}
+                    >
+                      ${Number(product.price).toFixed(2)}
+                    </span>
 
-                    $
-                    {Number(
-                      product.price,
-                    ).toFixed(2)}
-
-                    {cart[product.id]
-                      ? ` × ${
-                          cart[
-                            product.id
-                          ]
-                        }`
-                      : ""}
+                    {cart[product.id] ? (
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                        }}
+                      >
+                        × {cart[product.id]}
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* CURRENT SALE */}
             <aside className="panel">
               <h2>Current Sale</h2>
 
               {products
                 .filter(
                   (product) =>
-                    (cart[
-                      product.id
-                    ] ?? 0) > 0,
+                    (cart[product.id] ?? 0) > 0,
                 )
                 .map((product) => (
-                  <div key={product.id}>
-                    {product.name} ×{" "}
-                    {cart[product.id]}
+                  <div
+                    key={product.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 0",
+                      minHeight: 58,
+                    }}
+                  >
+                    {/* Small current-sale image */}
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "#f3f4f6",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: "#9ca3af",
+                          }}
+                        >
+                          —
+                        </span>
+                      )}
+                    </div>
 
+                    {/* Product name / quantity */}
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <strong
+                        style={{
+                          display: "block",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {product.name}
+                      </strong>
+
+                      <span className="subtle">
+                        × {cart[product.id]}
+                      </span>
+                    </div>
+
+                    {/* Remove one */}
                     <button
                       type="button"
+                      className="secondary"
                       onClick={() =>
-                        removeProduct(
-                          product.id,
-                        )
+                        removeProduct(product.id)
                       }
+                      style={{
+                        minWidth: 36,
+                        width: 36,
+                        height: 36,
+                        padding: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
                     >
                       −
                     </button>
@@ -423,6 +561,7 @@ export default function CashierClient() {
         </>
       )}
 
+      {/* INSUFFICIENT BALANCE POPUP */}
       {showBalancePopup && (
         <div
           style={{
