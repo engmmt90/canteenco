@@ -16,7 +16,18 @@ button, input, select { font: inherit; }
 .input { width: 100%; border: 1px solid #d1d5db; border-radius: 10px; padding: 12px 13px; outline: none; background: white; }
 .input:focus { border-color: #111827; }
 .primary { border: 0; border-radius: 10px; padding: 12px 15px; background: #111827; color: white; font-weight: 750; cursor: pointer; }
-.secondary { display: inline-flex; justify-content: center; border: 1px solid #d1d5db; border-radius: 10px; padding: 12px 15px; background: white; font-weight: 700; }
+.secondary {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 12px 15px;
+  background: white;
+  color: #111827;
+  font-weight: 700;
+  cursor: pointer;
+} background: white; font-weight: 700; }
 .stack { display: grid; gap: 12px; }
 .divider { height: 1px; background: #e5e7eb; margin: 22px 0; }
 .dashboard { min-height: 100vh; display: grid; grid-template-columns: 240px 1fr; }
