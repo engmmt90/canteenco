@@ -658,7 +658,121 @@ button:disabled {
 /* =========================
    PRINT
 ========================= */
+/* =========================
+   MOBILE ADMIN MENU
+========================= */
 
+.mobile-admin-nav {
+  display: none;
+}
+
+.mobile-menu-button {
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #111827;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-menu-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.mobile-menu-panel {
+  width: min(88vw, 360px);
+  height: 100%;
+  overflow-y: auto;
+  background: #111827;
+  color: white;
+  padding: 18px;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+}
+
+.mobile-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #374151;
+  margin-bottom: 14px;
+}
+
+.mobile-menu-header strong {
+  font-size: 22px;
+}
+
+.mobile-menu-close {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: #1f2937;
+  color: white;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mobile-nav {
+  display: grid;
+  gap: 5px;
+}
+
+.mobile-nav a {
+  display: block;
+  padding: 12px;
+  border-radius: 9px;
+  color: #d1d5db;
+  font-weight: 600;
+}
+
+.mobile-nav a:hover,
+.mobile-nav a:active {
+  background: #1f2937;
+  color: white;
+}
+
+@media (max-width: 800px) {
+  .dashboard {
+    display: block;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .mobile-admin-nav {
+    display: block;
+    padding: 14px 16px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .content {
+    padding-top: 20px;
+  }
+}
+
+@media (min-width: 801px) {
+  .mobile-admin-nav {
+    display: none;
+  }
+}
 @media print {
   body * {
     visibility: hidden !important;

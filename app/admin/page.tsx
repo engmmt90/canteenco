@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
 import { prisma } from "@/lib/prisma";
+import AdminMobileNav from "./admin-mobile-nav";
 
 const links = [
   ["Dashboard", "/admin"],
@@ -64,11 +65,19 @@ export default async function AdminDashboardPage() {
     prisma.preOrder.count({
       where: {
         pickupDate: {
-          gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          lt: new Date(new Date().setHours(24, 0, 0, 0)),
+          gte: new Date(
+            new Date().setHours(0, 0, 0, 0),
+          ),
+          lt: new Date(
+            new Date().setHours(24, 0, 0, 0),
+          ),
         },
         status: {
-          in: ["CONFIRMED", "PREPARING", "READY"],
+          in: [
+            "CONFIRMED",
+            "PREPARING",
+            "READY",
+          ],
         },
       },
     }),
@@ -82,6 +91,10 @@ export default async function AdminDashboardPage() {
 
   return (
     <main className="dashboard">
+      {/* Mobile navigation */}
+      <AdminMobileNav />
+
+      {/* Desktop navigation */}
       <aside className="sidebar">
         <h1>CanteenCo</h1>
 
@@ -96,55 +109,97 @@ export default async function AdminDashboardPage() {
         <div className="divider" />
 
         <form action={logout}>
-          <button className="secondary" type="submit">
+          <button
+            className="secondary"
+            type="submit"
+          >
             Sign out
           </button>
         </form>
       </aside>
 
+      {/* Dashboard content */}
       <section className="content">
         <h2>Super Admin Dashboard</h2>
 
         <p className="subtle">
-          Live foundation data from the CanteenCo database.
+          Live foundation data from the
+          CanteenCo database.
         </p>
 
         <div className="grid">
-          <Link className="stat" href="/admin/reports">
+          <Link
+            className="stat"
+            href="/admin/reports"
+          >
             Today&apos;s sales
+
             <strong>
-              ${Number(salesToday._sum.total ?? 0).toFixed(2)}
+              $
+              {Number(
+                salesToday._sum.total ?? 0,
+              ).toFixed(2)}
             </strong>
           </Link>
 
-          <Link className="stat" href="/admin/registrations">
+          <Link
+            className="stat"
+            href="/admin/registrations"
+          >
             Pending registrations
-            <strong>{pendingRegistrations}</strong>
+
+            <strong>
+              {pendingRegistrations}
+            </strong>
           </Link>
 
-          <Link className="stat" href="/admin/topups">
+          <Link
+            className="stat"
+            href="/admin/topups"
+          >
             Pending top-ups
-            <strong>{pendingTopUps}</strong>
+
+            <strong>
+              {pendingTopUps}
+            </strong>
           </Link>
 
           <div className="stat">
             Pre-orders today
-            <strong>{preOrdersToday}</strong>
+
+            <strong>
+              {preOrdersToday}
+            </strong>
           </div>
 
-          <Link className="stat" href="/admin/wallets?negative=1">
+          <Link
+            className="stat"
+            href="/admin/wallets?negative=1"
+          >
             Negative wallets
-            <strong>{negativeWallets}</strong>
+
+            <strong>
+              {negativeWallets}
+            </strong>
           </Link>
 
           <div className="stat">
             Schools
-            <strong>{activeSchools}</strong>
+
+            <strong>
+              {activeSchools}
+            </strong>
           </div>
 
-          <Link className="stat" href="/admin/notifications?state=failed">
+          <Link
+            className="stat"
+            href="/admin/notifications?state=failed"
+          >
             Failed notifications
-            <strong>{failedNotifications}</strong>
+
+            <strong>
+              {failedNotifications}
+            </strong>
           </Link>
         </div>
       </section>
