@@ -1,5 +1,6 @@
 :root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   color: #111827;
   background: #f6f7f9;
 }
@@ -8,8 +9,15 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
 }
 
 a {
@@ -19,9 +27,14 @@ a {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
+
+/* =========================
+   GENERAL
+========================= */
 
 .shell {
   min-height: 100vh;
@@ -111,16 +124,21 @@ select {
   margin: 22px 0;
 }
 
+/* =========================
+   ADMIN DASHBOARD
+========================= */
+
 .dashboard {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 240px minmax(0, 1fr);
 }
 
 .sidebar {
   background: #111827;
   color: white;
   padding: 24px 18px;
+  min-height: 100vh;
 }
 
 .sidebar h1 {
@@ -134,6 +152,7 @@ select {
 }
 
 .nav a {
+  display: block;
   padding: 10px 12px;
   border-radius: 8px;
   color: #d1d5db;
@@ -145,6 +164,7 @@ select {
 }
 
 .content {
+  min-width: 0;
   padding: 32px;
 }
 
@@ -166,6 +186,10 @@ select {
   font-size: 28px;
   margin-top: 6px;
 }
+
+/* =========================
+   CASHIER
+========================= */
 
 .cashier {
   min-height: 100vh;
@@ -201,6 +225,10 @@ select {
   cursor: pointer;
 }
 
+/* =========================
+   ALERTS
+========================= */
+
 .alert {
   margin: 0 0 16px;
   border: 1px solid #fecaca;
@@ -211,6 +239,10 @@ select {
   font-size: 14px;
   line-height: 1.4;
 }
+
+/* =========================
+   REGISTRATION
+========================= */
 
 .register-shell {
   align-items: start;
@@ -264,6 +296,10 @@ select {
   font-size: 14px;
   line-height: 1.4;
 }
+
+/* =========================
+   LISTS / ADMIN PAGES
+========================= */
 
 .page-heading {
   display: flex;
@@ -345,6 +381,10 @@ button:disabled {
   cursor: wait;
 }
 
+/* =========================
+   AMOUNTS
+========================= */
+
 .amount-options {
   display: flex;
   gap: 8px;
@@ -365,6 +405,10 @@ button:disabled {
   border-color: #111827;
   color: white;
 }
+
+/* =========================
+   WALLET
+========================= */
 
 .wallet-layout {
   display: grid;
@@ -411,17 +455,52 @@ button:disabled {
   letter-spacing: -0.03em;
 }
 
+/* =========================
+   PRINT
+========================= */
+
 .print-label {
   display: none;
 }
+
+/* =========================
+   TABLET
+========================= */
 
 @media (max-width: 800px) {
   .dashboard {
     grid-template-columns: 1fr;
   }
 
+  /*
+    IMPORTANT:
+    Keep sidebar visible on mobile.
+    Previously this was display:none,
+    which caused the admin navigation to disappear.
+  */
   .sidebar {
-    display: none;
+    min-height: auto;
+    width: 100%;
+    padding: 16px;
+  }
+
+  .sidebar h1 {
+    font-size: 20px;
+    margin-bottom: 14px;
+  }
+
+  .nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .nav a {
+    padding: 10px;
+    font-size: 14px;
+  }
+
+  .content {
+    padding: 24px;
   }
 
   .cashier-grid {
@@ -437,15 +516,148 @@ button:disabled {
   }
 }
 
+/* =========================
+   MOBILE
+========================= */
+
 @media (max-width: 640px) {
-  .two-col {
-    grid-template-columns: 1fr;
+  .shell {
+    padding: 14px;
+  }
+
+  .card {
+    padding: 22px;
+    border-radius: 14px;
+  }
+
+  .brand {
+    font-size: 26px;
+  }
+
+  .dashboard {
+    display: block;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    padding: 14px;
+  }
+
+  .sidebar h1 {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+
+  .nav {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .nav a {
+    padding: 10px 9px;
+    font-size: 13px;
+  }
+
+  .content {
+    padding: 16px;
   }
 
   .page-heading {
     display: grid;
+    gap: 12px;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .cashier {
+    padding: 14px;
+  }
+
+  .cashier-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product {
+    padding: 10px;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .list-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .money-block {
+    text-align: left;
+  }
+
+  .actions-row {
+    flex-direction: column;
+  }
+
+  .actions-row button,
+  .actions-row a {
+    width: 100%;
+  }
+
+  .wallet-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .registration-card {
+    width: 100%;
   }
 }
+
+/* =========================
+   VERY SMALL PHONES
+========================= */
+
+@media (max-width: 420px) {
+  .content {
+    padding: 12px;
+  }
+
+  .sidebar {
+    padding: 12px;
+  }
+
+  .nav {
+    grid-template-columns: 1fr;
+  }
+
+  .nav a {
+    padding: 11px 12px;
+  }
+
+  .products {
+    grid-template-columns: 1fr;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stat strong {
+    font-size: 24px;
+  }
+}
+
+/* =========================
+   PRINT
+========================= */
 
 @media print {
   body * {
