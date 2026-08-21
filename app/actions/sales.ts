@@ -64,6 +64,7 @@ export async function findCashierStudents(query: string) {
     where: {
       deletedAt: null,
       status: StudentStatus.ACTIVE,
+
       OR: [
         {
           displayCode: {
@@ -88,6 +89,7 @@ export async function findCashierStudents(query: string) {
         },
       ],
     },
+
     include: {
       parent: {
         include: {
@@ -95,7 +97,9 @@ export async function findCashierStudents(query: string) {
         },
       },
     },
+
     take: 10,
+
     orderBy: [
       {
         firstName: "asc",
@@ -122,6 +126,7 @@ export async function getCashierProducts() {
       isActive: true,
       deletedAt: null,
     },
+
     orderBy: [
       {
         sortOrder: "asc",
@@ -197,12 +202,14 @@ export async function createCashierSale(input: {
           where: {
             id: input.studentId,
           },
+
           include: {
             school: {
               include: {
                 settings: true,
               },
             },
+
             parent: {
               include: {
                 wallet: true,
@@ -266,44 +273,75 @@ export async function createCashierSale(input: {
 
         let approverId: string | undefined;
 
+        /*
+         * ------------------------------------------------------------
+         * NEGATIVE BALANCE / ADMIN APPROVAL
+         * ------------------------------------------------------------
+         *
+         * If the sale would make the wallet negative:
+         *
+         * 1. Without admin password:
+         *      Return needsAdminOverride = true.
+         *
+         * 2. With admin password:
+         *      Validate an active SUPER_ADMIN or SCHOOL_ADMIN.
+         *
+         * 3. If valid:
+         *      Allow the negative sale.
+         *
+         * Admin approval intentionally overrides:
+         *
+         *   - allowNegativeBalance
+         *   - minimumAllowedBalance
+         *
+         * This means the cashier can ask an admin to approve
+         * a sale even when the normal school policy does not
+         * allow negative balances.
+         */
+
         if (proposedBalance.lt(0)) {
-          if (!settings?.allowNegativeBalance) {
-            throw new Error("Insufficient balance");
-          }
-
-          const minimumAllowedBalance = settings.minimumAllowedBalance;
-
-          if (proposedBalance.lt(minimumAllowedBalance)) {
-            throw new Error(
-              `Sale would exceed the allowed balance limit (${minimumAllowedBalance.toFixed(
-                2,
-              )})`,
-            );
-          }
-
+          /*
+           * No admin password yet.
+           *
+           * Do NOT throw "Insufficient balance".
+           *
+           * Return a structured response so the cashier UI
+           * can open the popup.
+           */
           if (!input.adminPassword) {
             return {
               ok: false,
-              error: "Admin approval required",
+              error: "Insufficient balance",
               needsAdminOverride: true,
             };
           }
 
+          /*
+           * Admin password was supplied.
+           *
+           * Find active SUPER_ADMIN or SCHOOL_ADMIN users.
+           *
+           * SUPER_ADMIN can approve any school.
+           * SCHOOL_ADMIN can approve sales for their own school.
+           */
           const admins = await tx.user.findMany({
             where: {
               status: UserStatus.ACTIVE,
               deletedAt: null,
+
               role: {
                 in: [
                   UserRole.SUPER_ADMIN,
                   UserRole.SCHOOL_ADMIN,
                 ],
               },
+
               OR: [
                 {
                   role: UserRole.SUPER_ADMIN,
                 },
                 {
+                  role: UserRole.SCHOOL_ADMIN,
                   schoolId: student.schoolId,
                 },
               ],
@@ -327,21 +365,34 @@ export async function createCashierSale(input: {
           }
 
           if (!approvedAdmin) {
-            throw new Error("Invalid admin password");
+            return {
+              ok: false,
+              error: "Invalid admin password",
+              needsAdminOverride: true,
+            };
           }
 
+          /*
+           * Admin successfully approved the negative sale.
+           */
           approverId = approvedAdmin.id;
         }
 
         /*
-         * This conditional update prevents two simultaneous
-         * purchases from spending the same wallet balance.
+         * ------------------------------------------------------------
+         * GUARDED WALLET UPDATE
+         * ------------------------------------------------------------
+         *
+         * Prevent two simultaneous purchases from spending
+         * the same wallet balance.
          */
+
         const guardedWalletUpdate = await tx.wallet.updateMany({
           where: {
             id: wallet.id,
             balance: wallet.balance,
           },
+
           data: {
             balance: proposedBalance,
           },
@@ -353,20 +404,36 @@ export async function createCashierSale(input: {
           );
         }
 
+        /*
+         * ------------------------------------------------------------
+         * CREATE SALE
+         * ------------------------------------------------------------
+         */
+
         const sale = await tx.sale.create({
           data: {
             saleNumber: `SALE-${Date.now()}-${randomUUID()
               .slice(0, 6)
               .toUpperCase()}`,
+
             idempotencyKey: input.idempotencyKey,
+
             schoolId: student.schoolId,
             studentId: student.id,
             walletId: wallet.id,
             cashierUserId: session.user.id,
+
             subtotal: total,
             total,
+
+            /*
+             * Any negative approved sale is recorded as
+             * an overdraft override.
+             */
             isOverdraftOverride: proposedBalance.lt(0),
+
             overrideApprovedById: approverId,
+
             items: {
               create: cleanItems.map((line) => {
                 const product = productMap.get(line.productId);
@@ -387,27 +454,48 @@ export async function createCashierSale(input: {
           },
         });
 
+        /*
+         * ------------------------------------------------------------
+         * WALLET TRANSACTION
+         * ------------------------------------------------------------
+         */
+
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
             studentId: student.id,
+
             type: proposedBalance.lt(0)
               ? WalletTransactionType.OVERDRAFT_SALE
               : WalletTransactionType.SALE_DEBIT,
+
             amount: total.neg(),
             balanceAfter: proposedBalance,
+
             description: `Canteen sale ${sale.saleNumber}`,
+
             saleId: sale.id,
           },
         });
 
+        /*
+         * ------------------------------------------------------------
+         * PARENT PURCHASE NOTIFICATION
+         * ------------------------------------------------------------
+         */
+
         await queueParentNotification({
           tx,
+
           userId: student.parent.user.id,
           parentId: student.parent.id,
+
           event: NotificationEvent.PURCHASE_COMPLETED,
+
           preferenceKey: "notifyPurchase",
+
           subject: "Canteen purchase completed",
+
           message: `${student.firstName} ${
             student.lastName
           } purchased $${total.toFixed(
@@ -415,14 +503,22 @@ export async function createCashierSale(input: {
           )} from CanteenCo. Family wallet balance: $${proposedBalance.toFixed(
             2,
           )}.`,
+
           metadata: {
             saleId: sale.id,
             studentId: student.id,
             amount: Number(total),
             balanceAfter: Number(proposedBalance),
           },
+
           schoolId: student.schoolId,
         });
+
+        /*
+         * ------------------------------------------------------------
+         * LOW BALANCE NOTIFICATION
+         * ------------------------------------------------------------
+         */
 
         const lowBalanceThreshold =
           student.parent.notificationPreference
@@ -437,24 +533,37 @@ export async function createCashierSale(input: {
         ) {
           await queueParentNotification({
             tx,
+
             userId: student.parent.user.id,
             parentId: student.parent.id,
+
             event: NotificationEvent.LOW_BALANCE,
+
             preferenceKey: "notifyLowBalance",
+
             subject: "Family wallet balance is low",
+
             message: `Your CanteenCo family wallet balance is $${proposedBalance.toFixed(
               2,
             )}, which is at or below your alert level of $${lowBalanceThreshold.toFixed(
               2,
             )}.`,
+
             metadata: {
               walletId: wallet.id,
               balance: Number(proposedBalance),
               threshold: Number(lowBalanceThreshold),
             },
+
             schoolId: student.schoolId,
           });
         }
+
+        /*
+         * ------------------------------------------------------------
+         * SUCCESS
+         * ------------------------------------------------------------
+         */
 
         return {
           ok: true,
@@ -465,6 +574,7 @@ export async function createCashierSale(input: {
           overdraft: proposedBalance.lt(0),
         };
       },
+
       {
         isolationLevel:
           Prisma.TransactionIsolationLevel.Serializable,
@@ -473,6 +583,7 @@ export async function createCashierSale(input: {
   } catch (error) {
     return {
       ok: false,
+
       error:
         error instanceof Error
           ? error.message
