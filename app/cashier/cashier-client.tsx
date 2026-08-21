@@ -1,16 +1,433 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
-import {createCashierSale,findCashierStudents,getCashierProducts} from "@/app/actions/sales";
 
-type Student=Awaited<ReturnType<typeof findCashierStudents>>[number]; type Product=Awaited<ReturnType<typeof getCashierProducts>>[number];
-export default function CashierClient(){
- const [q,setQ]=useState(""); const [results,setResults]=useState<Student[]>([]); const [student,setStudent]=useState<Student|null>(null); const [products,setProducts]=useState<Product[]>([]); const [cart,setCart]=useState<Record<string,number>>({}); const [busy,setBusy]=useState(false); const [message,setMessage]=useState(""); const [adminPassword,setAdminPassword]=useState(""); const [needsOverride,setNeedsOverride]=useState(false); const [key,setKey]=useState(()=>crypto.randomUUID());
- useEffect(()=>{getCashierProducts().then(setProducts)},[]);
- async function search(){setMessage("");const r=await findCashierStudents(q);setResults(r);if(r.length===1)select(r[0]);}
- function select(s:Student){setStudent(s);setResults([]);setQ(s.displayCode);setCart({});setMessage("");setNeedsOverride(false);}
- const total=useMemo(()=>products.reduce((n,p)=>n+Number(p.price)*(cart[p.id]||0),0),[products,cart]); const balance=student?.parent.wallet?Number(student.parent.wallet.balance):0;
- async function confirm(){if(!student||total<=0)return;setBusy(true);setMessage("");const items=Object.entries(cart).filter(([,quantity])=>quantity>0).map(([productId,quantity])=>({productId,quantity}));const r=await createCashierSale({studentId:student.id,items,idempotencyKey:key,adminPassword:adminPassword||undefined});setBusy(false);if(!r.ok){setNeedsOverride(Boolean(r.needsAdminOverride));setMessage(r.error||"Sale failed");return;}setMessage(`Sale ${r.saleNumber} completed. New balance: $${r.balanceAfter}`);setCart({});setAdminPassword("");setNeedsOverride(false);setKey(crypto.randomUUID());setTimeout(()=>{setStudent(null);setQ("");setMessage("")},1800);}
- return <main className="cashier"><div className="page-heading"><h1 className="brand">CanteenCo Cashier</h1><a className="secondary" href="/cashier/preorders">Pre-Orders</a></div><div className="panel"><label className="label">Scan QR, enter student code, or search name<div style={{display:"flex",gap:8}}><input className="input" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&search()} placeholder="3C-001"/><button className="primary" onClick={search}>Search</button></div></label>{results.length>1&&<div>{results.map(s=><button key={s.id} className="product" onClick={()=>select(s)}>{s.firstName} {s.lastName} — {s.displayCode}</button>)}</div>}</div>
- {student&&<><div className="panel"><strong>{student.firstName} {student.lastName}</strong> · {student.displayCode} · Class {student.classCode}<br/><span className="subtle">Family wallet</span> <strong>${balance.toFixed(2)}</strong>{balance<=0&&<p><strong>Insufficient/negative balance — admin approval will be required if school policy allows.</strong></p>}</div><section className="cashier-grid"><div className="panel"><h2>Products</h2><div className="products">{products.map(p=><button className="product" key={p.id} onClick={()=>setCart(c=>({...c,[p.id]:(c[p.id]||0)+1}))}><strong>{p.name}</strong><br/>${Number(p.price).toFixed(2)}{cart[p.id]?` × ${cart[p.id]}`:""}</button>)}</div></div><aside className="panel"><h2>Current Sale</h2>{products.filter(p=>cart[p.id]).map(p=><div key={p.id}>{p.name} × {cart[p.id]} <button onClick={()=>setCart(c=>({...c,[p.id]:Math.max(0,(c[p.id]||0)-1)}))}>−</button></div>)}<div className="divider"/><strong>Total: ${total.toFixed(2)}</strong><br/><span>Projected balance: ${(balance-total).toFixed(2)}</span>{needsOverride&&<label className="label">Admin password<input className="input" type="password" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)}/></label>}<div style={{height:12}}/><button disabled={busy||total<=0} className="primary" style={{width:"100%"}} onClick={confirm}>{busy?"Processing…":needsOverride?"Approve & Complete Sale":"Confirm Sale"}</button>{message&&<p>{message}</p>}</aside></section></>}
- </main>;
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+import {
+  createCashierSale,
+  findCashierStudents,
+  getCashierProducts,
+} from "@/app/actions/sales";
+
+type Student =
+  Awaited<
+    ReturnType<typeof findCashierStudents>
+  >[number];
+
+type Product =
+  Awaited<
+    ReturnType<typeof getCashierProducts>
+  >[number];
+
+export default function CashierClient() {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<
+    Student[]
+  >([]);
+  const [student, setStudent] =
+    useState<Student | null>(null);
+  const [products, setProducts] = useState<
+    Product[]
+  >([]);
+  const [cart, setCart] = useState<
+    Record<string, number>
+  >({});
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] =
+    useState("");
+  const [
+    adminPassword,
+    setAdminPassword,
+  ] = useState("");
+  const [
+    needsOverride,
+    setNeedsOverride,
+  ] = useState(false);
+  const [key, setKey] = useState(() =>
+    crypto.randomUUID(),
+  );
+
+  useEffect(() => {
+    getCashierProducts()
+      .then(setProducts)
+      .catch((error) => {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not load products",
+        );
+      });
+  }, []);
+
+  async function search() {
+    setMessage("");
+
+    try {
+      const found =
+        await findCashierStudents(q);
+
+      setResults(found);
+
+      if (found.length === 1) {
+        select(found[0]);
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Search failed",
+      );
+    }
+  }
+
+  function select(selected: Student) {
+    setStudent(selected);
+    setResults([]);
+    setQ(selected.displayCode);
+    setCart({});
+    setMessage("");
+    setNeedsOverride(false);
+    setAdminPassword("");
+  }
+
+  function addProduct(productId: string) {
+    setCart((current) => ({
+      ...current,
+      [productId]:
+        (current[productId] ?? 0) + 1,
+    }));
+  }
+
+  function removeProduct(
+    productId: string,
+  ) {
+    setCart((current) => {
+      const nextQuantity = Math.max(
+        0,
+        (current[productId] ?? 0) - 1,
+      );
+
+      return {
+        ...current,
+        [productId]: nextQuantity,
+      };
+    });
+  }
+
+  const total = useMemo(
+    () =>
+      products.reduce(
+        (sum, product) =>
+          sum +
+          Number(product.price) *
+            (cart[product.id] ?? 0),
+        0,
+      ),
+    [products, cart],
+  );
+
+  const balance = student?.parent.wallet
+    ? Number(student.parent.wallet.balance)
+    : 0;
+
+  async function confirm() {
+    if (!student || total <= 0 || busy) {
+      return;
+    }
+
+    setBusy(true);
+    setMessage("");
+
+    try {
+      const items = Object.entries(cart)
+        .filter(
+          ([, quantity]) => quantity > 0,
+        )
+        .map(
+          ([productId, quantity]) => ({
+            productId,
+            quantity,
+          }),
+        );
+
+      const result =
+        await createCashierSale({
+          studentId: student.id,
+          items,
+          idempotencyKey: key,
+          adminPassword:
+            adminPassword || undefined,
+        });
+
+      if (!result.ok) {
+        setNeedsOverride(
+          result.needsAdminOverride === true,
+        );
+        setMessage(
+          result.error || "Sale failed",
+        );
+        return;
+      }
+
+      setMessage(
+        `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`,
+      );
+
+      setCart({});
+      setAdminPassword("");
+      setNeedsOverride(false);
+      setKey(crypto.randomUUID());
+
+      setTimeout(() => {
+        setStudent(null);
+        setQ("");
+        setMessage("");
+      }, 1800);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Sale failed",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="cashier">
+      <div className="page-heading">
+        <h1 className="brand">
+          CanteenCo Cashier
+        </h1>
+
+        <a
+          className="secondary"
+          href="/cashier/preorders"
+        >
+          Pre-Orders
+        </a>
+      </div>
+
+      <div className="panel">
+        <label className="label">
+          Scan QR, enter student code,
+          or search name
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+            }}
+          >
+            <input
+              className="input"
+              value={q}
+              onChange={(event) =>
+                setQ(event.target.value)
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter"
+                ) {
+                  event.preventDefault();
+                  void search();
+                }
+              }}
+              placeholder="3C-001"
+            />
+
+            <button
+              type="button"
+              className="primary"
+              onClick={() => void search()}
+            >
+              Search
+            </button>
+          </div>
+        </label>
+
+        {results.length > 1 && (
+          <div>
+            {results.map((result) => (
+              <button
+                type="button"
+                key={result.id}
+                className="product"
+                onClick={() =>
+                  select(result)
+                }
+              >
+                {result.firstName}{" "}
+                {result.lastName} —{" "}
+                {result.displayCode}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {student && (
+        <>
+          <div className="panel">
+            <strong>
+              {student.firstName}{" "}
+              {student.lastName}
+            </strong>{" "}
+            · {student.displayCode} · Class{" "}
+            {student.classCode}
+            <br />
+
+            <span className="subtle">
+              Family wallet
+            </span>{" "}
+            <strong>
+              ${balance.toFixed(2)}
+            </strong>
+
+            {balance <= 0 && (
+              <p>
+                <strong>
+                  Insufficient/negative
+                  balance — admin approval
+                  will be required if school
+                  policy allows.
+                </strong>
+              </p>
+            )}
+          </div>
+
+          <section className="cashier-grid">
+            <div className="panel">
+              <h2>Products</h2>
+
+              <div className="products">
+                {products.map((product) => (
+                  <button
+                    type="button"
+                    className="product"
+                    key={product.id}
+                    onClick={() =>
+                      addProduct(
+                        product.id,
+                      )
+                    }
+                  >
+                    <strong>
+                      {product.name}
+                    </strong>
+                    <br />
+
+                    $
+                    {Number(
+                      product.price,
+                    ).toFixed(2)}
+
+                    {cart[product.id]
+                      ? ` × ${
+                          cart[
+                            product.id
+                          ]
+                        }`
+                      : ""}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <aside className="panel">
+              <h2>Current Sale</h2>
+
+              {products
+                .filter(
+                  (product) =>
+                    (cart[product.id] ??
+                      0) > 0,
+                )
+                .map((product) => (
+                  <div key={product.id}>
+                    {product.name} ×{" "}
+                    {cart[product.id]}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeProduct(
+                          product.id,
+                        )
+                      }
+                    >
+                      −
+                    </button>
+                  </div>
+                ))}
+
+              <div className="divider" />
+
+              <strong>
+                Total: ${total.toFixed(2)}
+              </strong>
+
+              <br />
+
+              <span>
+                Projected balance: $
+                {(balance - total).toFixed(
+                  2,
+                )}
+              </span>
+
+              {needsOverride && (
+                <label className="label">
+                  Admin password
+
+                  <input
+                    className="input"
+                    type="password"
+                    value={adminPassword}
+                    onChange={(event) =>
+                      setAdminPassword(
+                        event.target.value,
+                      )
+                    }
+                  />
+                </label>
+              )}
+
+              <div
+                style={{
+                  height: 12,
+                }}
+              />
+
+              <button
+                type="button"
+                disabled={
+                  busy || total <= 0
+                }
+                className="primary"
+                style={{
+                  width: "100%",
+                }}
+                onClick={() =>
+                  void confirm()
+                }
+              >
+                {busy
+                  ? "Processing…"
+                  : needsOverride
+                    ? "Approve & Complete Sale"
+                    : "Confirm Sale"}
+              </button>
+
+              {message && <p>{message}</p>}
+            </aside>
+          </section>
+        </>
+      )}
+    </main>
+  );
 }
