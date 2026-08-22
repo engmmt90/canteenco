@@ -1,25 +1,82 @@
 import Link from "next/link";
 import { logout } from "@/app/actions/auth";
+import { updateStudentDailyLimit } from "@/app/actions/parent-students";
 import { prisma } from "@/lib/prisma";
 import { requireParent } from "@/lib/authz";
+
+function startOfToday() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function endOfToday() {
+  const date = new Date();
+  date.setHours(24, 0, 0, 0);
+  return date;
+}
 
 export default async function ParentDashboardPage() {
   const session = await requireParent();
 
+  const today = startOfToday();
+  const tomorrow = endOfToday();
+
   const parent = await prisma.parentProfile.findUnique({
-    where: { userId: session.user.id },
+    where: {
+      userId: session.user.id,
+    },
     include: {
       wallet: true,
       students: {
-        where: { deletedAt: null },
+        where: {
+          deletedAt: null,
+        },
         include: {
           school: {
-            select: { name: true },
+            select: {
+              name: true,
+            },
+          },
+          sales: {
+            where: {
+              createdAt: {
+                gte: today,
+                lt: tomorrow,
+              },
+              status: "COMPLETED",
+            },
+            select: {
+              total: true,
+            },
+          },
+          preOrders: {
+            where: {
+              createdAt: {
+                gte: today,
+                lt: tomorrow,
+              },
+              status: {
+                in: [
+                  "CONFIRMED",
+                  "PREPARING",
+                  "READY",
+                  "PICKED_UP",
+                ],
+              },
+            },
+            select: {
+              total: true,
+            },
           },
         },
         orderBy: [
-          { firstName: "asc" },
-          { lastName: "asc" },
+          {
+            firstName: "asc",
+          },
+          {
+            lastName: "asc",
+          },
         ],
       },
     },
@@ -67,19 +124,110 @@ export default async function ParentDashboardPage() {
         <h2 className="section-title">Children</h2>
 
         <div className="request-list">
-          {parent?.students.map((student) => (
-            <div className="student-row" key={student.id}>
-              <strong>
-                {student.firstName} {student.lastName}
-              </strong>
+          {parent?.students.map((student) => {
+            const salesTotal = student.sales.reduce(
+              (sum, sale) => sum + Number(sale.total),
+              0
+            );
 
-              <span>
-                {student.school.name} · {student.displayCode} · Grade{" "}
-                {student.grade}
-                {student.classSection ?? ""}
-              </span>
-            </div>
-          ))}
+            const preOrdersTotal = student.preOrders.reduce(
+              (sum, order) => sum + Number(order.total),
+              0
+            );
+
+            const spentToday = salesTotal + preOrdersTotal;
+
+            const dailyLimit =
+              student.dailySpendLimit === null
+                ? null
+                : Number(student.dailySpendLimit);
+
+            const remainingToday =
+              dailyLimit === null
+                ? null
+                : Math.max(0, dailyLimit - spentToday);
+
+            return (
+              <div className="panel request-card" key={student.id}>
+                <div className="request-head">
+                  <div>
+                    <strong>
+                      {student.firstName} {student.lastName}
+                    </strong>
+
+                    <p className="subtle compact">
+                      {student.school.name} · {student.displayCode} · Grade{" "}
+                      {student.grade}
+                      {student.classSection
+                        ? ` ${student.classSection}`
+                        : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="student-summary">
+                  <div className="student-row">
+                    <span>Spent today</span>
+                    <strong>${spentToday.toFixed(2)}</strong>
+                  </div>
+
+                  <div className="student-row">
+                    <span>Daily spending limit</span>
+                    <strong>
+                      {dailyLimit === null
+                        ? "No limit"
+                        : `$${dailyLimit.toFixed(2)}`}
+                    </strong>
+                  </div>
+
+                  <div className="student-row">
+                    <span>Remaining today</span>
+                    <strong>
+                      {remainingToday === null
+                        ? "Unlimited"
+                        : `$${remainingToday.toFixed(2)}`}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="divider" />
+
+                <form action={updateStudentDailyLimit} className="form">
+                  <input
+                    type="hidden"
+                    name="studentId"
+                    value={student.id}
+                  />
+
+                  <label className="label">
+                    Daily spending limit
+                    <input
+                      className="input"
+                      type="number"
+                      name="dailySpendLimit"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="Leave empty for no limit"
+                      defaultValue={
+                        dailyLimit === null
+                          ? ""
+                          : dailyLimit.toFixed(2)
+                      }
+                    />
+                  </label>
+
+                  <p className="subtle compact">
+                    Leave this field empty to allow unlimited daily spending.
+                  </p>
+
+                  <button className="primary" type="submit">
+                    Save Daily Limit
+                  </button>
+                </form>
+              </div>
+            );
+          })}
 
           {!parent?.students.length ? (
             <p className="subtle">

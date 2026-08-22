@@ -351,6 +351,135 @@ export async function createParentPreOrder(input: {
           );
         }
 
+        /*
+         * ============================================================
+         * DAILY SPENDING LIMIT
+         * ============================================================
+         *
+         * The limit belongs to the student.
+         *
+         * null = unlimited
+         *
+         * The daily total includes:
+         *
+         *   1. Completed cashier sales
+         *   2. Active pre-orders
+         *
+         * Therefore a student cannot bypass the daily limit by
+         * switching between cashier purchases and pre-orders.
+         *
+         * Example:
+         *
+         * Daily limit = $20
+         * Cashier sales today = $8
+         * Existing pre-orders = $7
+         *
+         * Already spent = $15
+         * Remaining = $5
+         *
+         * A new $6 pre-order is rejected.
+         */
+
+        if (student.dailySpendLimit !== null) {
+          const now = new Date();
+
+          const startOfToday = new Date(now);
+          startOfToday.setHours(0, 0, 0, 0);
+
+          const startOfTomorrow = new Date(
+            startOfToday,
+          );
+
+          startOfTomorrow.setDate(
+            startOfTomorrow.getDate() + 1,
+          );
+
+          const [
+            salesToday,
+            preOrdersToday,
+          ] = await Promise.all([
+            tx.sale.aggregate({
+              where: {
+                studentId: student.id,
+                createdAt: {
+                  gte: startOfToday,
+                  lt: startOfTomorrow,
+                },
+                status: "COMPLETED",
+              },
+              _sum: {
+                total: true,
+              },
+            }),
+
+            tx.preOrder.aggregate({
+              where: {
+                studentId: student.id,
+                createdAt: {
+                  gte: startOfToday,
+                  lt: startOfTomorrow,
+                },
+                status: {
+                  in: [
+                    PreOrderStatus.CONFIRMED,
+                    PreOrderStatus.PREPARING,
+                    PreOrderStatus.READY,
+                    PreOrderStatus.PICKED_UP,
+                  ],
+                },
+              },
+              _sum: {
+                total: true,
+              },
+            }),
+          ]);
+
+          const salesSpent =
+            new Prisma.Decimal(
+              salesToday._sum.total ?? 0,
+            );
+
+          const preOrdersSpent =
+            new Prisma.Decimal(
+              preOrdersToday._sum.total ?? 0,
+            );
+
+          const spentToday =
+            salesSpent.add(preOrdersSpent);
+
+          const projectedSpent =
+            spentToday.add(total);
+
+          if (
+            projectedSpent.gt(
+              student.dailySpendLimit,
+            )
+          ) {
+            const remaining =
+              student.dailySpendLimit.sub(
+                spentToday,
+              );
+
+            if (remaining.gt(0)) {
+              throw new Error(
+                `Daily spending limit exceeded. This student has $${remaining.toFixed(
+                  2,
+                )} remaining today.`,
+              );
+            }
+
+            throw new Error(
+              "Daily spending limit reached. No more spending is allowed today.",
+            );
+          }
+        }
+
+        /*
+         * ============================================================
+         * WALLET BALANCE
+         * ============================================================
+         */
+
         const proposedBalance =
           parent.wallet.balance.sub(total);
 
@@ -377,6 +506,12 @@ export async function createParentPreOrder(input: {
           );
         }
 
+        /*
+         * ============================================================
+         * CREATE PRE-ORDER
+         * ============================================================
+         */
+
         const pickupDate = new Date(
           `${input.pickupDate}T00:00:00.000Z`,
         );
@@ -386,15 +521,20 @@ export async function createParentPreOrder(input: {
             orderNumber: `PO-${Date.now()}-${randomUUID()
               .slice(0, 6)
               .toUpperCase()}`,
+
             idempotencyKey:
               input.idempotencyKey,
+
             schoolId: student.schoolId,
             studentId: student.id,
             walletId: parent.wallet.id,
             pickupSlotId: slot.id,
             pickupDate,
+
             status: PreOrderStatus.CONFIRMED,
+
             total,
+
             items: {
               create: cleanItems.map((line) => {
                 const product =
@@ -422,26 +562,52 @@ export async function createParentPreOrder(input: {
           },
         });
 
+        /*
+         * ============================================================
+         * WALLET TRANSACTION
+         * ============================================================
+         */
+
         await tx.walletTransaction.create({
           data: {
             walletId: parent.wallet.id,
             studentId: student.id,
-            type: WalletTransactionType.PREORDER_DEBIT,
+
+            type:
+              WalletTransactionType.PREORDER_DEBIT,
+
             amount: total.neg(),
+
             balanceAfter: proposedBalance,
+
             description: `Pre-order ${order.orderNumber}`,
+
             preOrderId: order.id,
           },
         });
 
+        /*
+         * ============================================================
+         * PARENT NOTIFICATION
+         * ============================================================
+         */
+
         await queueParentNotification({
           tx,
+
           userId: session.user.id,
+
           parentId: parent.id,
+
           event:
             NotificationEvent.PREORDER_CONFIRMED,
-          preferenceKey: "notifyPreOrder",
-          subject: "Pre-order confirmed",
+
+          preferenceKey:
+            "notifyPreOrder",
+
+          subject:
+            "Pre-order confirmed",
+
           message: `We received pre-order ${
             order.orderNumber
           } for ${student.firstName} ${
@@ -449,10 +615,12 @@ export async function createParentPreOrder(input: {
           }. Pickup: ${
             slot.label
           }. Total: $${total.toFixed(2)}.`,
+
           metadata: {
             preOrderId: order.id,
             studentId: student.id,
           },
+
           schoolId: student.schoolId,
         });
 
@@ -465,6 +633,7 @@ export async function createParentPreOrder(input: {
             proposedBalance.toFixed(2),
         };
       },
+
       {
         isolationLevel:
           Prisma.TransactionIsolationLevel
@@ -520,6 +689,7 @@ export async function getCashierPreOrders(
     );
 
     const end = new Date(start);
+
     end.setUTCDate(
       end.getUTCDate() + 1,
     );
@@ -532,16 +702,19 @@ export async function getCashierPreOrders(
 
   return prisma.preOrder.findMany({
     where,
+
     include: {
       student: true,
       school: true,
       pickupSlot: true,
+
       items: {
         include: {
           product: true,
         },
       },
     },
+
     orderBy: [
       {
         pickupDate: "asc",
@@ -592,6 +765,7 @@ export async function updatePreOrderStatus(
             where: {
               id: orderId,
             },
+
             include: {
               student: {
                 include: {
@@ -628,18 +802,20 @@ export async function updatePreOrderStatus(
             PreOrderStatus.PREPARING,
             PreOrderStatus.READY,
           ],
+
           PREPARING: [
             PreOrderStatus.READY,
           ],
+
           READY: [
             PreOrderStatus.PICKED_UP,
           ],
         };
 
         if (
-          !allowed[order.status]?.includes(
-            target,
-          )
+          !allowed[
+            order.status
+          ]?.includes(target)
         ) {
           throw new Error(
             `Cannot move ${order.status} to ${target}`,
@@ -652,7 +828,8 @@ export async function updatePreOrderStatus(
           };
 
         if (
-          target === PreOrderStatus.READY
+          target ===
+          PreOrderStatus.READY
         ) {
           data.readyAt = new Date();
         }
@@ -669,28 +846,40 @@ export async function updatePreOrderStatus(
             where: {
               id: order.id,
             },
+
             data,
           });
 
         if (
-          target === PreOrderStatus.READY
+          target ===
+          PreOrderStatus.READY
         ) {
           await queueParentNotification({
             tx,
+
             userId:
               order.student.parent.userId,
+
             parentId:
               order.student.parent.id,
+
             event:
               NotificationEvent.PREORDER_READY,
+
             preferenceKey:
               "notifyPreOrder",
-            subject: "Order ready",
+
+            subject:
+              "Order ready",
+
             message: `Order ${order.orderNumber} for ${order.student.firstName} is ready for pickup.`,
+
             metadata: {
               preOrderId: order.id,
             },
-            schoolId: order.schoolId,
+
+            schoolId:
+              order.schoolId,
           });
         }
 
@@ -700,20 +889,30 @@ export async function updatePreOrderStatus(
         ) {
           await queueParentNotification({
             tx,
+
             userId:
               order.student.parent.userId,
+
             parentId:
               order.student.parent.id,
+
             event:
               NotificationEvent.PREORDER_PICKED_UP,
+
             preferenceKey:
               "notifyPickup",
-            subject: "Order picked up",
+
+            subject:
+              "Order picked up",
+
             message: `Order ${order.orderNumber} for ${order.student.firstName} has been picked up.`,
+
             metadata: {
               preOrderId: order.id,
             },
-            schoolId: order.schoolId,
+
+            schoolId:
+              order.schoolId,
           });
         }
 
@@ -784,6 +983,7 @@ export async function markPreOrderLabelPrinted(
     where: {
       id: order.id,
     },
+
     data: {
       labelPrintedAt: new Date(),
     },
@@ -819,6 +1019,7 @@ export async function cancelOwnPreOrder(
             where: {
               userId: session.user.id,
             },
+
             include: {
               wallet: true,
             },
@@ -836,6 +1037,7 @@ export async function cancelOwnPreOrder(
               id: orderId,
               walletId: parent.wallet.id,
             },
+
             include: {
               student: true,
             },
@@ -863,9 +1065,11 @@ export async function cancelOwnPreOrder(
               status:
                 PreOrderStatus.CONFIRMED,
             },
+
             data: {
               status:
                 PreOrderStatus.CANCELLED,
+
               cancelledAt: new Date(),
             },
           });
@@ -890,12 +1094,15 @@ export async function cancelOwnPreOrder(
         }
 
         const newBalance =
-          wallet.balance.add(order.total);
+          wallet.balance.add(
+            order.total,
+          );
 
         await tx.wallet.update({
           where: {
             id: wallet.id,
           },
+
           data: {
             balance: newBalance,
           },
@@ -905,31 +1112,45 @@ export async function cancelOwnPreOrder(
           data: {
             walletId: wallet.id,
             studentId: order.studentId,
+
             type:
               WalletTransactionType.REFUND,
+
             amount: order.total,
+
             balanceAfter: newBalance,
-            description: `Refund for cancelled pre-order ${order.orderNumber}`,
+
+            description:
+              `Refund for cancelled pre-order ${order.orderNumber}`,
           },
         });
 
         await queueParentNotification({
           tx,
+
           userId: session.user.id,
+
           parentId: parent.id,
+
           event:
             NotificationEvent.PREORDER_CANCELLED,
-          preferenceKey: "notifyRefund",
+
+          preferenceKey:
+            "notifyRefund",
+
           subject:
             "Pre-order cancelled",
+
           message: `Order ${
             order.orderNumber
           } was cancelled and $${order.total.toFixed(
             2,
           )} returned to your family wallet.`,
+
           metadata: {
             preOrderId: order.id,
           },
+
           schoolId: order.schoolId,
         });
 
@@ -939,6 +1160,7 @@ export async function cancelOwnPreOrder(
             newBalance.toFixed(2),
         };
       },
+
       {
         isolationLevel:
           Prisma.TransactionIsolationLevel

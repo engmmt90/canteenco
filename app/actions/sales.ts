@@ -268,6 +268,100 @@ export async function createCashierSale(input: {
           total = total.add(product.price.mul(line.quantity));
         }
 
+        /*
+         * ------------------------------------------------------------
+         * DAILY SPENDING LIMIT
+         * ------------------------------------------------------------
+         *
+         * The parent can set a daily limit for each student.
+         *
+         * null = unlimited
+         *
+         * The limit applies to:
+         *   - Cashier sales
+         *   - Pre-orders
+         *
+         * Therefore we include today's completed sales and today's
+         * active pre-orders when calculating the amount already spent.
+         *
+         * Admin overdraft approval does NOT override the daily limit.
+         */
+
+        if (student.dailySpendLimit !== null) {
+          const now = new Date();
+
+          const startOfToday = new Date(now);
+          startOfToday.setHours(0, 0, 0, 0);
+
+          const startOfTomorrow = new Date(startOfToday);
+          startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+
+          const [salesToday, preOrdersToday] = await Promise.all([
+            tx.sale.aggregate({
+              where: {
+                studentId: student.id,
+                createdAt: {
+                  gte: startOfToday,
+                  lt: startOfTomorrow,
+                },
+                status: "COMPLETED",
+              },
+              _sum: {
+                total: true,
+              },
+            }),
+
+            tx.preOrder.aggregate({
+              where: {
+                studentId: student.id,
+                createdAt: {
+                  gte: startOfToday,
+                  lt: startOfTomorrow,
+                },
+                status: {
+                  in: [
+                    "CONFIRMED",
+                    "PREPARING",
+                    "READY",
+                    "PICKED_UP",
+                  ],
+                },
+              },
+              _sum: {
+                total: true,
+              },
+            }),
+          ]);
+
+          const salesSpent = new Prisma.Decimal(
+            salesToday._sum.total ?? 0,
+          );
+
+          const preOrdersSpent = new Prisma.Decimal(
+            preOrdersToday._sum.total ?? 0,
+          );
+
+          const spentToday = salesSpent.add(preOrdersSpent);
+          const projectedSpent = spentToday.add(total);
+
+          if (projectedSpent.gt(student.dailySpendLimit)) {
+            const remaining = Prisma.Decimal.max(
+              student.dailySpendLimit.sub(spentToday),
+              new Prisma.Decimal(0),
+            );
+
+            return {
+              ok: false,
+              error:
+                remaining.gt(0)
+                  ? `Daily spending limit exceeded. This student has $${remaining.toFixed(
+                      2,
+                    )} remaining today.`
+                  : "Daily spending limit reached. No more spending is allowed today.",
+            };
+          }
+        }
+
         const proposedBalance = wallet.balance.sub(total);
         const settings = student.school.settings;
 
@@ -277,37 +371,9 @@ export async function createCashierSale(input: {
          * ------------------------------------------------------------
          * NEGATIVE BALANCE / ADMIN APPROVAL
          * ------------------------------------------------------------
-         *
-         * If the sale would make the wallet negative:
-         *
-         * 1. Without admin password:
-         *      Return needsAdminOverride = true.
-         *
-         * 2. With admin password:
-         *      Validate an active SUPER_ADMIN or SCHOOL_ADMIN.
-         *
-         * 3. If valid:
-         *      Allow the negative sale.
-         *
-         * Admin approval intentionally overrides:
-         *
-         *   - allowNegativeBalance
-         *   - minimumAllowedBalance
-         *
-         * This means the cashier can ask an admin to approve
-         * a sale even when the normal school policy does not
-         * allow negative balances.
          */
 
         if (proposedBalance.lt(0)) {
-          /*
-           * No admin password yet.
-           *
-           * Do NOT throw "Insufficient balance".
-           *
-           * Return a structured response so the cashier UI
-           * can open the popup.
-           */
           if (!input.adminPassword) {
             return {
               ok: false,
@@ -316,14 +382,6 @@ export async function createCashierSale(input: {
             };
           }
 
-          /*
-           * Admin password was supplied.
-           *
-           * Find active SUPER_ADMIN or SCHOOL_ADMIN users.
-           *
-           * SUPER_ADMIN can approve any school.
-           * SCHOOL_ADMIN can approve sales for their own school.
-           */
           const admins = await tx.user.findMany({
             where: {
               status: UserStatus.ACTIVE,
@@ -372,9 +430,6 @@ export async function createCashierSale(input: {
             };
           }
 
-          /*
-           * Admin successfully approved the negative sale.
-           */
           approverId = approvedAdmin.id;
         }
 
@@ -382,9 +437,6 @@ export async function createCashierSale(input: {
          * ------------------------------------------------------------
          * GUARDED WALLET UPDATE
          * ------------------------------------------------------------
-         *
-         * Prevent two simultaneous purchases from spending
-         * the same wallet balance.
          */
 
         const guardedWalletUpdate = await tx.wallet.updateMany({
@@ -426,10 +478,6 @@ export async function createCashierSale(input: {
             subtotal: total,
             total,
 
-            /*
-             * Any negative approved sale is recorded as
-             * an overdraft override.
-             */
             isOverdraftOverride: proposedBalance.lt(0),
 
             overrideApprovedById: approverId,
