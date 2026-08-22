@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -36,6 +37,11 @@ type DailySpending = {
 
 export default function CashierClient() {
   const [q, setQ] = useState("");
+
+  const [nfc, setNfc] = useState("");
+
+  const [nfcMessage, setNfcMessage] =
+    useState("");
 
   const [results, setResults] =
     useState<Student[]>([]);
@@ -84,6 +90,13 @@ export default function CashierClient() {
   const [key, setKey] =
     useState(() => crypto.randomUUID());
 
+  /*
+   * Keep the NFC input easy to focus again
+   * after a student is selected.
+   */
+  const nfcInputRef =
+    useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     getCashierProducts()
       .then(setProducts)
@@ -121,11 +134,18 @@ export default function CashierClient() {
   }
 
   async function search() {
+    const value = q.trim();
+
+    if (!value) {
+      setResults([]);
+      return;
+    }
+
     setMessage("");
 
     try {
       const found =
-        await findCashierStudents(q);
+        await findCashierStudents(value);
 
       setResults(found);
 
@@ -141,15 +161,83 @@ export default function CashierClient() {
     }
   }
 
+  /*
+   * NFC SEARCH
+   *
+   * The NFC reader behaves like a keyboard.
+   * It types the card number into the input
+   * and normally sends Enter afterwards.
+   */
+  async function searchNfc() {
+    const value = nfc.trim();
+
+    if (!value) {
+      return;
+    }
+
+    setMessage("");
+    setNfcMessage("");
+
+    try {
+      const found =
+        await findCashierStudents(value);
+
+      if (found.length === 0) {
+        setNfcMessage(
+          "No active student is linked to this NFC card.",
+        );
+        return;
+      }
+
+      if (found.length === 1) {
+        select(found[0]);
+
+        setNfc("");
+
+        /*
+         * Keep the NFC field ready for the
+         * next card.
+         */
+        setTimeout(() => {
+          nfcInputRef.current?.focus();
+        }, 50);
+
+        return;
+      }
+
+      setNfcMessage(
+        "More than one student was found. Please use the student search.",
+      );
+    } catch (error) {
+      setNfcMessage(
+        error instanceof Error
+          ? error.message
+          : "NFC search failed",
+      );
+    }
+  }
+
   function select(selected: Student) {
     setStudent(selected);
+
     setResults([]);
+
     setQ(selected.displayCode);
+
+    setNfc("");
+
+    setNfcMessage("");
+
     setCart({});
+
     setMessage("");
+
     setNeedsOverride(false);
+
     setAdminPassword("");
+
     setShowBalancePopup(false);
+
     setShowAdminApproval(false);
 
     void loadDailySpending(
@@ -160,6 +248,7 @@ export default function CashierClient() {
   function addProduct(productId: string) {
     setCart((current) => ({
       ...current,
+
       [productId]:
         (current[productId] ?? 0) + 1,
     }));
@@ -244,7 +333,9 @@ export default function CashierClient() {
           true
         ) {
           setNeedsOverride(true);
+
           setShowBalancePopup(true);
+
           setShowAdminApproval(false);
 
           return;
@@ -255,12 +346,6 @@ export default function CashierClient() {
             "Sale failed",
         );
 
-        /*
-         * Refresh the daily spending
-         * because the server may have
-         * rejected the transaction due
-         * to the student's limit.
-         */
         void loadDailySpending(
           student.id,
         );
@@ -269,6 +354,7 @@ export default function CashierClient() {
       }
 
       setShowBalancePopup(false);
+
       setShowAdminApproval(false);
 
       setMessage(
@@ -276,25 +362,38 @@ export default function CashierClient() {
       );
 
       setCart({});
+
       setAdminPassword("");
+
       setNeedsOverride(false);
+
       setKey(
         crypto.randomUUID(),
       );
 
-      /*
-       * Refresh today's spending
-       * immediately after a successful sale.
-       */
       void loadDailySpending(
         student.id,
       );
 
       setTimeout(() => {
         setStudent(null);
+
         setDailySpending(null);
+
         setQ("");
+
+        setNfc("");
+
+        setNfcMessage("");
+
         setMessage("");
+
+        /*
+         * Ready for another NFC card.
+         */
+        setTimeout(() => {
+          nfcInputRef.current?.focus();
+        }, 50);
       }, 1800);
     } catch (error) {
       setMessage(
@@ -309,7 +408,9 @@ export default function CashierClient() {
 
   function closeBalancePopup() {
     setShowBalancePopup(false);
+
     setShowAdminApproval(false);
+
     setAdminPassword("");
   }
 
@@ -366,6 +467,8 @@ export default function CashierClient() {
       </div>
 
       <div className="panel">
+        {/* NORMAL STUDENT SEARCH */}
+
         <label className="label">
           Scan QR, enter student code,
           or search name
@@ -387,6 +490,7 @@ export default function CashierClient() {
                   event.key === "Enter"
                 ) {
                   event.preventDefault();
+
                   void search();
                 }
               }}
@@ -405,8 +509,69 @@ export default function CashierClient() {
           </div>
         </label>
 
+        {/* NFC */}
+
+        <div
+          style={{
+            marginTop: 16,
+            paddingTop: 16,
+            borderTop:
+              "1px solid #e5e7eb",
+          }}
+        >
+          <label className="label">
+            NFC Card
+
+            <input
+              ref={nfcInputRef}
+              className="input"
+              value={nfc}
+              onChange={(event) => {
+                setNfc(
+                  event.target.value,
+                );
+
+                setNfcMessage("");
+              }}
+              onKeyDown={(event) => {
+                if (
+                  event.key === "Enter"
+                ) {
+                  event.preventDefault();
+
+                  void searchNfc();
+                }
+              }}
+              placeholder="Tap NFC card here"
+              autoComplete="off"
+              inputMode="numeric"
+            />
+          </label>
+
+          <p className="subtle compact">
+            Tap the student's NFC card on
+            the reader. The card number will
+            be entered automatically.
+          </p>
+
+          {nfcMessage && (
+            <p
+              className="alert"
+              style={{
+                marginTop: 8,
+              }}
+            >
+              {nfcMessage}
+            </p>
+          )}
+        </div>
+
         {results.length > 1 && (
-          <div>
+          <div
+            style={{
+              marginTop: 12,
+            }}
+          >
             {results.map((result) => (
               <button
                 type="button"

@@ -44,12 +44,16 @@ type CashierSaleResult =
       needsAdminOverride?: boolean;
     };
 
-export async function findCashierStudents(query: string) {
+export async function findCashierStudents(
+  query: string,
+) {
   const session = await auth();
 
   if (
     !session?.user?.id ||
-    !STAFF_ROLES.includes(session.user.role as UserRole)
+    !STAFF_ROLES.includes(
+      session.user.role as UserRole,
+    )
   ) {
     throw new Error("Unauthorized");
   }
@@ -63,6 +67,7 @@ export async function findCashierStudents(query: string) {
   return prisma.student.findMany({
     where: {
       deletedAt: null,
+
       status: StudentStatus.ACTIVE,
 
       OR: [
@@ -72,15 +77,25 @@ export async function findCashierStudents(query: string) {
             mode: "insensitive",
           },
         },
+
+        {
+          nfcCardNumber: {
+            equals: q,
+            mode: "insensitive",
+          },
+        },
+
         {
           qrToken: q,
         },
+
         {
           firstName: {
             contains: q,
             mode: "insensitive",
           },
         },
+
         {
           lastName: {
             contains: q,
@@ -104,6 +119,7 @@ export async function findCashierStudents(query: string) {
       {
         firstName: "asc",
       },
+
       {
         lastName: "asc",
       },
@@ -116,7 +132,9 @@ export async function getCashierProducts() {
 
   if (
     !session?.user?.id ||
-    !STAFF_ROLES.includes(session.user.role as UserRole)
+    !STAFF_ROLES.includes(
+      session.user.role as UserRole,
+    )
   ) {
     throw new Error("Unauthorized");
   }
@@ -131,6 +149,7 @@ export async function getCashierProducts() {
       {
         sortOrder: "asc",
       },
+
       {
         name: "asc",
       },
@@ -148,7 +167,9 @@ export async function createCashierSale(input: {
 
   if (
     !session?.user?.id ||
-    !STAFF_ROLES.includes(session.user.role as UserRole)
+    !STAFF_ROLES.includes(
+      session.user.role as UserRole,
+    )
   ) {
     return {
       ok: false,
@@ -156,7 +177,10 @@ export async function createCashierSale(input: {
     };
   }
 
-  if (!input.idempotencyKey || !input.items.length) {
+  if (
+    !input.idempotencyKey ||
+    !input.items.length
+  ) {
     return {
       ok: false,
       error: "Empty sale",
@@ -180,92 +204,132 @@ export async function createCashierSale(input: {
   try {
     return await prisma.$transaction(
       async (tx) => {
-        const existingSale = await tx.sale.findUnique({
-          where: {
-            idempotencyKey: input.idempotencyKey,
-          },
-        });
+        const existingSale =
+          await tx.sale.findUnique({
+            where: {
+              idempotencyKey:
+                input.idempotencyKey,
+            },
+          });
 
         if (existingSale) {
           return {
             ok: true,
             saleId: existingSale.id,
-            saleNumber: existingSale.saleNumber,
-            total: existingSale.total.toFixed(2),
+            saleNumber:
+              existingSale.saleNumber,
+            total:
+              existingSale.total.toFixed(2),
             balanceAfter: "",
-            overdraft: existingSale.isOverdraftOverride,
+            overdraft:
+              existingSale.isOverdraftOverride,
             duplicate: true,
           };
         }
 
-        const student = await tx.student.findUnique({
-          where: {
-            id: input.studentId,
-          },
-
-          include: {
-            school: {
-              include: {
-                settings: true,
-              },
+        const student =
+          await tx.student.findUnique({
+            where: {
+              id: input.studentId,
             },
 
-            parent: {
-              include: {
-                wallet: true,
-                user: true,
-                notificationPreference: true,
+            include: {
+              school: {
+                include: {
+                  settings: true,
+                },
+              },
+
+              parent: {
+                include: {
+                  wallet: true,
+                  user: true,
+                  notificationPreference: true,
+                },
               },
             },
-          },
-        });
+          });
 
         if (
           !student ||
-          student.status !== StudentStatus.ACTIVE ||
+          student.status !==
+            StudentStatus.ACTIVE ||
           student.deletedAt
         ) {
-          throw new Error("Student is not active");
+          throw new Error(
+            "Student is not active",
+          );
         }
 
-        const wallet = student.parent.wallet;
+        const wallet =
+          student.parent.wallet;
 
-        if (!wallet || wallet.status !== WalletStatus.ACTIVE) {
-          throw new Error("Family wallet is not active");
+        if (
+          !wallet ||
+          wallet.status !==
+            WalletStatus.ACTIVE
+        ) {
+          throw new Error(
+            "Family wallet is not active",
+          );
         }
 
         const uniqueProductIds = [
-          ...new Set(cleanItems.map((item) => item.productId)),
+          ...new Set(
+            cleanItems.map(
+              (item) => item.productId,
+            ),
+          ),
         ];
 
-        const products = await tx.product.findMany({
-          where: {
-            id: {
-              in: uniqueProductIds,
-            },
-            isActive: true,
-            deletedAt: null,
-          },
-        });
+        const products =
+          await tx.product.findMany({
+            where: {
+              id: {
+                in: uniqueProductIds,
+              },
 
-        if (products.length !== uniqueProductIds.length) {
-          throw new Error("A product is unavailable");
+              isActive: true,
+              deletedAt: null,
+            },
+          });
+
+        if (
+          products.length !==
+          uniqueProductIds.length
+        ) {
+          throw new Error(
+            "A product is unavailable",
+          );
         }
 
         const productMap = new Map(
-          products.map((product) => [product.id, product]),
+          products.map((product) => [
+            product.id,
+            product,
+          ]),
         );
 
-        let total = new Prisma.Decimal(0);
+        let total =
+          new Prisma.Decimal(0);
 
         for (const line of cleanItems) {
-          const product = productMap.get(line.productId);
+          const product =
+            productMap.get(
+              line.productId,
+            );
 
           if (!product) {
-            throw new Error("A product is unavailable");
+            throw new Error(
+              "A product is unavailable",
+            );
           }
 
-          total = total.add(product.price.mul(line.quantity));
+          total = total.add(
+            product.price.mul(
+              line.quantity,
+            ),
+          );
         }
 
         /*
@@ -273,39 +337,54 @@ export async function createCashierSale(input: {
          * DAILY SPENDING LIMIT
          * ------------------------------------------------------------
          *
-         * The parent can set a daily limit for each student.
-         *
          * null = unlimited
          *
          * The limit applies to:
-         *   - Cashier sales
-         *   - Pre-orders
-         *
-         * Therefore we include today's completed sales and today's
-         * active pre-orders when calculating the amount already spent.
-         *
-         * Admin overdraft approval does NOT override the daily limit.
+         * - Cashier sales
+         * - Pre-orders
          */
 
-        if (student.dailySpendLimit !== null) {
+        if (
+          student.dailySpendLimit !==
+          null
+        ) {
           const now = new Date();
 
-          const startOfToday = new Date(now);
-          startOfToday.setHours(0, 0, 0, 0);
+          const startOfToday =
+            new Date(now);
 
-          const startOfTomorrow = new Date(startOfToday);
-          startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+          startOfToday.setHours(
+            0,
+            0,
+            0,
+            0,
+          );
 
-          const [salesToday, preOrdersToday] = await Promise.all([
+          const startOfTomorrow =
+            new Date(startOfToday);
+
+          startOfTomorrow.setDate(
+            startOfTomorrow.getDate() +
+              1,
+          );
+
+          const [
+            salesToday,
+            preOrdersToday,
+          ] = await Promise.all([
             tx.sale.aggregate({
               where: {
-                studentId: student.id,
+                studentId:
+                  student.id,
+
                 createdAt: {
                   gte: startOfToday,
                   lt: startOfTomorrow,
                 },
+
                 status: "COMPLETED",
               },
+
               _sum: {
                 total: true,
               },
@@ -313,11 +392,14 @@ export async function createCashierSale(input: {
 
             tx.preOrder.aggregate({
               where: {
-                studentId: student.id,
+                studentId:
+                  student.id,
+
                 createdAt: {
                   gte: startOfToday,
                   lt: startOfTomorrow,
                 },
+
                 status: {
                   in: [
                     "CONFIRMED",
@@ -327,28 +409,45 @@ export async function createCashierSale(input: {
                   ],
                 },
               },
+
               _sum: {
                 total: true,
               },
             }),
           ]);
 
-          const salesSpent = new Prisma.Decimal(
-            salesToday._sum.total ?? 0,
-          );
-
-          const preOrdersSpent = new Prisma.Decimal(
-            preOrdersToday._sum.total ?? 0,
-          );
-
-          const spentToday = salesSpent.add(preOrdersSpent);
-          const projectedSpent = spentToday.add(total);
-
-          if (projectedSpent.gt(student.dailySpendLimit)) {
-            const remaining = Prisma.Decimal.max(
-              student.dailySpendLimit.sub(spentToday),
-              new Prisma.Decimal(0),
+          const salesSpent =
+            new Prisma.Decimal(
+              salesToday._sum.total ??
+                0,
             );
+
+          const preOrdersSpent =
+            new Prisma.Decimal(
+              preOrdersToday._sum.total ??
+                0,
+            );
+
+          const spentToday =
+            salesSpent.add(
+              preOrdersSpent,
+            );
+
+          const projectedSpent =
+            spentToday.add(total);
+
+          if (
+            projectedSpent.gt(
+              student.dailySpendLimit,
+            )
+          ) {
+            const remaining =
+              Prisma.Decimal.max(
+                student.dailySpendLimit.sub(
+                  spentToday,
+                ),
+                new Prisma.Decimal(0),
+              );
 
             return {
               ok: false,
@@ -362,10 +461,17 @@ export async function createCashierSale(input: {
           }
         }
 
-        const proposedBalance = wallet.balance.sub(total);
-        const settings = student.school.settings;
+        const proposedBalance =
+          wallet.balance.sub(total);
 
-        let approverId: string | undefined;
+        const settings =
+          student.school.settings;
+
+        void settings;
+
+        let approverId:
+          | string
+          | undefined;
 
         /*
          * ------------------------------------------------------------
@@ -373,48 +479,60 @@ export async function createCashierSale(input: {
          * ------------------------------------------------------------
          */
 
-        if (proposedBalance.lt(0)) {
+        if (
+          proposedBalance.lt(0)
+        ) {
           if (!input.adminPassword) {
             return {
               ok: false,
-              error: "Insufficient balance",
+              error:
+                "Insufficient balance",
               needsAdminOverride: true,
             };
           }
 
-          const admins = await tx.user.findMany({
-            where: {
-              status: UserStatus.ACTIVE,
-              deletedAt: null,
+          const admins =
+            await tx.user.findMany({
+              where: {
+                status:
+                  UserStatus.ACTIVE,
 
-              role: {
-                in: [
-                  UserRole.SUPER_ADMIN,
-                  UserRole.SCHOOL_ADMIN,
+                deletedAt: null,
+
+                role: {
+                  in: [
+                    UserRole.SUPER_ADMIN,
+                    UserRole.SCHOOL_ADMIN,
+                  ],
+                },
+
+                OR: [
+                  {
+                    role:
+                      UserRole.SUPER_ADMIN,
+                  },
+
+                  {
+                    role:
+                      UserRole.SCHOOL_ADMIN,
+
+                    schoolId:
+                      student.schoolId,
+                  },
                 ],
               },
-
-              OR: [
-                {
-                  role: UserRole.SUPER_ADMIN,
-                },
-                {
-                  role: UserRole.SCHOOL_ADMIN,
-                  schoolId: student.schoolId,
-                },
-              ],
-            },
-          });
+            });
 
           let approvedAdmin:
             | (typeof admins)[number]
             | null = null;
 
           for (const admin of admins) {
-            const passwordMatches = await bcrypt.compare(
-              input.adminPassword,
-              admin.passwordHash,
-            );
+            const passwordMatches =
+              await bcrypt.compare(
+                input.adminPassword,
+                admin.passwordHash,
+              );
 
             if (passwordMatches) {
               approvedAdmin = admin;
@@ -425,12 +543,14 @@ export async function createCashierSale(input: {
           if (!approvedAdmin) {
             return {
               ok: false,
-              error: "Invalid admin password",
+              error:
+                "Invalid admin password",
               needsAdminOverride: true,
             };
           }
 
-          approverId = approvedAdmin.id;
+          approverId =
+            approvedAdmin.id;
         }
 
         /*
@@ -439,18 +559,22 @@ export async function createCashierSale(input: {
          * ------------------------------------------------------------
          */
 
-        const guardedWalletUpdate = await tx.wallet.updateMany({
-          where: {
-            id: wallet.id,
-            balance: wallet.balance,
-          },
+        const guardedWalletUpdate =
+          await tx.wallet.updateMany({
+            where: {
+              id: wallet.id,
+              balance: wallet.balance,
+            },
 
-          data: {
-            balance: proposedBalance,
-          },
-        });
+            data: {
+              balance: proposedBalance,
+            },
+          });
 
-        if (guardedWalletUpdate.count !== 1) {
+        if (
+          guardedWalletUpdate.count !==
+          1
+        ) {
           throw new Error(
             "Wallet balance changed. Please retry the sale.",
           );
@@ -462,45 +586,76 @@ export async function createCashierSale(input: {
          * ------------------------------------------------------------
          */
 
-        const sale = await tx.sale.create({
-          data: {
-            saleNumber: `SALE-${Date.now()}-${randomUUID()
-              .slice(0, 6)
-              .toUpperCase()}`,
+        const sale =
+          await tx.sale.create({
+            data: {
+              saleNumber: `SALE-${Date.now()}-${randomUUID()
+                .slice(0, 6)
+                .toUpperCase()}`,
 
-            idempotencyKey: input.idempotencyKey,
+              idempotencyKey:
+                input.idempotencyKey,
 
-            schoolId: student.schoolId,
-            studentId: student.id,
-            walletId: wallet.id,
-            cashierUserId: session.user.id,
+              schoolId:
+                student.schoolId,
 
-            subtotal: total,
-            total,
+              studentId:
+                student.id,
 
-            isOverdraftOverride: proposedBalance.lt(0),
+              walletId:
+                wallet.id,
 
-            overrideApprovedById: approverId,
+              cashierUserId:
+                session.user.id,
 
-            items: {
-              create: cleanItems.map((line) => {
-                const product = productMap.get(line.productId);
+              subtotal: total,
 
-                if (!product) {
-                  throw new Error("A product is unavailable");
-                }
+              total,
 
-                return {
-                  productId: product.id,
-                  productNameSnapshot: product.name,
-                  unitPrice: product.price,
-                  quantity: line.quantity,
-                  lineTotal: product.price.mul(line.quantity),
-                };
-              }),
+              isOverdraftOverride:
+                proposedBalance.lt(0),
+
+              overrideApprovedById:
+                approverId,
+
+              items: {
+                create:
+                  cleanItems.map(
+                    (line) => {
+                      const product =
+                        productMap.get(
+                          line.productId,
+                        );
+
+                      if (!product) {
+                        throw new Error(
+                          "A product is unavailable",
+                        );
+                      }
+
+                      return {
+                        productId:
+                          product.id,
+
+                        productNameSnapshot:
+                          product.name,
+
+                        unitPrice:
+                          product.price,
+
+                        quantity:
+                          line.quantity,
+
+                        lineTotal:
+                          product.price.mul(
+                            line.quantity,
+                          ),
+                      };
+                    },
+                  ),
+              },
             },
-          },
-        });
+          });
 
         /*
          * ------------------------------------------------------------
@@ -511,14 +666,19 @@ export async function createCashierSale(input: {
         await tx.walletTransaction.create({
           data: {
             walletId: wallet.id,
+
             studentId: student.id,
 
-            type: proposedBalance.lt(0)
+            type: proposedBalance.lt(
+              0,
+            )
               ? WalletTransactionType.OVERDRAFT_SALE
               : WalletTransactionType.SALE_DEBIT,
 
             amount: total.neg(),
-            balanceAfter: proposedBalance,
+
+            balanceAfter:
+              proposedBalance,
 
             description: `Canteen sale ${sale.saleNumber}`,
 
@@ -535,14 +695,20 @@ export async function createCashierSale(input: {
         await queueParentNotification({
           tx,
 
-          userId: student.parent.user.id,
-          parentId: student.parent.id,
+          userId:
+            student.parent.user.id,
 
-          event: NotificationEvent.PURCHASE_COMPLETED,
+          parentId:
+            student.parent.id,
 
-          preferenceKey: "notifyPurchase",
+          event:
+            NotificationEvent.PURCHASE_COMPLETED,
 
-          subject: "Canteen purchase completed",
+          preferenceKey:
+            "notifyPurchase",
+
+          subject:
+            "Canteen purchase completed",
 
           message: `${student.firstName} ${
             student.lastName
@@ -556,10 +722,12 @@ export async function createCashierSale(input: {
             saleId: sale.id,
             studentId: student.id,
             amount: Number(total),
-            balanceAfter: Number(proposedBalance),
+            balanceAfter:
+              Number(proposedBalance),
           },
 
-          schoolId: student.schoolId,
+          schoolId:
+            student.schoolId,
         });
 
         /*
@@ -569,27 +737,39 @@ export async function createCashierSale(input: {
          */
 
         const lowBalanceThreshold =
-          student.parent.notificationPreference
+          student.parent
+            .notificationPreference
             ?.lowBalanceThreshold;
 
         if (
-          student.parent.notificationPreference
+          student.parent
+            .notificationPreference
             ?.notifyLowBalance &&
-          lowBalanceThreshold !== null &&
-          lowBalanceThreshold !== undefined &&
-          proposedBalance.lte(lowBalanceThreshold)
+          lowBalanceThreshold !==
+            null &&
+          lowBalanceThreshold !==
+            undefined &&
+          proposedBalance.lte(
+            lowBalanceThreshold,
+          )
         ) {
           await queueParentNotification({
             tx,
 
-            userId: student.parent.user.id,
-            parentId: student.parent.id,
+            userId:
+              student.parent.user.id,
 
-            event: NotificationEvent.LOW_BALANCE,
+            parentId:
+              student.parent.id,
 
-            preferenceKey: "notifyLowBalance",
+            event:
+              NotificationEvent.LOW_BALANCE,
 
-            subject: "Family wallet balance is low",
+            preferenceKey:
+              "notifyLowBalance",
+
+            subject:
+              "Family wallet balance is low",
 
             message: `Your CanteenCo family wallet balance is $${proposedBalance.toFixed(
               2,
@@ -599,11 +779,20 @@ export async function createCashierSale(input: {
 
             metadata: {
               walletId: wallet.id,
-              balance: Number(proposedBalance),
-              threshold: Number(lowBalanceThreshold),
+
+              balance:
+                Number(
+                  proposedBalance,
+                ),
+
+              threshold:
+                Number(
+                  lowBalanceThreshold,
+                ),
             },
 
-            schoolId: student.schoolId,
+            schoolId:
+              student.schoolId,
           });
         }
 
@@ -615,11 +804,22 @@ export async function createCashierSale(input: {
 
         return {
           ok: true,
+
           saleId: sale.id,
-          saleNumber: sale.saleNumber,
-          total: total.toFixed(2),
-          balanceAfter: proposedBalance.toFixed(2),
-          overdraft: proposedBalance.lt(0),
+
+          saleNumber:
+            sale.saleNumber,
+
+          total:
+            total.toFixed(2),
+
+          balanceAfter:
+            proposedBalance.toFixed(
+              2,
+            ),
+
+          overdraft:
+            proposedBalance.lt(0),
         };
       },
 
