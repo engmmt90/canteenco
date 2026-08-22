@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import { signOut } from "next-auth/react";
 
 import {
@@ -9,28 +14,75 @@ import {
   getCashierProducts,
 } from "@/app/actions/sales";
 
+import {
+  getStudentDailySpending,
+} from "@/app/actions/student-spending";
+
 type Student =
-  Awaited<ReturnType<typeof findCashierStudents>>[number];
+  Awaited<
+    ReturnType<typeof findCashierStudents>
+  >[number];
 
 type Product =
-  Awaited<ReturnType<typeof getCashierProducts>>[number];
+  Awaited<
+    ReturnType<typeof getCashierProducts>
+  >[number];
+
+type DailySpending = {
+  dailyLimit: number | null;
+  spentToday: number;
+  remainingToday: number | null;
+};
 
 export default function CashierClient() {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<Student[]>([]);
-  const [student, setStudent] = useState<Student | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<Record<string, number>>({});
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
 
-  const [adminPassword, setAdminPassword] = useState("");
-  const [needsOverride, setNeedsOverride] = useState(false);
+  const [results, setResults] =
+    useState<Student[]>([]);
 
-  const [showBalancePopup, setShowBalancePopup] = useState(false);
-  const [showAdminApproval, setShowAdminApproval] = useState(false);
+  const [student, setStudent] =
+    useState<Student | null>(null);
 
-  const [key, setKey] = useState(() => crypto.randomUUID());
+  const [products, setProducts] =
+    useState<Product[]>([]);
+
+  const [cart, setCart] =
+    useState<Record<string, number>>({});
+
+  const [busy, setBusy] =
+    useState(false);
+
+  const [message, setMessage] =
+    useState("");
+
+  const [adminPassword, setAdminPassword] =
+    useState("");
+
+  const [needsOverride, setNeedsOverride] =
+    useState(false);
+
+  const [
+    showBalancePopup,
+    setShowBalancePopup,
+  ] = useState(false);
+
+  const [
+    showAdminApproval,
+    setShowAdminApproval,
+  ] = useState(false);
+
+  const [
+    dailySpending,
+    setDailySpending,
+  ] = useState<DailySpending | null>(null);
+
+  const [
+    loadingDailySpending,
+    setLoadingDailySpending,
+  ] = useState(false);
+
+  const [key, setKey] =
+    useState(() => crypto.randomUUID());
 
   useEffect(() => {
     getCashierProducts()
@@ -44,11 +96,36 @@ export default function CashierClient() {
       });
   }, []);
 
+  async function loadDailySpending(
+    studentId: string,
+  ) {
+    setLoadingDailySpending(true);
+    setDailySpending(null);
+
+    try {
+      const spending =
+        await getStudentDailySpending(
+          studentId,
+        );
+
+      setDailySpending(spending);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not load daily spending",
+      );
+    } finally {
+      setLoadingDailySpending(false);
+    }
+  }
+
   async function search() {
     setMessage("");
 
     try {
-      const found = await findCashierStudents(q);
+      const found =
+        await findCashierStudents(q);
 
       setResults(found);
 
@@ -74,6 +151,10 @@ export default function CashierClient() {
     setAdminPassword("");
     setShowBalancePopup(false);
     setShowAdminApproval(false);
+
+    void loadDailySpending(
+      selected.id,
+    );
   }
 
   function addProduct(productId: string) {
@@ -84,7 +165,9 @@ export default function CashierClient() {
     }));
   }
 
-  function removeProduct(productId: string) {
+  function removeProduct(
+    productId: string,
+  ) {
     setCart((current) => {
       const nextQuantity = Math.max(
         0,
@@ -110,12 +193,19 @@ export default function CashierClient() {
     [products, cart],
   );
 
-  const balance = student?.parent.wallet
-    ? Number(student.parent.wallet.balance)
-    : 0;
+  const balance =
+    student?.parent.wallet
+      ? Number(
+          student.parent.wallet.balance,
+        )
+      : 0;
 
   async function confirm() {
-    if (!student || total <= 0 || busy) {
+    if (
+      !student ||
+      total <= 0 ||
+      busy
+    ) {
       return;
     }
 
@@ -123,31 +213,56 @@ export default function CashierClient() {
     setMessage("");
 
     try {
-      const items = Object.entries(cart)
-        .filter(([, quantity]) => quantity > 0)
-        .map(([productId, quantity]) => ({
-          productId,
-          quantity,
-        }));
+      const items =
+        Object.entries(cart)
+          .filter(
+            ([, quantity]) =>
+              quantity > 0,
+          )
+          .map(
+            ([
+              productId,
+              quantity,
+            ]) => ({
+              productId,
+              quantity,
+            }),
+          );
 
-      const result = await createCashierSale({
-        studentId: student.id,
-        items,
-        idempotencyKey: key,
-        adminPassword:
-          adminPassword || undefined,
-      });
+      const result =
+        await createCashierSale({
+          studentId: student.id,
+          items,
+          idempotencyKey: key,
+          adminPassword:
+            adminPassword || undefined,
+        });
 
       if (!result.ok) {
-        if (result.needsAdminOverride === true) {
+        if (
+          result.needsAdminOverride ===
+          true
+        ) {
           setNeedsOverride(true);
           setShowBalancePopup(true);
           setShowAdminApproval(false);
+
           return;
         }
 
         setMessage(
-          result.error || "Sale failed",
+          result.error ||
+            "Sale failed",
+        );
+
+        /*
+         * Refresh the daily spending
+         * because the server may have
+         * rejected the transaction due
+         * to the student's limit.
+         */
+        void loadDailySpending(
+          student.id,
         );
 
         return;
@@ -163,10 +278,21 @@ export default function CashierClient() {
       setCart({});
       setAdminPassword("");
       setNeedsOverride(false);
-      setKey(crypto.randomUUID());
+      setKey(
+        crypto.randomUUID(),
+      );
+
+      /*
+       * Refresh today's spending
+       * immediately after a successful sale.
+       */
+      void loadDailySpending(
+        student.id,
+      );
 
       setTimeout(() => {
         setStudent(null);
+        setDailySpending(null);
         setQ("");
         setMessage("");
       }, 1800);
@@ -192,7 +318,9 @@ export default function CashierClient() {
   }
 
   async function approveNegativeSale() {
-    if (!adminPassword.trim()) {
+    if (
+      !adminPassword.trim()
+    ) {
       return;
     }
 
@@ -227,7 +355,8 @@ export default function CashierClient() {
             className="secondary"
             onClick={() =>
               signOut({
-                callbackUrl: "/staff/login",
+                callbackUrl:
+                  "/staff/login",
               })
             }
           >
@@ -254,7 +383,9 @@ export default function CashierClient() {
                 setQ(event.target.value)
               }
               onKeyDown={(event) => {
-                if (event.key === "Enter") {
+                if (
+                  event.key === "Enter"
+                ) {
                   event.preventDefault();
                   void search();
                 }
@@ -265,7 +396,9 @@ export default function CashierClient() {
             <button
               type="button"
               className="primary"
-              onClick={() => void search()}
+              onClick={() =>
+                void search()
+              }
             >
               Search
             </button>
@@ -301,18 +434,82 @@ export default function CashierClient() {
             </strong>{" "}
             · {student.displayCode} · Class{" "}
             {student.classCode}
+
             <br />
 
-            <span className="subtle">
-              Family wallet
-            </span>{" "}
-            <strong>
-              ${balance.toFixed(2)}
-            </strong>
+            <div
+              style={{
+                marginTop: 8,
+                display: "grid",
+                gap: 5,
+              }}
+            >
+              <div>
+                <span className="subtle">
+                  Family wallet
+                </span>{" "}
+                <strong>
+                  ${balance.toFixed(2)}
+                </strong>
+              </div>
+
+              <div>
+                <span className="subtle">
+                  Daily spending limit
+                  for this student
+                </span>{" "}
+                <strong>
+                  {loadingDailySpending
+                    ? "Loading..."
+                    : dailySpending
+                        ?.dailyLimit ===
+                      null
+                    ? "No limit"
+                    : `$${Number(
+                        dailySpending?.dailyLimit ??
+                          student.dailySpendLimit ??
+                          0,
+                      ).toFixed(2)}`}
+                </strong>
+              </div>
+
+              <div>
+                <span className="subtle">
+                  Spent today
+                </span>{" "}
+                <strong>
+                  {loadingDailySpending
+                    ? "Loading..."
+                    : `$${Number(
+                        dailySpending?.spentToday ??
+                          0,
+                      ).toFixed(2)}`}
+                </strong>
+              </div>
+
+              <div>
+                <span className="subtle">
+                  Remaining today
+                </span>{" "}
+                <strong>
+                  {loadingDailySpending
+                    ? "Loading..."
+                    : dailySpending
+                        ?.remainingToday ===
+                      null
+                    ? "Unlimited"
+                    : `$${Number(
+                        dailySpending?.remainingToday ??
+                          0,
+                      ).toFixed(2)}`}
+                </strong>
+              </div>
+            </div>
           </div>
 
           <section className="cashier-grid">
             {/* PRODUCTS */}
+
             <div className="panel">
               <h2>Products</h2>
 
@@ -325,145 +522,193 @@ export default function CashierClient() {
                   gap: 12,
                 }}
               >
-                {products.map((product) => (
-                  <button
-                    type="button"
-                    className="product"
-                    key={product.id}
-                    onClick={() =>
-                      addProduct(product.id)
-                    }
-                    style={{
-                      padding: 10,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                      gap: 7,
-                      minHeight: 195,
-                      textAlign: "center",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {/* Product image */}
-                    <div
+                {products.map(
+                  (product) => (
+                    <button
+                      type="button"
+                      className="product"
+                      key={product.id}
+                      onClick={() =>
+                        addProduct(
+                          product.id,
+                        )
+                      }
                       style={{
-                        width: "100%",
-                        height: 120,
-                        borderRadius: 10,
-                        overflow: "hidden",
-                        background: "#f3f4f6",
+                        padding: 10,
                         display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
+                        flexDirection:
+                          "column",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "flex-start",
+                        gap: 7,
+                        minHeight: 195,
+                        textAlign: "center",
+                        overflow:
+                          "hidden",
                       }}
                     >
-                      {product.imageUrl ? (
-                        <img
-                          src={product.imageUrl}
-                          alt={product.name}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                      ) : (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "#9ca3af",
-                          }}
-                        >
-                          No image
-                        </span>
-                      )}
-                    </div>
+                      <div
+                        style={{
+                          width: "100%",
+                          height: 120,
+                          borderRadius: 10,
+                          overflow:
+                            "hidden",
+                          background:
+                            "#f3f4f6",
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          justifyContent:
+                            "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {product.imageUrl ? (
+                          <img
+                            src={
+                              product.imageUrl
+                            }
+                            alt={
+                              product.name
+                            }
+                            style={{
+                              width:
+                                "100%",
+                              height:
+                                "100%",
+                              objectFit:
+                                "cover",
+                              display:
+                                "block",
+                            }}
+                          />
+                        ) : (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color:
+                                "#9ca3af",
+                            }}
+                          >
+                            No image
+                          </span>
+                        )}
+                      </div>
 
-                    <strong
-                      style={{
-                        fontSize: 15,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      {product.name}
-                    </strong>
+                      <strong
+                        style={{
+                          fontSize: 15,
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {product.name}
+                      </strong>
 
-                    <span
-                      style={{
-                        fontWeight: 700,
-                      }}
-                    >
-                      ${Number(product.price).toFixed(2)}
-                    </span>
-
-                    {cart[product.id] ? (
                       <span
                         style={{
-                          fontSize: 13,
                           fontWeight: 700,
                         }}
                       >
-                        × {cart[product.id]}
+                        $
+                        {Number(
+                          product.price,
+                        ).toFixed(2)}
                       </span>
-                    ) : null}
-                  </button>
-                ))}
+
+                      {cart[
+                        product.id
+                      ] ? (
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                          }}
+                        >
+                          ×{" "}
+                          {
+                            cart[
+                              product.id
+                            ]
+                          }
+                        </span>
+                      ) : null}
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
             {/* CURRENT SALE */}
+
             <aside className="panel">
-              <h2>Current Sale</h2>
+              <h2>
+                Current Sale
+              </h2>
 
               {products
                 .filter(
                   (product) =>
-                    (cart[product.id] ?? 0) > 0,
+                    (cart[
+                      product.id
+                    ] ?? 0) > 0,
                 )
                 .map((product) => (
                   <div
                     key={product.id}
                     style={{
                       display: "flex",
-                      alignItems: "center",
+                      alignItems:
+                        "center",
                       gap: 10,
                       padding: "8px 0",
                       minHeight: 52,
                     }}
                   >
-                    {/* Small current-sale image */}
                     <div
                       style={{
                         width: 36,
                         height: 36,
                         borderRadius: 8,
-                        overflow: "hidden",
-                        background: "#f3f4f6",
+                        overflow:
+                          "hidden",
+                        background:
+                          "#f3f4f6",
                         flexShrink: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "center",
                       }}
                     >
                       {product.imageUrl ? (
                         <img
-                          src={product.imageUrl}
+                          src={
+                            product.imageUrl
+                          }
                           alt=""
                           style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            display: "block",
+                            width:
+                              "100%",
+                            height:
+                              "100%",
+                            objectFit:
+                              "cover",
+                            display:
+                              "block",
                           }}
                         />
                       ) : (
                         <span
                           style={{
                             fontSize: 10,
-                            color: "#9ca3af",
+                            color:
+                              "#9ca3af",
                           }}
                         >
                           —
@@ -471,7 +716,6 @@ export default function CashierClient() {
                       )}
                     </div>
 
-                    {/* Product name / quantity */}
                     <div
                       style={{
                         flex: 1,
@@ -480,35 +724,50 @@ export default function CashierClient() {
                     >
                       <strong
                         style={{
-                          display: "block",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
+                          display:
+                            "block",
+                          overflow:
+                            "hidden",
+                          textOverflow:
+                            "ellipsis",
+                          whiteSpace:
+                            "nowrap",
                         }}
                       >
-                        {product.name}
+                        {
+                          product.name
+                        }
                       </strong>
 
                       <span className="subtle">
-                        × {cart[product.id]}
+                        ×{" "}
+                        {
+                          cart[
+                            product.id
+                          ]
+                        }
                       </span>
                     </div>
 
-                    {/* Remove one */}
                     <button
                       type="button"
                       className="secondary"
                       onClick={() =>
-                        removeProduct(product.id)
+                        removeProduct(
+                          product.id,
+                        )
                       }
                       style={{
                         minWidth: 36,
                         width: 36,
                         height: 36,
                         padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "center",
                       }}
                     >
                       −
@@ -519,24 +778,63 @@ export default function CashierClient() {
               <div className="divider" />
 
               <strong>
-                Total: ${total.toFixed(2)}
+                Total: $
+                {total.toFixed(2)}
               </strong>
 
               <br />
 
               <span>
                 Projected balance: $
-                {(balance - total).toFixed(2)}
+                {(
+                  balance - total
+                ).toFixed(2)}
               </span>
 
+              {dailySpending &&
+              dailySpending.remainingToday !==
+                null ? (
+                <>
+                  <div
+                    style={{
+                      height: 10,
+                    }}
+                  />
+
+                  <span>
+                    Projected daily
+                    spending: $
+                    {(
+                      dailySpending.spentToday +
+                      total
+                    ).toFixed(2)}
+                  </span>
+
+                  <br />
+
+                  <span>
+                    Remaining after
+                    sale: $
+                    {Math.max(
+                      0,
+                      dailySpending.remainingToday -
+                        total,
+                    ).toFixed(2)}
+                  </span>
+                </>
+              ) : null}
+
               <div
-                style={{ height: 12 }}
+                style={{
+                  height: 12,
+                }}
               />
 
               <button
                 type="button"
                 disabled={
-                  busy || total <= 0
+                  busy ||
+                  total <= 0
                 }
                 className="primary"
                 style={{
@@ -560,6 +858,7 @@ export default function CashierClient() {
       )}
 
       {/* INSUFFICIENT BALANCE POPUP */}
+
       {showBalancePopup && (
         <div
           style={{
@@ -568,8 +867,10 @@ export default function CashierClient() {
             background:
               "rgba(0, 0, 0, 0.55)",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
             zIndex: 9999,
             padding: 20,
           }}
@@ -592,18 +893,21 @@ export default function CashierClient() {
                     marginTop: 0,
                   }}
                 >
-                  Insufficient Balance
+                  Insufficient
+                  Balance
                 </h2>
 
                 <p>
-                  This family wallet does not
-                  have enough balance to
-                  complete this sale.
+                  This family wallet
+                  does not have enough
+                  balance to complete
+                  this sale.
                 </p>
 
                 <div
                   style={{
-                    background: "#f3f4f6",
+                    background:
+                      "#f3f4f6",
                     borderRadius: 10,
                     padding: 14,
                     marginBottom: 20,
@@ -613,7 +917,9 @@ export default function CashierClient() {
                     Current balance:{" "}
                     <strong>
                       $
-                      {balance.toFixed(2)}
+                      {balance.toFixed(
+                        2,
+                      )}
                     </strong>
                   </div>
 
@@ -621,16 +927,20 @@ export default function CashierClient() {
                     Sale total:{" "}
                     <strong>
                       $
-                      {total.toFixed(2)}
+                      {total.toFixed(
+                        2,
+                      )}
                     </strong>
                   </div>
 
                   <div>
-                    Balance after sale:{" "}
+                    Balance after
+                    sale:{" "}
                     <strong>
                       $
                       {(
-                        balance - total
+                        balance -
+                        total
                       ).toFixed(2)}
                     </strong>
                   </div>
@@ -661,7 +971,9 @@ export default function CashierClient() {
                     style={{
                       flex: 1,
                     }}
-                    onClick={askAdmin}
+                    onClick={
+                      askAdmin
+                    }
                   >
                     Ask Admin
                   </button>
@@ -678,9 +990,10 @@ export default function CashierClient() {
                 </h2>
 
                 <p>
-                  Admin approval is required
-                  to complete this sale with
-                  a negative balance.
+                  Admin approval is
+                  required to complete
+                  this sale with a
+                  negative balance.
                 </p>
 
                 <label className="label">
@@ -690,18 +1003,26 @@ export default function CashierClient() {
                     className="input"
                     type="password"
                     autoFocus
-                    value={adminPassword}
-                    onChange={(event) =>
+                    value={
+                      adminPassword
+                    }
+                    onChange={(
+                      event,
+                    ) =>
                       setAdminPassword(
-                        event.target.value,
+                        event.target
+                          .value,
                       )
                     }
-                    onKeyDown={(event) => {
+                    onKeyDown={(
+                      event,
+                    ) => {
                       if (
                         event.key ===
                         "Enter"
                       ) {
                         event.preventDefault();
+
                         void approveNegativeSale();
                       }
                     }}
@@ -731,7 +1052,10 @@ export default function CashierClient() {
                       setShowAdminApproval(
                         false,
                       );
-                      setAdminPassword("");
+
+                      setAdminPassword(
+                        "",
+                      );
                     }}
                   >
                     Back
