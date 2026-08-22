@@ -92,10 +92,8 @@ export default function CashierClient() {
     useRef<HTMLInputElement | null>(null);
 
   /*
-   * Keep the NFC reader input focused.
-   *
-   * The reader behaves like a keyboard, so
-   * whatever is focused receives the card number.
+   * Keep the NFC input easy to focus again
+   * after a student is selected.
    */
   function focusNfcInput() {
     window.setTimeout(() => {
@@ -491,6 +489,8 @@ export default function CashierClient() {
       </div>
 
       <div className="panel">
+        {/* NORMAL STUDENT SEARCH */}
+
         <label className="label">
           Scan QR, enter student code,
           or search name
@@ -530,6 +530,8 @@ export default function CashierClient() {
             </button>
           </div>
         </label>
+
+        {/* NFC */}
 
         <div
           style={{
@@ -674,10 +676,42 @@ export default function CashierClient() {
               </div>
 
               <div>
-                <span className="subtle">
+                <span
+                  className="subtle"
+                  style={
+                    !loadingDailySpending &&
+                    dailySpending?.remainingToday !==
+                      null &&
+                    Number(
+                      dailySpending?.remainingToday ??
+                        0,
+                    ) < 5
+                      ? {
+                          color:
+                            "#dc2626",
+                          fontWeight: 700,
+                        }
+                      : undefined
+                  }
+                >
                   Remaining today
                 </span>{" "}
-                <strong>
+                <strong
+                  style={
+                    !loadingDailySpending &&
+                    dailySpending?.remainingToday !==
+                      null &&
+                    Number(
+                      dailySpending?.remainingToday ??
+                        0,
+                    ) < 5
+                      ? {
+                          color:
+                            "#dc2626",
+                        }
+                      : undefined
+                  }
+                >
                   {loadingDailySpending
                     ? "Loading..."
                     : dailySpending
@@ -694,6 +728,8 @@ export default function CashierClient() {
           </div>
 
           <section className="cashier-grid">
+            {/* PRODUCTS */}
+
             <div className="panel">
               <h2>Products</h2>
 
@@ -825,6 +861,8 @@ export default function CashierClient() {
                 )}
               </div>
             </div>
+
+            {/* CURRENT SALE */}
 
             <aside className="panel">
               <h2>
@@ -1038,6 +1076,8 @@ export default function CashierClient() {
           </section>
         </>
       )}
+
+      {/* INSUFFICIENT BALANCE POPUP */}
 
       {showBalancePopup && (
         <div
