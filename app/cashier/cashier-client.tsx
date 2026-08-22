@@ -37,9 +37,7 @@ type DailySpending = {
 
 export default function CashierClient() {
   const [q, setQ] = useState("");
-
   const [nfc, setNfc] = useState("");
-
   const [nfcMessage, setNfcMessage] =
     useState("");
 
@@ -90,12 +88,21 @@ export default function CashierClient() {
   const [key, setKey] =
     useState(() => crypto.randomUUID());
 
-  /*
-   * Keep the NFC input easy to focus again
-   * after a student is selected.
-   */
   const nfcInputRef =
     useRef<HTMLInputElement | null>(null);
+
+  /*
+   * Keep the NFC reader input focused.
+   *
+   * The reader behaves like a keyboard, so
+   * whatever is focused receives the card number.
+   */
+  function focusNfcInput() {
+    window.setTimeout(() => {
+      nfcInputRef.current?.focus();
+      nfcInputRef.current?.select();
+    }, 50);
+  }
 
   useEffect(() => {
     getCashierProducts()
@@ -107,6 +114,12 @@ export default function CashierClient() {
             : "Could not load products",
         );
       });
+
+    /*
+     * When the cashier page opens,
+     * immediately prepare the NFC reader.
+     */
+    focusNfcInput();
   }, []);
 
   async function loadDailySpending(
@@ -138,6 +151,7 @@ export default function CashierClient() {
 
     if (!value) {
       setResults([]);
+      focusNfcInput();
       return;
     }
 
@@ -165,13 +179,14 @@ export default function CashierClient() {
    * NFC SEARCH
    *
    * The NFC reader behaves like a keyboard.
-   * It types the card number into the input
-   * and normally sends Enter afterwards.
+   * It types the card number into the NFC
+   * input and normally sends Enter afterwards.
    */
   async function searchNfc() {
     const value = nfc.trim();
 
     if (!value) {
+      focusNfcInput();
       return;
     }
 
@@ -186,6 +201,11 @@ export default function CashierClient() {
         setNfcMessage(
           "No active student is linked to this NFC card.",
         );
+
+        setNfc("");
+
+        focusNfcInput();
+
         return;
       }
 
@@ -194,13 +214,7 @@ export default function CashierClient() {
 
         setNfc("");
 
-        /*
-         * Keep the NFC field ready for the
-         * next card.
-         */
-        setTimeout(() => {
-          nfcInputRef.current?.focus();
-        }, 50);
+        focusNfcInput();
 
         return;
       }
@@ -208,12 +222,20 @@ export default function CashierClient() {
       setNfcMessage(
         "More than one student was found. Please use the student search.",
       );
+
+      setNfc("");
+
+      focusNfcInput();
     } catch (error) {
       setNfcMessage(
         error instanceof Error
           ? error.message
           : "NFC search failed",
       );
+
+      setNfc("");
+
+      focusNfcInput();
     }
   }
 
@@ -375,6 +397,11 @@ export default function CashierClient() {
         student.id,
       );
 
+      /*
+       * Keep the success message visible
+       * briefly, then prepare the cashier
+       * for the next NFC card.
+       */
       setTimeout(() => {
         setStudent(null);
 
@@ -388,12 +415,7 @@ export default function CashierClient() {
 
         setMessage("");
 
-        /*
-         * Ready for another NFC card.
-         */
-        setTimeout(() => {
-          nfcInputRef.current?.focus();
-        }, 50);
+        focusNfcInput();
       }, 1800);
     } catch (error) {
       setMessage(
@@ -412,6 +434,8 @@ export default function CashierClient() {
     setShowAdminApproval(false);
 
     setAdminPassword("");
+
+    focusNfcInput();
   }
 
   function askAdmin() {
@@ -467,8 +491,6 @@ export default function CashierClient() {
       </div>
 
       <div className="panel">
-        {/* NORMAL STUDENT SEARCH */}
-
         <label className="label">
           Scan QR, enter student code,
           or search name
@@ -508,8 +530,6 @@ export default function CashierClient() {
             </button>
           </div>
         </label>
-
-        {/* NFC */}
 
         <div
           style={{
@@ -577,9 +597,10 @@ export default function CashierClient() {
                 type="button"
                 key={result.id}
                 className="product"
-                onClick={() =>
-                  select(result)
-                }
+                onClick={() => {
+                  select(result);
+                  focusNfcInput();
+                }}
               >
                 {result.firstName}{" "}
                 {result.lastName} —{" "}
@@ -673,8 +694,6 @@ export default function CashierClient() {
           </div>
 
           <section className="cashier-grid">
-            {/* PRODUCTS */}
-
             <div className="panel">
               <h2>Products</h2>
 
@@ -806,8 +825,6 @@ export default function CashierClient() {
                 )}
               </div>
             </div>
-
-            {/* CURRENT SALE */}
 
             <aside className="panel">
               <h2>
@@ -1022,8 +1039,6 @@ export default function CashierClient() {
         </>
       )}
 
-      {/* INSUFFICIENT BALANCE POPUP */}
-
       {showBalancePopup && (
         <div
           style={{
@@ -1221,6 +1236,8 @@ export default function CashierClient() {
                       setAdminPassword(
                         "",
                       );
+
+                      focusNfcInput();
                     }}
                   >
                     Back
