@@ -240,14 +240,28 @@ export default async function ParentDashboardPage() {
                         spentToday,
                     );
 
+              const lowRemaining =
+                remainingToday !== null &&
+                remainingToday < 5;
+
               return (
                 <div
                   className="panel request-card"
                   key={
                     student.id
                   }
+                  style={{
+                    padding: 16,
+                  }}
                 >
-                  <div className="request-head">
+                  <div
+                    className="request-head"
+                    style={{
+                      alignItems:
+                        "flex-start",
+                      gap: 12,
+                    }}
+                  >
                     <div>
                       <strong>
                         {
@@ -258,7 +272,12 @@ export default async function ParentDashboardPage() {
                         }
                       </strong>
 
-                      <p className="subtle compact">
+                      <p
+                        className="subtle compact"
+                        style={{
+                          marginBottom: 0,
+                        }}
+                      >
                         {
                           student
                             .school
@@ -289,13 +308,41 @@ export default async function ParentDashboardPage() {
                     />
                   </div>
 
-                  <div className="student-summary">
-                    <div className="student-row">
-                      <span>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(150px, 1fr))",
+                      gap: 8,
+                      marginTop: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding:
+                          "10px 12px",
+                        border:
+                          "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        minHeight: 58,
+                      }}
+                    >
+                      <div
+                        className="subtle"
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 1.2,
+                          marginBottom: 4,
+                        }}
+                      >
                         Spent today
-                      </span>
+                      </div>
 
-                      <strong>
+                      <strong
+                        style={{
+                          fontSize: 16,
+                        }}
+                      >
                         $
                         {spentToday.toFixed(
                           2,
@@ -303,13 +350,32 @@ export default async function ParentDashboardPage() {
                       </strong>
                     </div>
 
-                    <div className="student-row">
-                      <span>
-                        Daily spending
-                        limit
-                      </span>
+                    <div
+                      style={{
+                        padding:
+                          "10px 12px",
+                        border:
+                          "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        minHeight: 58,
+                      }}
+                    >
+                      <div
+                        className="subtle"
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 1.2,
+                          marginBottom: 4,
+                        }}
+                      >
+                        Daily spending limit
+                      </div>
 
-                      <strong>
+                      <strong
+                        style={{
+                          fontSize: 16,
+                        }}
+                      >
                         {dailyLimit ===
                         null
                           ? "No limit"
@@ -319,12 +385,46 @@ export default async function ParentDashboardPage() {
                       </strong>
                     </div>
 
-                    <div className="student-row">
-                      <span>
+                    <div
+                      style={{
+                        padding:
+                          "10px 12px",
+                        border:
+                          lowRemaining
+                            ? "1px solid #fecaca"
+                            : "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        minHeight: 58,
+                      }}
+                    >
+                      <div
+                        className="subtle"
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 1.2,
+                          marginBottom: 4,
+                          color:
+                            lowRemaining
+                              ? "#dc2626"
+                              : undefined,
+                          fontWeight:
+                            lowRemaining
+                              ? 700
+                              : undefined,
+                        }}
+                      >
                         Remaining today
-                      </span>
+                      </div>
 
-                      <strong>
+                      <strong
+                        style={{
+                          fontSize: 16,
+                          color:
+                            lowRemaining
+                              ? "#dc2626"
+                              : undefined,
+                        }}
+                      >
                         {remainingToday ===
                         null
                           ? "Unlimited"
