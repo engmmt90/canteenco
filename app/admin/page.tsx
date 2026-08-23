@@ -28,13 +28,18 @@ export default async function AdminDashboardPage() {
   const salesToday = await prisma.sale.aggregate({
     where: {
       status: "COMPLETED",
-      createdAt: { gte: today },
+      createdAt: {
+        gte: today,
+      },
     },
-    _sum: { total: true },
+    _sum: {
+      total: true,
+    },
   });
 
   const [
     pendingRegistrations,
+    pendingStudentApprovals,
     pendingTopUps,
     activeSchools,
     negativeWallets,
@@ -42,11 +47,22 @@ export default async function AdminDashboardPage() {
     failedNotifications,
   ] = await Promise.all([
     prisma.parentRegistrationRequest.count({
-      where: { status: "PENDING" },
+      where: {
+        status: "PENDING",
+      },
+    }),
+
+    prisma.student.count({
+      where: {
+        status: "PENDING_APPROVAL",
+        deletedAt: null,
+      },
     }),
 
     prisma.topUpRequest.count({
-      where: { status: "PENDING" },
+      where: {
+        status: "PENDING",
+      },
     }),
 
     prisma.school.count({
@@ -58,7 +74,9 @@ export default async function AdminDashboardPage() {
 
     prisma.wallet.count({
       where: {
-        balance: { lt: 0 },
+        balance: {
+          lt: 0,
+        },
       },
     }),
 
@@ -66,12 +84,24 @@ export default async function AdminDashboardPage() {
       where: {
         pickupDate: {
           gte: new Date(
-            new Date().setHours(0, 0, 0, 0),
+            new Date().setHours(
+              0,
+              0,
+              0,
+              0,
+            ),
           ),
+
           lt: new Date(
-            new Date().setHours(24, 0, 0, 0),
+            new Date().setHours(
+              24,
+              0,
+              0,
+              0,
+            ),
           ),
         },
+
         status: {
           in: [
             "CONFIRMED",
@@ -84,7 +114,9 @@ export default async function AdminDashboardPage() {
 
     prisma.notification.count({
       where: {
-        failedAt: { not: null },
+        failedAt: {
+          not: null,
+        },
       },
     }),
   ]);
@@ -100,7 +132,10 @@ export default async function AdminDashboardPage() {
 
         <nav className="nav">
           {links.map(([label, href]) => (
-            <Link href={href} key={label}>
+            <Link
+              href={href}
+              key={label}
+            >
               {label}
             </Link>
           ))}
@@ -120,7 +155,9 @@ export default async function AdminDashboardPage() {
 
       {/* Dashboard content */}
       <section className="content">
-        <h2>Super Admin Dashboard</h2>
+        <h2>
+          Super Admin Dashboard
+        </h2>
 
         <p className="subtle">
           Live foundation data from the
@@ -128,6 +165,7 @@ export default async function AdminDashboardPage() {
         </p>
 
         <div className="grid">
+          {/* Today's sales */}
           <Link
             className="stat"
             href="/admin/reports"
@@ -142,6 +180,7 @@ export default async function AdminDashboardPage() {
             </strong>
           </Link>
 
+          {/* Parent registration requests */}
           <Link
             className="stat"
             href="/admin/registrations"
@@ -153,6 +192,36 @@ export default async function AdminDashboardPage() {
             </strong>
           </Link>
 
+          {/* Student approval requests */}
+          <Link
+            className="stat"
+            href="/admin/students?status=PENDING_APPROVAL"
+            style={{
+              border:
+                pendingStudentApprovals > 0
+                  ? "2px solid #f59e0b"
+                  : undefined,
+              background:
+                pendingStudentApprovals > 0
+                  ? "#fffbeb"
+                  : undefined,
+            }}
+          >
+            Pending student approvals
+
+            <strong
+              style={{
+                color:
+                  pendingStudentApprovals > 0
+                    ? "#b45309"
+                    : undefined,
+              }}
+            >
+              {pendingStudentApprovals}
+            </strong>
+          </Link>
+
+          {/* Pending top-ups */}
           <Link
             className="stat"
             href="/admin/topups"
@@ -164,6 +233,7 @@ export default async function AdminDashboardPage() {
             </strong>
           </Link>
 
+          {/* Pre-orders */}
           <div className="stat">
             Pre-orders today
 
@@ -172,6 +242,7 @@ export default async function AdminDashboardPage() {
             </strong>
           </div>
 
+          {/* Negative wallets */}
           <Link
             className="stat"
             href="/admin/wallets?negative=1"
@@ -183,6 +254,7 @@ export default async function AdminDashboardPage() {
             </strong>
           </Link>
 
+          {/* Schools */}
           <div className="stat">
             Schools
 
@@ -191,6 +263,7 @@ export default async function AdminDashboardPage() {
             </strong>
           </div>
 
+          {/* Failed notifications */}
           <Link
             className="stat"
             href="/admin/notifications?state=failed"

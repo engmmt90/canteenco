@@ -10,12 +10,17 @@ export default async function Page({
     status?: string;
   }>;
 }) {
-  const { schoolId } = await adminSchoolScope();
+  const { schoolId } =
+    await adminSchoolScope();
 
-  const params = await searchParams;
+  const params =
+    await searchParams;
 
-  const q = (params.q ?? "").trim();
-  const status = params.status ?? "";
+  const q =
+    (params.q ?? "").trim();
+
+  const status =
+    (params.status ?? "").trim();
 
   const where: any = {
     deletedAt: null,
@@ -105,9 +110,19 @@ export default async function Page({
   return (
     <main className="content">
       <div className="page-heading">
-        <h1 className="brand">
-          Students
-        </h1>
+        <div>
+          <h1 className="brand">
+            Students
+          </h1>
+
+          {status ===
+            "PENDING_APPROVAL" && (
+            <p className="subtle">
+              Showing students waiting
+              for approval.
+            </p>
+          )}
+        </div>
 
         <Link
           className="secondary"
@@ -137,6 +152,10 @@ export default async function Page({
             All statuses
           </option>
 
+          <option value="PENDING_APPROVAL">
+            PENDING APPROVAL
+          </option>
+
           <option value="ACTIVE">
             ACTIVE
           </option>
@@ -156,6 +175,15 @@ export default async function Page({
         >
           Search
         </button>
+
+        {(q || status) && (
+          <Link
+            className="secondary"
+            href="/admin/students"
+          >
+            Clear
+          </Link>
+        )}
       </form>
 
       <section
@@ -165,47 +193,100 @@ export default async function Page({
         }}
       >
         <div className="request-list">
-          {students.map((student) => (
-            <Link
-              className="list-row"
-              href={`/admin/students/${student.id}`}
-              key={student.id}
-            >
-              <div>
-                <strong>
-                  {student.firstName}{" "}
-                  {student.lastName} ·{" "}
-                  {student.displayCode}
-                </strong>
+          {students.map(
+            (student) => {
+              const pending =
+                student.status ===
+                "PENDING_APPROVAL";
 
-                <div className="subtle compact">
-                  {student.school.name} · Class{" "}
-                  {student.classCode} · Parent:{" "}
-                  {student.parent.user.fullName}
-                </div>
+              return (
+                <Link
+                  className="list-row"
+                  href={`/admin/students/${student.id}`}
+                  key={student.id}
+                  style={
+                    pending
+                      ? {
+                          border:
+                            "2px solid #f59e0b",
+                          background:
+                            "#fffbeb",
+                        }
+                      : undefined
+                  }
+                >
+                  <div>
+                    <strong>
+                      {student.firstName}{" "}
+                      {student.lastName} ·{" "}
+                      {student.displayCode}
+                    </strong>
 
-                <div className="subtle compact">
-                  NFC:{" "}
-                  {student.nfcCardNumber ??
-                    "Not assigned"}
-                </div>
-              </div>
+                    <div className="subtle compact">
+                      {student.school.name}{" "}
+                      · Class{" "}
+                      {student.classCode}{" "}
+                      · Parent:{" "}
+                      {
+                        student.parent
+                          .user.fullName
+                      }
+                    </div>
 
-              <div>
-                <strong>
-                  $
-                  {Number(
-                    student.parent.wallet
-                      ?.balance ?? 0,
-                  ).toFixed(2)}
-                </strong>
+                    <div className="subtle compact">
+                      NFC:{" "}
+                      {student.nfcCardNumber ??
+                        "Not assigned"}
+                    </div>
+                  </div>
 
-                <div className="subtle compact">
-                  {student.status}
-                </div>
-              </div>
-            </Link>
-          ))}
+                  <div
+                    style={{
+                      textAlign: "right",
+                    }}
+                  >
+                    <strong>
+                      $
+                      {Number(
+                        student.parent
+                          .wallet
+                          ?.balance ??
+                          0,
+                      ).toFixed(2)}
+                    </strong>
+
+                    <div
+                      className="subtle compact"
+                      style={{
+                        color: pending
+                          ? "#b45309"
+                          : undefined,
+                        fontWeight: pending
+                          ? 700
+                          : undefined,
+                      }}
+                    >
+                      {student.status}
+                    </div>
+
+                    {pending && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color:
+                            "#b45309",
+                        }}
+                      >
+                        Approval required
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            },
+          )}
 
           {!students.length && (
             <p className="subtle">
