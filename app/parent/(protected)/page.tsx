@@ -109,21 +109,28 @@ export default async function ParentDashboardPage() {
 
         <div className="divider" />
 
-        <div className="actions-row">
-          <Link
-            className="primary"
-            href="/parent/wallet"
-          >
-            Wallet / Top Up
-          </Link>
+       <div className="actions-row">
+  <Link
+    className="primary"
+    href="/parent/wallet"
+  >
+    Wallet / Top Up
+  </Link>
 
-          <Link
-            className="secondary"
-            href="/parent/preorders"
-          >
-            Pre-Orders
-          </Link>
-        </div>
+  <Link
+    className="secondary"
+    href="/parent/preorders"
+  >
+    Pre-Orders
+  </Link>
+
+  <Link
+    className="secondary"
+    href="/parent/purchase-history"
+  >
+    Purchase History
+  </Link>
+</div>
 
         <div className="divider" />
 
