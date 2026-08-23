@@ -57,7 +57,12 @@ export default async function ParentDashboardPage() {
                 lt: tomorrow,
               },
               status: {
-                in: ["CONFIRMED", "PREPARING", "READY", "PICKED_UP"],
+                in: [
+                  "CONFIRMED",
+                  "PREPARING",
+                  "READY",
+                  "PICKED_UP",
+                ],
               },
             },
             select: {
@@ -105,36 +110,66 @@ export default async function ParentDashboardPage() {
         <div className="divider" />
 
         <div className="actions-row">
-          <Link className="primary" href="/parent/wallet">
+          <Link
+            className="primary"
+            href="/parent/wallet"
+          >
             Wallet / Top Up
           </Link>
 
-          <Link className="secondary" href="/parent/preorders">
+          <Link
+            className="secondary"
+            href="/parent/preorders"
+          >
             Pre-Orders
-          </Link>
-
-          <Link className="secondary" href="/parent/register">
-            Add Students
           </Link>
         </div>
 
         <div className="divider" />
 
-        <h2 className="section-title">Children</h2>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <h2
+            className="section-title"
+            style={{
+              margin: 0,
+            }}
+          >
+            Children
+          </h2>
+
+          <Link
+            className="secondary"
+            href="/parent/add-student"
+          >
+            + Add Student
+          </Link>
+        </div>
 
         <div className="request-list">
           {parent?.students.map((student) => {
             const salesTotal = student.sales.reduce(
-              (sum, sale) => sum + Number(sale.total),
-              0
+              (sum, sale) =>
+                sum + Number(sale.total),
+              0,
             );
 
-            const preOrdersTotal = student.preOrders.reduce(
-              (sum, order) => sum + Number(order.total),
-              0
-            );
+            const preOrdersTotal =
+              student.preOrders.reduce(
+                (sum, order) =>
+                  sum + Number(order.total),
+                0,
+              );
 
-            const spentToday = salesTotal + preOrdersTotal;
+            const spentToday =
+              salesTotal + preOrdersTotal;
 
             const dailyLimit =
               student.dailySpendLimit === null
@@ -144,23 +179,48 @@ export default async function ParentDashboardPage() {
             const remainingToday =
               dailyLimit === null
                 ? null
-                : Math.max(0, dailyLimit - spentToday);
+                : Math.max(
+                    0,
+                    dailyLimit - spentToday,
+                  );
 
             const remainingLow =
-              remainingToday !== null && remainingToday < 5;
+              remainingToday !== null &&
+              remainingToday < 5;
 
             return (
-              <div className="panel request-card" key={student.id}>
-                <div className="request-head">
+              <div
+                className="panel request-card"
+                key={student.id}
+                style={{
+                  padding: 16,
+                }}
+              >
+                <div
+                  className="request-head"
+                  style={{
+                    alignItems: "flex-start",
+                    gap: 12,
+                  }}
+                >
                   <div>
                     <strong>
-                      {student.firstName} {student.lastName}
+                      {student.firstName}{" "}
+                      {student.lastName}
                     </strong>
 
-                    <p className="subtle compact">
-                      {student.school.name} · {student.displayCode} · Grade{" "}
+                    <p
+                      className="subtle compact"
+                      style={{
+                        marginBottom: 0,
+                      }}
+                    >
+                      {student.school.name} ·{" "}
+                      {student.displayCode} · Grade{" "}
                       {student.grade}
-                      {student.classSection ? ` ${student.classSection}` : ""}
+                      {student.classSection
+                        ? ` ${student.classSection}`
+                        : ""}
                     </p>
                   </div>
 
@@ -174,7 +234,8 @@ export default async function ParentDashboardPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gridTemplateColumns:
+                      "repeat(3, minmax(0, 1fr))",
                     gap: 10,
                     marginTop: 8,
                   }}
@@ -193,6 +254,7 @@ export default async function ParentDashboardPage() {
                     >
                       Spent today
                     </span>
+
                     <strong
                       style={{
                         fontSize: 18,
@@ -217,6 +279,7 @@ export default async function ParentDashboardPage() {
                     >
                       Daily spending limit
                     </span>
+
                     <strong
                       style={{
                         fontSize: 18,
@@ -234,24 +297,35 @@ export default async function ParentDashboardPage() {
                     style={{
                       padding: "10px 12px",
                       minHeight: 72,
-                      borderColor: remainingLow ? "#fecaca" : "#e5e7eb",
-                      background: remainingLow ? "#fff7f7" : "#fafafa",
+                      borderColor: remainingLow
+                        ? "#fecaca"
+                        : "#e5e7eb",
+                      background: remainingLow
+                        ? "#fff7f7"
+                        : "#fafafa",
                     }}
                   >
                     <span
                       style={{
                         fontSize: 13,
-                        color: remainingLow ? "#b91c1c" : "#6b7280",
-                        fontWeight: remainingLow ? 700 : 500,
+                        color: remainingLow
+                          ? "#b91c1c"
+                          : "#6b7280",
+                        fontWeight: remainingLow
+                          ? 700
+                          : 500,
                       }}
                     >
                       Remaining today
                     </span>
+
                     <strong
                       style={{
                         fontSize: 18,
                         marginTop: 2,
-                        color: remainingLow ? "#b91c1c" : "#111827",
+                        color: remainingLow
+                          ? "#b91c1c"
+                          : "#111827",
                       }}
                     >
                       {remainingToday === null
@@ -265,16 +339,35 @@ export default async function ParentDashboardPage() {
           })}
 
           {!parent?.students.length ? (
-            <p className="subtle">
-              No approved students are linked to this account yet.
-            </p>
+            <div
+              className="panel"
+              style={{
+                textAlign: "center",
+                padding: 24,
+              }}
+            >
+              <p className="subtle">
+                No approved students are linked
+                to this account yet.
+              </p>
+
+              <Link
+                className="primary"
+                href="/parent/add-student"
+              >
+                + Add Student
+              </Link>
+            </div>
           ) : null}
         </div>
 
         <div className="divider" />
 
         <div className="actions-row">
-          <Link className="secondary" href="/parent/notifications">
+          <Link
+            className="secondary"
+            href="/parent/notifications"
+          >
             Notifications
           </Link>
 
@@ -286,15 +379,25 @@ export default async function ParentDashboardPage() {
           </Link>
         </div>
 
-        <div style={{ height: 12 }} />
+        <div
+          style={{
+            height: 12,
+          }}
+        />
 
         <div className="actions-row">
-          <Link className="secondary" href="/parent/contact">
+          <Link
+            className="secondary"
+            href="/parent/contact"
+          >
             Contact Us
           </Link>
 
           <form action={logout}>
-            <button className="secondary" type="submit">
+            <button
+              className="secondary"
+              type="submit"
+            >
               Sign out
             </button>
           </form>
