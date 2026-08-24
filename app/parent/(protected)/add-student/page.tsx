@@ -4,6 +4,8 @@ import { addStudentForParent } from "@/app/actions/parent-add-student";
 import { prisma } from "@/lib/prisma";
 import { requireParent } from "@/lib/authz";
 
+import ClassSelector from "./class-selector";
+
 export default async function AddStudentPage() {
   await requireParent();
 
@@ -22,6 +24,35 @@ export default async function AddStudentPage() {
     orderBy: {
       name: "asc",
     },
+  });
+
+  const classes = await prisma.schoolClass.findMany({
+    where: {
+      isActive: true,
+
+      school: {
+        isActive: true,
+        deletedAt: null,
+      },
+    },
+
+    select: {
+      id: true,
+      schoolId: true,
+      name: true,
+      grade: true,
+      section: true,
+      classCode: true,
+    },
+
+    orderBy: [
+      {
+        grade: "asc",
+      },
+      {
+        classCode: "asc",
+      },
+    ],
   });
 
   return (
@@ -62,40 +93,10 @@ export default async function AddStudentPage() {
           </h2>
 
           <p className="subtle">
-            Enter the student details only.
-            Your existing parent account will
-            be used automatically.
+            Enter the student details and select
+            the school and class from the available
+            school classes.
           </p>
-
-          <label className="label">
-            School
-
-            <select
-              className="input"
-              name="schoolId"
-              required
-              defaultValue=""
-            >
-              <option
-                value=""
-                disabled
-              >
-                Select school
-              </option>
-
-              {schools.map((school) => (
-                <option
-                  key={school.id}
-                  value={school.id}
-                >
-                  {school.name}
-                  {school.code
-                    ? ` (${school.code})`
-                    : ""}
-                </option>
-              ))}
-            </select>
-          </label>
 
           <label className="label">
             First name
@@ -121,27 +122,10 @@ export default async function AddStudentPage() {
             />
           </label>
 
-          <label className="label">
-            Grade
-
-            <input
-              className="input"
-              name="grade"
-              required
-              placeholder="e.g. 3"
-            />
-          </label>
-
-          <label className="label">
-            Class / Section
-
-            <input
-              className="input"
-              name="classSection"
-              required
-              placeholder="e.g. C"
-            />
-          </label>
+          <ClassSelector
+            schools={schools}
+            classes={classes}
+          />
 
           <label className="label">
             Official School ID
@@ -163,11 +147,11 @@ export default async function AddStudentPage() {
             </strong>
 
             <p className="subtle compact">
-              The student will be added to
-              your family account and submitted
-              for school approval. The student
-              will not be able to make purchases
-              until approved.
+              The student will be added to your
+              family account and submitted for
+              school approval. The student will
+              not be able to make purchases until
+              approved.
             </p>
           </div>
 
