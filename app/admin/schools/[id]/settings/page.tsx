@@ -12,25 +12,24 @@ import {
   togglePickupSlot,
 } from "@/app/actions/school-settings";
 
-function getString(formData: FormData, name: string) {
-  return String(formData.get(name) ?? "").trim();
-}
-
-function getNumber(
+function getString(
   formData: FormData,
   name: string,
-  fallback = 0,
 ) {
-  const value = Number(formData.get(name) ?? fallback);
-
-  return Number.isFinite(value) ? value : fallback;
+  return String(
+    formData.get(name) ?? "",
+  ).trim();
 }
 
-async function assertSchoolAccess(schoolId: string) {
-  const session = await requireAdmin();
+async function assertSchoolAccess(
+  schoolId: string,
+) {
+  const session =
+    await requireAdmin();
 
   if (
-    session.user.role === "SCHOOL_ADMIN" &&
+    session.user.role ===
+      "SCHOOL_ADMIN" &&
     session.user.schoolId !== schoolId
   ) {
     throw new Error("Unauthorized");
@@ -39,19 +38,44 @@ async function assertSchoolAccess(schoolId: string) {
   return session;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                ADD CLASS                                   */
-/* -------------------------------------------------------------------------- */
+/* ============================================================
+   ADD CLASS
+   ============================================================ */
 
-async function addSchoolClass(formData: FormData) {
+async function addSchoolClass(
+  formData: FormData,
+) {
   "use server";
 
-  const schoolId = getString(formData, "schoolId");
-  const name = getString(formData, "name");
-  const grade = getString(formData, "grade");
-  const section = getString(formData, "section");
-  const classCode = getString(formData, "classCode").toUpperCase();
-  const sortOrder = getNumber(formData, "sortOrder", 0);
+  const schoolId =
+    getString(
+      formData,
+      "schoolId",
+    );
+
+  const name =
+    getString(
+      formData,
+      "name",
+    );
+
+  const grade =
+    getString(
+      formData,
+      "grade",
+    );
+
+  const section =
+    getString(
+      formData,
+      "section",
+    );
+
+  const classCode =
+    getString(
+      formData,
+      "classCode",
+    ).toUpperCase();
 
   if (
     !schoolId ||
@@ -65,25 +89,25 @@ async function addSchoolClass(formData: FormData) {
     );
   }
 
-  await assertSchoolAccess(schoolId);
+  await assertSchoolAccess(
+    schoolId,
+  );
 
-  const existing = await prisma.schoolClass.findFirst({
-    where: {
-      schoolId,
-      OR: [
-        {
-          classCode: {
-            equals: classCode,
+  const existing =
+    await prisma.schoolClass.findFirst({
+      where: {
+        schoolId,
+
+        OR: [
+          {
+            classCode,
           },
-        },
-        {
-          name: {
-            equals: name,
+          {
+            name,
           },
-        },
-      ],
-    },
-  });
+        ],
+      },
+    });
 
   if (existing) {
     throw new Error(
@@ -98,7 +122,6 @@ async function addSchoolClass(formData: FormData) {
       grade,
       section,
       classCode,
-      sortOrder,
       isActive: true,
     },
   });
@@ -108,27 +131,44 @@ async function addSchoolClass(formData: FormData) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              UPDATE CLASS                                  */
-/* -------------------------------------------------------------------------- */
+/* ============================================================
+   UPDATE CLASS
+   ============================================================ */
 
-async function updateSchoolClass(formData: FormData) {
+async function updateSchoolClass(
+  formData: FormData,
+) {
   "use server";
 
-  const id = getString(formData, "id");
-  const name = getString(formData, "name");
-  const grade = getString(formData, "grade");
-  const section = getString(formData, "section");
-  const classCode = getString(
-    formData,
-    "classCode",
-  ).toUpperCase();
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
-  const sortOrder = getNumber(
-    formData,
-    "sortOrder",
-    0,
-  );
+  const name =
+    getString(
+      formData,
+      "name",
+    );
+
+  const grade =
+    getString(
+      formData,
+      "grade",
+    );
+
+  const section =
+    getString(
+      formData,
+      "section",
+    );
+
+  const classCode =
+    getString(
+      formData,
+      "classCode",
+    ).toUpperCase();
 
   if (
     !id ||
@@ -150,7 +190,9 @@ async function updateSchoolClass(formData: FormData) {
     });
 
   if (!schoolClass) {
-    throw new Error("Class not found.");
+    throw new Error(
+      "Class not found.",
+    );
   }
 
   await assertSchoolAccess(
@@ -160,20 +202,19 @@ async function updateSchoolClass(formData: FormData) {
   const duplicate =
     await prisma.schoolClass.findFirst({
       where: {
-        schoolId: schoolClass.schoolId,
+        schoolId:
+          schoolClass.schoolId,
+
         id: {
           not: id,
         },
+
         OR: [
           {
-            classCode: {
-              equals: classCode,
-            },
+            classCode,
           },
           {
-            name: {
-              equals: name,
-            },
+            name,
           },
         ],
       },
@@ -189,12 +230,12 @@ async function updateSchoolClass(formData: FormData) {
     where: {
       id,
     },
+
     data: {
       name,
       grade,
       section,
       classCode,
-      sortOrder,
     },
   });
 
@@ -203,19 +244,25 @@ async function updateSchoolClass(formData: FormData) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                             TOGGLE CLASS                                   */
-/* -------------------------------------------------------------------------- */
+/* ============================================================
+   ENABLE / DISABLE CLASS
+   ============================================================ */
 
 async function toggleSchoolClass(
   formData: FormData,
 ) {
   "use server";
 
-  const id = getString(formData, "id");
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
   if (!id) {
-    throw new Error("Class ID is required.");
+    throw new Error(
+      "Class ID is required.",
+    );
   }
 
   const schoolClass =
@@ -226,7 +273,9 @@ async function toggleSchoolClass(
     });
 
   if (!schoolClass) {
-    throw new Error("Class not found.");
+    throw new Error(
+      "Class not found.",
+    );
   }
 
   await assertSchoolAccess(
@@ -237,8 +286,10 @@ async function toggleSchoolClass(
     where: {
       id,
     },
+
     data: {
-      isActive: !schoolClass.isActive,
+      isActive:
+        !schoolClass.isActive,
     },
   });
 
@@ -247,19 +298,25 @@ async function toggleSchoolClass(
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                             DELETE CLASS                                   */
-/* -------------------------------------------------------------------------- */
+/* ============================================================
+   DELETE CLASS
+   ============================================================ */
 
 async function deleteSchoolClass(
   formData: FormData,
 ) {
   "use server";
 
-  const id = getString(formData, "id");
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
   if (!id) {
-    throw new Error("Class ID is required.");
+    throw new Error(
+      "Class ID is required.",
+    );
   }
 
   const schoolClass =
@@ -270,7 +327,9 @@ async function deleteSchoolClass(
     });
 
   if (!schoolClass) {
-    throw new Error("Class not found.");
+    throw new Error(
+      "Class not found.",
+    );
   }
 
   await assertSchoolAccess(
@@ -288,9 +347,9 @@ async function deleteSchoolClass(
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                  PAGE                                      */
-/* -------------------------------------------------------------------------- */
+/* ============================================================
+   PAGE
+   ============================================================ */
 
 export default async function SchoolSettingsPage({
   params,
@@ -299,12 +358,15 @@ export default async function SchoolSettingsPage({
     id: string;
   }>;
 }) {
-  const session = await requireAdmin();
+  const session =
+    await requireAdmin();
 
-  const { id } = await params;
+  const { id } =
+    await params;
 
   if (
-    session.user.role === "SCHOOL_ADMIN" &&
+    session.user.role ===
+      "SCHOOL_ADMIN" &&
     session.user.schoolId !== id
   ) {
     notFound();
@@ -321,9 +383,6 @@ export default async function SchoolSettingsPage({
 
         classes: {
           orderBy: [
-            {
-              sortOrder: "asc",
-            },
             {
               grade: "asc",
             },
@@ -350,13 +409,12 @@ export default async function SchoolSettingsPage({
     notFound();
   }
 
-  const s = school.settings;
+  const s =
+    school.settings;
 
   return (
     <main className="content">
-      {/* ------------------------------------------------------------------ */}
-      {/* HEADER                                                             */}
-      {/* ------------------------------------------------------------------ */}
+      {/* HEADER */}
 
       <div className="page-heading">
         <div>
@@ -365,8 +423,9 @@ export default async function SchoolSettingsPage({
           </h1>
 
           <p className="subtle">
-            Control pre-orders, classes, pickup
-            times, overdraft policy and
+            Control pre-orders,
+            classes, pickup times,
+            overdraft policy and
             notification channels.
           </p>
         </div>
@@ -380,15 +439,19 @@ export default async function SchoolSettingsPage({
       </div>
 
       <div className="wallet-layout">
-        {/* ---------------------------------------------------------------- */}
-        {/* OPERATIONAL SETTINGS                                             */}
-        {/* ---------------------------------------------------------------- */}
+        {/* =====================================================
+            OPERATIONAL SETTINGS
+            ===================================================== */}
 
         <form
-          action={saveSchoolSettings}
+          action={
+            saveSchoolSettings
+          }
           className="panel form"
         >
-          <h2>Operational Settings</h2>
+          <h2>
+            Operational Settings
+          </h2>
 
           <input
             type="hidden"
@@ -416,7 +479,8 @@ export default async function SchoolSettingsPage({
               className="input"
               name="currency"
               defaultValue={
-                s?.currency ?? "AUD"
+                s?.currency ??
+                "AUD"
               }
             />
           </label>
@@ -426,7 +490,8 @@ export default async function SchoolSettingsPage({
               type="checkbox"
               name="preOrderEnabled"
               defaultChecked={
-                s?.preOrderEnabled ?? true
+                s?.preOrderEnabled ??
+                true
               }
             />{" "}
             Pre-orders enabled
@@ -455,8 +520,8 @@ export default async function SchoolSettingsPage({
                 false
               }
             />{" "}
-            Allow negative-balance sales with
-            admin approval
+            Allow negative-balance
+            sales with admin approval
           </label>
 
           <label className="label">
@@ -470,7 +535,9 @@ export default async function SchoolSettingsPage({
               max="0"
               name="minimumAllowedBalance"
               defaultValue={
-                s?.minimumAllowedBalance?.toString() ??
+                s
+                  ?.minimumAllowedBalance
+                  ?.toString() ??
                 "0"
               }
             />
@@ -481,12 +548,13 @@ export default async function SchoolSettingsPage({
               type="checkbox"
               name="emailNotificationsEnabled"
               defaultChecked={
-                s?.emailNotificationsEnabled ??
+                s
+                  ?.emailNotificationsEnabled ??
                 true
               }
             />{" "}
-            Email notifications enabled for this
-            school
+            Email notifications enabled
+            for this school
           </label>
 
           <label>
@@ -494,12 +562,13 @@ export default async function SchoolSettingsPage({
               type="checkbox"
               name="smsNotificationsEnabled"
               defaultChecked={
-                s?.smsNotificationsEnabled ??
+                s
+                  ?.smsNotificationsEnabled ??
                 false
               }
             />{" "}
-            SMS notifications enabled for this
-            school
+            SMS notifications enabled
+            for this school
           </label>
 
           <button
@@ -510,9 +579,9 @@ export default async function SchoolSettingsPage({
           </button>
         </form>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* CLASSES                                                          */}
-        {/* ---------------------------------------------------------------- */}
+        {/* =====================================================
+            CLASSES
+            ===================================================== */}
 
         <section className="panel">
           <details>
@@ -521,7 +590,7 @@ export default async function SchoolSettingsPage({
                 cursor: "pointer",
                 fontSize: 20,
                 fontWeight: 700,
-                padding: "4px 0",
+                padding: "6px 0",
               }}
             >
               Classes
@@ -533,8 +602,9 @@ export default async function SchoolSettingsPage({
               }}
             >
               <p className="subtle">
-                Manage the classes that parents
-                can select when adding a student.
+                Manage the classes
+                parents can select when
+                adding a student.
               </p>
 
               <div className="divider" />
@@ -542,10 +612,14 @@ export default async function SchoolSettingsPage({
               {/* ADD CLASS */}
 
               <form
-                action={addSchoolClass}
+                action={
+                  addSchoolClass
+                }
                 className="form"
               >
-                <h3>Add Class</h3>
+                <h3>
+                  Add Class
+                </h3>
 
                 <input
                   type="hidden"
@@ -599,17 +673,6 @@ export default async function SchoolSettingsPage({
                   />
                 </label>
 
-                <label className="label">
-                  Sort order
-
-                  <input
-                    className="input"
-                    type="number"
-                    name="sortOrder"
-                    defaultValue="0"
-                  />
-                </label>
-
                 <button
                   className="primary"
                   type="submit"
@@ -620,156 +683,145 @@ export default async function SchoolSettingsPage({
 
               <div className="divider" />
 
-              {/* EXISTING CLASSES */}
+              {/* SAVED CLASSES */}
 
-              {school.classes.length === 0 ? (
+              {school.classes.length ===
+              0 ? (
                 <p className="subtle">
-                  No classes configured for this
-                  school yet.
+                  No classes configured
+                  for this school yet.
                 </p>
               ) : (
-                <div className="request-list">
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
                   {school.classes.map(
                     (schoolClass) => (
-                      <div
+                      <details
+                        key={
+                          schoolClass.id
+                        }
                         className="panel"
-                        key={schoolClass.id}
+                        style={{
+                          padding: 0,
+                          overflow:
+                            "hidden",
+                        }}
                       >
-                        <form
-                          action={updateSchoolClass}
-                          className="form"
+                        {/* CLASS ROW */}
+
+                        <summary
+                          style={{
+                            cursor:
+                              "pointer",
+
+                            listStyle:
+                              "none",
+
+                            display:
+                              "flex",
+
+                            alignItems:
+                              "center",
+
+                            justifyContent:
+                              "space-between",
+
+                            gap: 16,
+
+                            padding:
+                              "14px 16px",
+                          }}
                         >
-                          <input
-                            type="hidden"
-                            name="id"
-                            value={
-                              schoolClass.id
-                            }
-                          />
+                          <div
+                            style={{
+                              display:
+                                "flex",
 
-                          <h3>
-                            {schoolClass.name}
-                          </h3>
+                              alignItems:
+                                "center",
 
-                          <div className="subtle compact">
-                            Class code:{" "}
-                            {
-                              schoolClass.classCode
-                            }{" "}
-                            ·{" "}
-                            {schoolClass.isActive
-                              ? "ACTIVE"
-                              : "INACTIVE"}
-                          </div>
+                              gap: 20,
 
-                          <label className="label">
-                            Class name
-
-                            <input
-                              className="input"
-                              name="name"
-                              defaultValue={
+                              flexWrap:
+                                "wrap",
+                            }}
+                          >
+                            <strong>
+                              {
                                 schoolClass.name
                               }
-                              required
-                            />
-                          </label>
+                            </strong>
 
-                          <div className="two-col">
-                            <label className="label">
-                              Year
+                            <span className="subtle compact">
+                              Year{" "}
+                              {
+                                schoolClass.grade
+                              }
+                            </span>
 
-                              <input
-                                className="input"
-                                name="grade"
-                                defaultValue={
-                                  schoolClass.grade
-                                }
-                                required
-                              />
-                            </label>
+                            <span className="subtle compact">
+                              Section{" "}
+                              {
+                                schoolClass.section
+                              }
+                            </span>
 
-                            <label className="label">
-                              Section
-
-                              <input
-                                className="input"
-                                name="section"
-                                defaultValue={
-                                  schoolClass.section ??
-                                  ""
-                                }
-                                required
-                              />
-                            </label>
-                          </div>
-
-                          <label className="label">
-                            Class code
-
-                            <input
-                              className="input"
-                              name="classCode"
-                              defaultValue={
+                            <span className="subtle compact">
+                              Code{" "}
+                              {
                                 schoolClass.classCode
                               }
-                              required
-                            />
-                          </label>
+                            </span>
 
-                          <label className="label">
-                            Sort order
+                            <span
+                              style={{
+                                fontSize: 13,
 
-                            <input
-                              className="input"
-                              type="number"
-                              name="sortOrder"
-                              defaultValue={
-                                schoolClass.sortOrder
-                              }
-                            />
-                          </label>
+                                fontWeight:
+                                  700,
 
-                          <button
-                            className="primary"
-                            type="submit"
-                          >
-                            Save Class
-                          </button>
-                        </form>
-
-                        <div
-                          className="divider"
-                        />
-
-                        <div className="actions-row">
-                          <form
-                            action={
-                              toggleSchoolClass
-                            }
-                          >
-                            <input
-                              type="hidden"
-                              name="id"
-                              value={
-                                schoolClass.id
-                              }
-                            />
-
-                            <button
-                              className="secondary"
-                              type="submit"
+                                color:
+                                  schoolClass.isActive
+                                    ? "#15803d"
+                                    : "#b91c1c",
+                              }}
                             >
                               {schoolClass.isActive
-                                ? "Disable"
-                                : "Enable"}
-                            </button>
-                          </form>
+                                ? "ACTIVE"
+                                : "INACTIVE"}
+                            </span>
+                          </div>
+
+                          <span
+                            className="secondary"
+                            style={{
+                              whiteSpace:
+                                "nowrap",
+                            }}
+                          >
+                            Edit
+                          </span>
+                        </summary>
+
+                        {/* EDIT AREA */}
+
+                        <div
+                          style={{
+                            padding:
+                              "0 16px 16px",
+                          }}
+                        >
+                          <div className="divider" />
 
                           <form
                             action={
-                              deleteSchoolClass
+                              updateSchoolClass
                             }
+                            className="form"
                           >
                             <input
                               type="hidden"
@@ -779,15 +831,122 @@ export default async function SchoolSettingsPage({
                               }
                             />
 
+                            <label className="label">
+                              Class name
+
+                              <input
+                                className="input"
+                                name="name"
+                                defaultValue={
+                                  schoolClass.name
+                                }
+                                required
+                              />
+                            </label>
+
+                            <div className="two-col">
+                              <label className="label">
+                                Year
+
+                                <input
+                                  className="input"
+                                  name="grade"
+                                  defaultValue={
+                                    schoolClass.grade
+                                  }
+                                  required
+                                />
+                              </label>
+
+                              <label className="label">
+                                Section
+
+                                <input
+                                  className="input"
+                                  name="section"
+                                  defaultValue={
+                                    schoolClass.section ??
+                                    ""
+                                  }
+                                  required
+                                />
+                              </label>
+                            </div>
+
+                            <label className="label">
+                              Class code
+
+                              <input
+                                className="input"
+                                name="classCode"
+                                defaultValue={
+                                  schoolClass.classCode
+                                }
+                                required
+                              />
+                            </label>
+
                             <button
-                              className="danger"
+                              className="primary"
                               type="submit"
                             >
-                              Remove
+                              Save Changes
                             </button>
                           </form>
+
+                          <div
+                            style={{
+                              height: 10,
+                            }}
+                          />
+
+                          <div className="actions-row">
+                            <form
+                              action={
+                                toggleSchoolClass
+                              }
+                            >
+                              <input
+                                type="hidden"
+                                name="id"
+                                value={
+                                  schoolClass.id
+                                }
+                              />
+
+                              <button
+                                className="secondary"
+                                type="submit"
+                              >
+                                {schoolClass.isActive
+                                  ? "Disable"
+                                  : "Enable"}
+                              </button>
+                            </form>
+
+                            <form
+                              action={
+                                deleteSchoolClass
+                              }
+                            >
+                              <input
+                                type="hidden"
+                                name="id"
+                                value={
+                                  schoolClass.id
+                                }
+                              />
+
+                              <button
+                                className="danger"
+                                type="submit"
+                              >
+                                Remove
+                              </button>
+                            </form>
+                          </div>
                         </div>
-                      </div>
+                      </details>
                     ),
                   )}
                 </div>
@@ -796,15 +955,19 @@ export default async function SchoolSettingsPage({
           </details>
         </section>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* PICKUP SLOTS                                                     */}
-        {/* ---------------------------------------------------------------- */}
+        {/* =====================================================
+            PICKUP SLOTS
+            ===================================================== */}
 
         <section className="panel">
-          <h2>Pickup Slots</h2>
+          <h2>
+            Pickup Slots
+          </h2>
 
           <form
-            action={addPickupSlot}
+            action={
+              addPickupSlot
+            }
             className="form"
           >
             <input
@@ -863,9 +1026,11 @@ export default async function SchoolSettingsPage({
           <div className="divider" />
 
           <div className="request-list">
-            {school.pickupSlots.length === 0 ? (
+            {school.pickupSlots
+              .length === 0 ? (
               <p className="subtle compact">
-                No pickup slots configured.
+                No pickup slots
+                configured.
               </p>
             ) : (
               school.pickupSlots.map(
@@ -897,7 +1062,9 @@ export default async function SchoolSettingsPage({
                         <input
                           type="hidden"
                           name="id"
-                          value={slot.id}
+                          value={
+                            slot.id
+                          }
                         />
 
                         <button
@@ -918,7 +1085,9 @@ export default async function SchoolSettingsPage({
                         <input
                           type="hidden"
                           name="id"
-                          value={slot.id}
+                          value={
+                            slot.id
+                          }
                         />
 
                         <button
