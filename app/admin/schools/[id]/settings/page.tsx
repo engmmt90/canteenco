@@ -21,6 +21,15 @@ function getString(
   ).trim();
 }
 
+function buildClassCode(
+  year: string,
+  section: string,
+) {
+  return `${year}${section}`
+    .replace(/\s+/g, "")
+    .toUpperCase();
+}
+
 async function assertSchoolAccess(
   schoolId: string,
 ) {
@@ -37,10 +46,6 @@ async function assertSchoolAccess(
 
   return session;
 }
-
-/* ============================================================
-   ADD CLASS
-   ============================================================ */
 
 async function addSchoolClass(
   formData: FormData,
@@ -69,23 +74,22 @@ async function addSchoolClass(
     getString(
       formData,
       "section",
-    );
+    ).toUpperCase();
 
   const classCode =
-    getString(
-      formData,
-      "classCode",
-    ).toUpperCase();
+    buildClassCode(
+      grade,
+      section,
+    );
 
   if (
     !schoolId ||
     !name ||
     !grade ||
-    !section ||
-    !classCode
+    !section
   ) {
     throw new Error(
-      "Class name, year, section and class code are required.",
+      "Class name, year and section are required.",
     );
   }
 
@@ -111,7 +115,7 @@ async function addSchoolClass(
 
   if (existing) {
     throw new Error(
-      "A class with the same name or class code already exists.",
+      "A class with the same name or year/section already exists.",
     );
   }
 
@@ -130,10 +134,6 @@ async function addSchoolClass(
     `/admin/schools/${schoolId}/settings`,
   );
 }
-
-/* ============================================================
-   UPDATE CLASS
-   ============================================================ */
 
 async function updateSchoolClass(
   formData: FormData,
@@ -162,23 +162,22 @@ async function updateSchoolClass(
     getString(
       formData,
       "section",
-    );
+    ).toUpperCase();
 
   const classCode =
-    getString(
-      formData,
-      "classCode",
-    ).toUpperCase();
+    buildClassCode(
+      grade,
+      section,
+    );
 
   if (
     !id ||
     !name ||
     !grade ||
-    !section ||
-    !classCode
+    !section
   ) {
     throw new Error(
-      "Class name, year, section and class code are required.",
+      "Class name, year and section are required.",
     );
   }
 
@@ -222,7 +221,7 @@ async function updateSchoolClass(
 
   if (duplicate) {
     throw new Error(
-      "A class with the same name or class code already exists.",
+      "A class with the same name or year/section already exists.",
     );
   }
 
@@ -243,10 +242,6 @@ async function updateSchoolClass(
     `/admin/schools/${schoolClass.schoolId}/settings`,
   );
 }
-
-/* ============================================================
-   ENABLE / DISABLE CLASS
-   ============================================================ */
 
 async function toggleSchoolClass(
   formData: FormData,
@@ -298,10 +293,6 @@ async function toggleSchoolClass(
   );
 }
 
-/* ============================================================
-   DELETE CLASS
-   ============================================================ */
-
 async function deleteSchoolClass(
   formData: FormData,
 ) {
@@ -346,10 +337,6 @@ async function deleteSchoolClass(
     `/admin/schools/${schoolClass.schoolId}/settings`,
   );
 }
-
-/* ============================================================
-   PAGE
-   ============================================================ */
 
 export default async function SchoolSettingsPage({
   params,
@@ -414,8 +401,6 @@ export default async function SchoolSettingsPage({
 
   return (
     <main className="content">
-      {/* HEADER */}
-
       <div className="page-heading">
         <div>
           <h1 className="brand">
@@ -439,10 +424,6 @@ export default async function SchoolSettingsPage({
       </div>
 
       <div className="wallet-layout">
-        {/* =====================================================
-            OPERATIONAL SETTINGS
-            ===================================================== */}
-
         <form
           action={
             saveSchoolSettings
@@ -579,10 +560,6 @@ export default async function SchoolSettingsPage({
           </button>
         </form>
 
-        {/* =====================================================
-            CLASSES
-            ===================================================== */}
-
         <section className="panel">
           <details>
             <summary
@@ -608,8 +585,6 @@ export default async function SchoolSettingsPage({
               </p>
 
               <div className="divider" />
-
-              {/* ADD CLASS */}
 
               <form
                 action={
@@ -662,16 +637,11 @@ export default async function SchoolSettingsPage({
                   </label>
                 </div>
 
-                <label className="label">
-                  Class code
-
-                  <input
-                    className="input"
-                    name="classCode"
-                    placeholder="3A"
-                    required
-                  />
-                </label>
+                <p className="subtle compact">
+                  Class code will be generated
+                  automatically from Year +
+                  Section.
+                </p>
 
                 <button
                   className="primary"
@@ -682,8 +652,6 @@ export default async function SchoolSettingsPage({
               </form>
 
               <div className="divider" />
-
-              {/* SAVED CLASSES */}
 
               {school.classes.length ===
               0 ? (
@@ -711,8 +679,6 @@ export default async function SchoolSettingsPage({
                             "hidden",
                         }}
                       >
-                        {/* CLASS ROW */}
-
                         <summary
                           style={{
                             cursor:
@@ -780,10 +746,8 @@ export default async function SchoolSettingsPage({
                             <span
                               style={{
                                 fontSize: 13,
-
                                 fontWeight:
                                   700,
-
                                 color:
                                   schoolClass.isActive
                                     ? "#15803d"
@@ -806,8 +770,6 @@ export default async function SchoolSettingsPage({
                             Edit
                           </span>
                         </summary>
-
-                        {/* EDIT AREA */}
 
                         <div
                           style={{
@@ -873,18 +835,17 @@ export default async function SchoolSettingsPage({
                               </label>
                             </div>
 
-                            <label className="label">
-                              Class code
-
-                              <input
-                                className="input"
-                                name="classCode"
-                                defaultValue={
+                            <p className="subtle compact">
+                              Current class code:{" "}
+                              <strong>
+                                {
                                   schoolClass.classCode
                                 }
-                                required
-                              />
-                            </label>
+                              </strong>
+                              . It will update
+                              automatically if Year
+                              or Section changes.
+                            </p>
 
                             <button
                               className="primary"
@@ -954,10 +915,6 @@ export default async function SchoolSettingsPage({
             </div>
           </details>
         </section>
-
-        {/* =====================================================
-            PICKUP SLOTS
-            ===================================================== */}
 
         <section className="panel">
           <h2>

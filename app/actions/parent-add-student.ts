@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireParent } from "@/lib/authz";
-import {
-  buildStudentDisplayCode,
-  normalizeClassCode,
-} from "@/lib/student-code";
+import { buildStudentDisplayCode } from "@/lib/student-code";
 
-function str(formData: FormData, key: string) {
-  return String(formData.get(key) ?? "").trim();
+function str(
+  formData: FormData,
+  key: string,
+) {
+  return String(
+    formData.get(key) ?? "",
+  ).trim();
 }
 
 async function nextClassSequence(
@@ -17,30 +19,31 @@ async function nextClassSequence(
   schoolId: string,
   classCode: string,
 ) {
-  const sequence = await tx.classStudentSequence.upsert({
-    where: {
-      schoolId_classCode: {
+  const sequence =
+    await tx.classStudentSequence.upsert({
+      where: {
+        schoolId_classCode: {
+          schoolId,
+          classCode,
+        },
+      },
+
+      create: {
         schoolId,
         classCode,
+        nextSequence: 2,
       },
-    },
 
-    create: {
-      schoolId,
-      classCode,
-      nextSequence: 2,
-    },
-
-    update: {
-      nextSequence: {
-        increment: 1,
+      update: {
+        nextSequence: {
+          increment: 1,
+        },
       },
-    },
 
-    select: {
-      nextSequence: true,
-    },
-  });
+      select: {
+        nextSequence: true,
+      },
+    });
 
   return sequence.nextSequence - 1;
 }
@@ -48,33 +51,55 @@ async function nextClassSequence(
 export async function addStudentForParent(
   formData: FormData,
 ) {
-  const session = await requireParent();
+  const session =
+    await requireParent();
 
-  const firstName = str(formData, "firstName");
-  const lastName = str(formData, "lastName");
-  const grade = str(formData, "grade");
-  const classSection = str(formData, "classSection");
-  const schoolId = str(formData, "schoolId");
+  const firstName =
+    str(
+      formData,
+      "firstName",
+    );
+
+  const lastName =
+    str(
+      formData,
+      "lastName",
+    );
+
+  const schoolId =
+    str(
+      formData,
+      "schoolId",
+    );
+
+  const classId =
+    str(
+      formData,
+      "classId",
+    );
 
   const officialSchoolId =
-    str(formData, "officialSchoolId") || null;
+    str(
+      formData,
+      "officialSchoolId",
+    ) || null;
 
   if (
     !firstName ||
     !lastName ||
-    !grade ||
-    !classSection ||
-    !schoolId
+    !schoolId ||
+    !classId
   ) {
     throw new Error(
-      "Student name, grade, class and school are required.",
+      "Student name, school and class are required.",
     );
   }
 
   const parent =
     await prisma.parentProfile.findUnique({
       where: {
-        userId: session.user.id,
+        userId:
+          session.user.id,
       },
     });
 
@@ -84,87 +109,168 @@ export async function addStudentForParent(
     );
   }
 
-  await prisma.$transaction(async (tx) => {
-    const school =
-      await tx.school.findFirst({
-        where: {
-          id: schoolId,
-          isActive: true,
-          deletedAt: null,
-        },
-      });
+  await prisma.$transaction(
+    async (tx) => {
+      const school =
+        await tx.school.findFirst({
+          where: {
+            id: schoolId,
+            isActive: true,
+            deletedAt: null,
+          },
+        });
 
-    if (!school) {
-      throw new Error(
-        "Selected school is not available.",
-      );
-    }
+      if (!school) {
+        throw new Error(
+          "Selected school is not available.",
+        );
+      }
 
-    const classCode =
-      normalizeClassCode(
-        grade,
-        classSection,
-      );
+      /*
+       * The selected class MUST belong to the
+       * selected school and MUST be active.
+       */
+      const schoolClass =
+        await tx.schoolClass.findFirst({
+          where: {
+            id: classId,
+            schoolId: school.id,
+            isActive: true,
+          },
+        });
 
-    const sequenceNumber =
-      await nextClassSequence(
-        tx,
-        school.id,
-        classCode,
-      );
+      if (!schoolClass) {
+        throw new Error(
+          "Selected class is not available for this school.",
+        );
+      }
 
-    const displayCode =
-      buildStudentDisplayCode(
-        classCode,
-        sequenceNumber,
-      );
+      /*
+       * Year, section and class code now come
+       * directly from the Admin-configured class.
+       */
+      const grade =
+        schoolClass.grade;
 
-    const student =
-      await tx.student.create({
-        data: {
-          parentId: parent.id,
-          schoolId: school.id,
+      const classSection =
+        schoolClass.section ?? "";
 
-          firstName,
-          lastName,
-          grade,
-          classSection,
-          officialSchoolId,
+      const classCode =
+        schoolClass.classCode;
 
+      if (
+        !grade ||
+        !classSection ||
+        !classCode
+      ) {
+        throw new Error(
+          "Selected class is not configured correctly.",
+        );
+      }
+
+      const sequenceNumber =
+        await nextClassSequence(
+          tx,
+          school.id,
+          classCode,
+        );
+
+      const displayCode =
+        buildStudentDisplayCode(
           classCode,
           sequenceNumber,
-          displayCode,
+        );
 
-          qrToken: crypto.randomUUID(),
+      const student =
+        await tx.student.create({
+          data: {
+            parentId:
+              parent.id,
 
-          status: "PENDING_APPROVAL",
+            schoolId:
+              school.id,
 
-          approvedAt: null,
-          approvedByUserId: null,
-          deletedAt: null,
+            firstName,
+            lastName,
 
-          dailySpendLimit: null,
+            grade,
+
+            classSection,
+
+            officialSchoolId,
+
+            classCode,
+
+            sequenceNumber,
+
+            displayCode,
+
+            qrToken:
+              crypto.randomUUID(),
+
+            status:
+              "PENDING_APPROVAL",
+
+            approvedAt:
+              null,
+
+            approvedByUserId:
+              null,
+
+            deletedAt:
+              null,
+
+            dailySpendLimit:
+              null,
+          },
+        });
+
+      await tx.auditLog.create({
+        data: {
+          actorUserId:
+            session.user.id,
+
+          action:
+            "ADD_STUDENT",
+
+          entityType:
+            "Student",
+
+          entityId:
+            student.id,
+
+          metadata: {
+            displayCode,
+
+            classCode,
+
+            classId:
+              schoolClass.id,
+
+            className:
+              schoolClass.name,
+
+            grade,
+
+            section:
+              classSection,
+
+            schoolId:
+              school.id,
+
+            studentName:
+              `${firstName} ${lastName}`,
+          },
         },
       });
+    },
+  );
 
-    await tx.auditLog.create({
-      data: {
-        actorUserId: session.user.id,
-        action: "ADD_STUDENT",
-        entityType: "Student",
-        entityId: student.id,
+  revalidatePath(
+    "/parent",
+  );
 
-        metadata: {
-          displayCode,
-          classCode,
-          schoolId: school.id,
-          studentName:
-            `${firstName} ${lastName}`,
-        },
-      },
-    });
-  });
-
-  revalidatePath("/parent");
-  revalidatePath("/parent/dashboard");
+  revalidatePath(
+    "/parent/dashboard",
+  );
 }
