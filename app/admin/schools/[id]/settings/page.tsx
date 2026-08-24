@@ -12,34 +12,83 @@ import {
   togglePickupSlot,
 } from "@/app/actions/school-settings";
 
-async function addSchoolClass(formData: FormData) {
-  "use server";
+function getString(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "").trim();
+}
 
+function getNumber(
+  formData: FormData,
+  name: string,
+  fallback = 0,
+) {
+  const value = Number(formData.get(name) ?? fallback);
+
+  return Number.isFinite(value) ? value : fallback;
+}
+
+async function assertSchoolAccess(schoolId: string) {
   const session = await requireAdmin();
-
-  const schoolId = String(formData.get("schoolId") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-  const grade = String(formData.get("grade") ?? "").trim();
-  const section = String(formData.get("section") ?? "").trim();
-  const classCode = String(
-    formData.get("classCode") ?? "",
-  )
-    .trim()
-    .toUpperCase();
-
-  const sortOrderValue = Number(
-    formData.get("sortOrder") ?? 0,
-  );
-
-  if (!schoolId || !name || !grade || !classCode) {
-    throw new Error("Missing required class information.");
-  }
 
   if (
     session.user.role === "SCHOOL_ADMIN" &&
     session.user.schoolId !== schoolId
   ) {
-    throw new Error("Unauthorized.");
+    throw new Error("Unauthorized");
+  }
+
+  return session;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                ADD CLASS                                   */
+/* -------------------------------------------------------------------------- */
+
+async function addSchoolClass(formData: FormData) {
+  "use server";
+
+  const schoolId = getString(formData, "schoolId");
+  const name = getString(formData, "name");
+  const grade = getString(formData, "grade");
+  const section = getString(formData, "section");
+  const classCode = getString(formData, "classCode").toUpperCase();
+  const sortOrder = getNumber(formData, "sortOrder", 0);
+
+  if (
+    !schoolId ||
+    !name ||
+    !grade ||
+    !section ||
+    !classCode
+  ) {
+    throw new Error(
+      "Class name, year, section and class code are required.",
+    );
+  }
+
+  await assertSchoolAccess(schoolId);
+
+  const existing = await prisma.schoolClass.findFirst({
+    where: {
+      schoolId,
+      OR: [
+        {
+          classCode: {
+            equals: classCode,
+          },
+        },
+        {
+          name: {
+            equals: name,
+          },
+        },
+      ],
+    },
+  });
+
+  if (existing) {
+    throw new Error(
+      "A class with the same name or class code already exists.",
+    );
   }
 
   await prisma.schoolClass.create({
@@ -47,62 +96,93 @@ async function addSchoolClass(formData: FormData) {
       schoolId,
       name,
       grade,
-      section: section || null,
+      section,
       classCode,
-      sortOrder: Number.isFinite(sortOrderValue)
-        ? sortOrderValue
-        : 0,
+      sortOrder,
       isActive: true,
     },
   });
 
-  revalidatePath(`/admin/schools/${schoolId}/settings`);
-  revalidatePath("/admin/schools");
+  revalidatePath(
+    `/admin/schools/${schoolId}/settings`,
+  );
 }
+
+/* -------------------------------------------------------------------------- */
+/*                              UPDATE CLASS                                  */
+/* -------------------------------------------------------------------------- */
 
 async function updateSchoolClass(formData: FormData) {
   "use server";
 
-  const session = await requireAdmin();
+  const id = getString(formData, "id");
+  const name = getString(formData, "name");
+  const grade = getString(formData, "grade");
+  const section = getString(formData, "section");
+  const classCode = getString(
+    formData,
+    "classCode",
+  ).toUpperCase();
 
-  const id = String(formData.get("id") ?? "").trim();
-  const schoolId = String(formData.get("schoolId") ?? "").trim();
-
-  const name = String(formData.get("name") ?? "").trim();
-  const grade = String(formData.get("grade") ?? "").trim();
-  const section = String(formData.get("section") ?? "").trim();
-  const classCode = String(
-    formData.get("classCode") ?? "",
-  )
-    .trim()
-    .toUpperCase();
-
-  const sortOrderValue = Number(
-    formData.get("sortOrder") ?? 0,
+  const sortOrder = getNumber(
+    formData,
+    "sortOrder",
+    0,
   );
 
-  if (!id || !schoolId || !name || !grade || !classCode) {
-    throw new Error("Missing required class information.");
-  }
-
   if (
-    session.user.role === "SCHOOL_ADMIN" &&
-    session.user.schoolId !== schoolId
+    !id ||
+    !name ||
+    !grade ||
+    !section ||
+    !classCode
   ) {
-    throw new Error("Unauthorized.");
+    throw new Error(
+      "Class name, year, section and class code are required.",
+    );
   }
 
-  const existingClass = await prisma.schoolClass.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      schoolId: true,
-    },
-  });
+  const schoolClass =
+    await prisma.schoolClass.findUnique({
+      where: {
+        id,
+      },
+    });
 
-  if (!existingClass || existingClass.schoolId !== schoolId) {
+  if (!schoolClass) {
     throw new Error("Class not found.");
+  }
+
+  await assertSchoolAccess(
+    schoolClass.schoolId,
+  );
+
+  const duplicate =
+    await prisma.schoolClass.findFirst({
+      where: {
+        schoolId: schoolClass.schoolId,
+        id: {
+          not: id,
+        },
+        OR: [
+          {
+            classCode: {
+              equals: classCode,
+            },
+          },
+          {
+            name: {
+              equals: name,
+            },
+          },
+        ],
+      },
+    });
+
+  if (duplicate) {
+    throw new Error(
+      "A class with the same name or class code already exists.",
+    );
   }
 
   await prisma.schoolClass.update({
@@ -112,50 +192,46 @@ async function updateSchoolClass(formData: FormData) {
     data: {
       name,
       grade,
-      section: section || null,
+      section,
       classCode,
-      sortOrder: Number.isFinite(sortOrderValue)
-        ? sortOrderValue
-        : 0,
+      sortOrder,
     },
   });
 
-  revalidatePath(`/admin/schools/${schoolId}/settings`);
-  revalidatePath("/admin/schools");
+  revalidatePath(
+    `/admin/schools/${schoolClass.schoolId}/settings`,
+  );
 }
 
-async function toggleSchoolClass(formData: FormData) {
+/* -------------------------------------------------------------------------- */
+/*                             TOGGLE CLASS                                   */
+/* -------------------------------------------------------------------------- */
+
+async function toggleSchoolClass(
+  formData: FormData,
+) {
   "use server";
 
-  const session = await requireAdmin();
+  const id = getString(formData, "id");
 
-  const id = String(formData.get("id") ?? "").trim();
-  const schoolId = String(formData.get("schoolId") ?? "").trim();
-
-  if (!id || !schoolId) {
-    throw new Error("Missing class information.");
+  if (!id) {
+    throw new Error("Class ID is required.");
   }
 
-  if (
-    session.user.role === "SCHOOL_ADMIN" &&
-    session.user.schoolId !== schoolId
-  ) {
-    throw new Error("Unauthorized.");
-  }
+  const schoolClass =
+    await prisma.schoolClass.findUnique({
+      where: {
+        id,
+      },
+    });
 
-  const schoolClass = await prisma.schoolClass.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      schoolId: true,
-      isActive: true,
-    },
-  });
-
-  if (!schoolClass || schoolClass.schoolId !== schoolId) {
+  if (!schoolClass) {
     throw new Error("Class not found.");
   }
+
+  await assertSchoolAccess(
+    schoolClass.schoolId,
+  );
 
   await prisma.schoolClass.update({
     where: {
@@ -166,40 +242,40 @@ async function toggleSchoolClass(formData: FormData) {
     },
   });
 
-  revalidatePath(`/admin/schools/${schoolId}/settings`);
+  revalidatePath(
+    `/admin/schools/${schoolClass.schoolId}/settings`,
+  );
 }
 
-async function deleteSchoolClass(formData: FormData) {
+/* -------------------------------------------------------------------------- */
+/*                             DELETE CLASS                                   */
+/* -------------------------------------------------------------------------- */
+
+async function deleteSchoolClass(
+  formData: FormData,
+) {
   "use server";
 
-  const session = await requireAdmin();
+  const id = getString(formData, "id");
 
-  const id = String(formData.get("id") ?? "").trim();
-  const schoolId = String(formData.get("schoolId") ?? "").trim();
-
-  if (!id || !schoolId) {
-    throw new Error("Missing class information.");
+  if (!id) {
+    throw new Error("Class ID is required.");
   }
 
-  if (
-    session.user.role === "SCHOOL_ADMIN" &&
-    session.user.schoolId !== schoolId
-  ) {
-    throw new Error("Unauthorized.");
-  }
+  const schoolClass =
+    await prisma.schoolClass.findUnique({
+      where: {
+        id,
+      },
+    });
 
-  const schoolClass = await prisma.schoolClass.findUnique({
-    where: {
-      id,
-    },
-    select: {
-      schoolId: true,
-    },
-  });
-
-  if (!schoolClass || schoolClass.schoolId !== schoolId) {
+  if (!schoolClass) {
     throw new Error("Class not found.");
   }
+
+  await assertSchoolAccess(
+    schoolClass.schoolId,
+  );
 
   await prisma.schoolClass.delete({
     where: {
@@ -207,13 +283,21 @@ async function deleteSchoolClass(formData: FormData) {
     },
   });
 
-  revalidatePath(`/admin/schools/${schoolId}/settings`);
+  revalidatePath(
+    `/admin/schools/${schoolClass.schoolId}/settings`,
+  );
 }
+
+/* -------------------------------------------------------------------------- */
+/*                                  PAGE                                      */
+/* -------------------------------------------------------------------------- */
 
 export default async function SchoolSettingsPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{
+    id: string;
+  }>;
 }) {
   const session = await requireAdmin();
 
@@ -226,40 +310,41 @@ export default async function SchoolSettingsPage({
     notFound();
   }
 
-  const school = await prisma.school.findUnique({
-    where: {
-      id,
-    },
-
-    include: {
-      settings: true,
-
-      pickupSlots: {
-        orderBy: [
-          {
-            sortOrder: "asc",
-          },
-          {
-            startTime: "asc",
-          },
-        ],
+  const school =
+    await prisma.school.findUnique({
+      where: {
+        id,
       },
 
-      classes: {
-        orderBy: [
-          {
-            sortOrder: "asc",
-          },
-          {
-            grade: "asc",
-          },
-          {
-            classCode: "asc",
-          },
-        ],
+      include: {
+        settings: true,
+
+        classes: {
+          orderBy: [
+            {
+              sortOrder: "asc",
+            },
+            {
+              grade: "asc",
+            },
+            {
+              classCode: "asc",
+            },
+          ],
+        },
+
+        pickupSlots: {
+          orderBy: [
+            {
+              sortOrder: "asc",
+            },
+            {
+              startTime: "asc",
+            },
+          ],
+        },
       },
-    },
-  });
+    });
 
   if (!school) {
     notFound();
@@ -269,6 +354,10 @@ export default async function SchoolSettingsPage({
 
   return (
     <main className="content">
+      {/* ------------------------------------------------------------------ */}
+      {/* HEADER                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
       <div className="page-heading">
         <div>
           <h1 className="brand">
@@ -276,9 +365,9 @@ export default async function SchoolSettingsPage({
           </h1>
 
           <p className="subtle">
-            Control school operations, classes,
-            pre-orders, pickup times and
-            notification settings.
+            Control pre-orders, classes, pickup
+            times, overdraft policy and
+            notification channels.
           </p>
         </div>
 
@@ -291,7 +380,9 @@ export default async function SchoolSettingsPage({
       </div>
 
       <div className="wallet-layout">
-        {/* Operational Settings */}
+        {/* ---------------------------------------------------------------- */}
+        {/* OPERATIONAL SETTINGS                                             */}
+        {/* ---------------------------------------------------------------- */}
 
         <form
           action={saveSchoolSettings}
@@ -312,7 +403,8 @@ export default async function SchoolSettingsPage({
               className="input"
               name="timezone"
               defaultValue={
-                s?.timezone ?? "Australia/Brisbane"
+                s?.timezone ??
+                "Australia/Brisbane"
               }
             />
           </label>
@@ -348,7 +440,8 @@ export default async function SchoolSettingsPage({
               type="time"
               name="preOrderCutoffTime"
               defaultValue={
-                s?.preOrderCutoffTime ?? "07:00"
+                s?.preOrderCutoffTime ??
+                "07:00"
               }
             />
           </label>
@@ -358,7 +451,8 @@ export default async function SchoolSettingsPage({
               type="checkbox"
               name="allowNegativeBalance"
               defaultChecked={
-                s?.allowNegativeBalance ?? false
+                s?.allowNegativeBalance ??
+                false
               }
             />{" "}
             Allow negative-balance sales with
@@ -387,7 +481,8 @@ export default async function SchoolSettingsPage({
               type="checkbox"
               name="emailNotificationsEnabled"
               defaultChecked={
-                s?.emailNotificationsEnabled ?? true
+                s?.emailNotificationsEnabled ??
+                true
               }
             />{" "}
             Email notifications enabled for this
@@ -399,7 +494,8 @@ export default async function SchoolSettingsPage({
               type="checkbox"
               name="smsNotificationsEnabled"
               defaultChecked={
-                s?.smsNotificationsEnabled ?? false
+                s?.smsNotificationsEnabled ??
+                false
               }
             />{" "}
             SMS notifications enabled for this
@@ -414,271 +510,295 @@ export default async function SchoolSettingsPage({
           </button>
         </form>
 
-        {/* Classes */}
+        {/* ---------------------------------------------------------------- */}
+        {/* CLASSES                                                          */}
+        {/* ---------------------------------------------------------------- */}
 
         <section className="panel">
-          <h2>Classes</h2>
-
-          <p className="subtle compact">
-            Manage the classes that parents can
-            select when adding a student.
-          </p>
-
-          <div className="divider" />
-
-          <form
-            action={addSchoolClass}
-            className="form"
-          >
-            <input
-              type="hidden"
-              name="schoolId"
-              value={school.id}
-            />
-
-            <h3>Add Class</h3>
-
-            <label className="label">
-              Class name
-
-              <input
-                className="input"
-                name="name"
-                placeholder="Grade 3 - A"
-                required
-              />
-            </label>
-
-            <div className="two-col">
-              <label className="label">
-                Grade
-
-                <input
-                  className="input"
-                  name="grade"
-                  placeholder="3"
-                  required
-                />
-              </label>
-
-              <label className="label">
-                Section
-
-                <input
-                  className="input"
-                  name="section"
-                  placeholder="A"
-                />
-              </label>
-            </div>
-
-            <label className="label">
-              Class code
-
-              <input
-                className="input"
-                name="classCode"
-                placeholder="3A"
-                required
-              />
-            </label>
-
-            <label className="label">
-              Sort order
-
-              <input
-                className="input"
-                name="sortOrder"
-                type="number"
-                defaultValue="0"
-              />
-            </label>
-
-            <button
-              className="primary"
-              type="submit"
+          <details>
+            <summary
+              style={{
+                cursor: "pointer",
+                fontSize: 20,
+                fontWeight: 700,
+                padding: "4px 0",
+              }}
             >
-              Add Class
-            </button>
-          </form>
+              Classes
+            </summary>
 
-          <div className="divider" />
-
-          <div className="request-list">
-            {school.classes.length === 0 ? (
-              <p className="subtle compact">
-                No classes configured for this
-                school yet.
+            <div
+              style={{
+                marginTop: 18,
+              }}
+            >
+              <p className="subtle">
+                Manage the classes that parents
+                can select when adding a student.
               </p>
-            ) : (
-              school.classes.map((schoolClass) => (
-                <div
-                  className="panel"
-                  key={schoolClass.id}
-                >
-                  <form
-                    action={updateSchoolClass}
-                    className="form"
-                  >
-                    <input
-                      type="hidden"
-                      name="id"
-                      value={schoolClass.id}
-                    />
+
+              <div className="divider" />
+
+              {/* ADD CLASS */}
+
+              <form
+                action={addSchoolClass}
+                className="form"
+              >
+                <h3>Add Class</h3>
+
+                <input
+                  type="hidden"
+                  name="schoolId"
+                  value={school.id}
+                />
+
+                <label className="label">
+                  Class name
+
+                  <input
+                    className="input"
+                    name="name"
+                    placeholder="Year 3 - A"
+                    required
+                  />
+                </label>
+
+                <div className="two-col">
+                  <label className="label">
+                    Year
 
                     <input
-                      type="hidden"
-                      name="schoolId"
-                      value={school.id}
+                      className="input"
+                      name="grade"
+                      placeholder="3"
+                      required
                     />
+                  </label>
 
-                    <div className="two-col">
-                      <label className="label">
-                        Class name
+                  <label className="label">
+                    Section
 
-                        <input
-                          className="input"
-                          name="name"
-                          defaultValue={
-                            schoolClass.name
-                          }
-                          required
-                        />
-                      </label>
-
-                      <label className="label">
-                        Class code
-
-                        <input
-                          className="input"
-                          name="classCode"
-                          defaultValue={
-                            schoolClass.classCode
-                          }
-                          required
-                        />
-                      </label>
-                    </div>
-
-                    <div className="two-col">
-                      <label className="label">
-                        Grade
-
-                        <input
-                          className="input"
-                          name="grade"
-                          defaultValue={
-                            schoolClass.grade
-                          }
-                          required
-                        />
-                      </label>
-
-                      <label className="label">
-                        Section
-
-                        <input
-                          className="input"
-                          name="section"
-                          defaultValue={
-                            schoolClass.section ?? ""
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    <label className="label">
-                      Sort order
-
-                      <input
-                        className="input"
-                        name="sortOrder"
-                        type="number"
-                        defaultValue={
-                          schoolClass.sortOrder
-                        }
-                      />
-                    </label>
-
-                    <div
-                      className="actions-row"
-                      style={{
-                        alignItems: "center",
-                      }}
-                    >
-                      <button
-                        className="primary"
-                        type="submit"
-                      >
-                        Save Class
-                      </button>
-
-                      <span className="subtle compact">
-                        {schoolClass.isActive
-                          ? "ACTIVE"
-                          : "INACTIVE"}
-                      </span>
-                    </div>
-                  </form>
-
-                  <div className="divider" />
-
-                  <div className="actions-row">
-                    <form
-                      action={toggleSchoolClass}
-                    >
-                      <input
-                        type="hidden"
-                        name="id"
-                        value={schoolClass.id}
-                      />
-
-                      <input
-                        type="hidden"
-                        name="schoolId"
-                        value={school.id}
-                      />
-
-                      <button
-                        className="secondary"
-                        type="submit"
-                      >
-                        {schoolClass.isActive
-                          ? "Disable"
-                          : "Enable"}
-                      </button>
-                    </form>
-
-                    <form
-                      action={deleteSchoolClass}
-                    >
-                      <input
-                        type="hidden"
-                        name="id"
-                        value={schoolClass.id}
-                      />
-
-                      <input
-                        type="hidden"
-                        name="schoolId"
-                        value={school.id}
-                      />
-
-                      <button
-                        className="danger"
-                        type="submit"
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </div>
+                    <input
+                      className="input"
+                      name="section"
+                      placeholder="A"
+                      required
+                    />
+                  </label>
                 </div>
-              ))
-            )}
-          </div>
+
+                <label className="label">
+                  Class code
+
+                  <input
+                    className="input"
+                    name="classCode"
+                    placeholder="3A"
+                    required
+                  />
+                </label>
+
+                <label className="label">
+                  Sort order
+
+                  <input
+                    className="input"
+                    type="number"
+                    name="sortOrder"
+                    defaultValue="0"
+                  />
+                </label>
+
+                <button
+                  className="primary"
+                  type="submit"
+                >
+                  Add Class
+                </button>
+              </form>
+
+              <div className="divider" />
+
+              {/* EXISTING CLASSES */}
+
+              {school.classes.length === 0 ? (
+                <p className="subtle">
+                  No classes configured for this
+                  school yet.
+                </p>
+              ) : (
+                <div className="request-list">
+                  {school.classes.map(
+                    (schoolClass) => (
+                      <div
+                        className="panel"
+                        key={schoolClass.id}
+                      >
+                        <form
+                          action={updateSchoolClass}
+                          className="form"
+                        >
+                          <input
+                            type="hidden"
+                            name="id"
+                            value={
+                              schoolClass.id
+                            }
+                          />
+
+                          <h3>
+                            {schoolClass.name}
+                          </h3>
+
+                          <div className="subtle compact">
+                            Class code:{" "}
+                            {
+                              schoolClass.classCode
+                            }{" "}
+                            ·{" "}
+                            {schoolClass.isActive
+                              ? "ACTIVE"
+                              : "INACTIVE"}
+                          </div>
+
+                          <label className="label">
+                            Class name
+
+                            <input
+                              className="input"
+                              name="name"
+                              defaultValue={
+                                schoolClass.name
+                              }
+                              required
+                            />
+                          </label>
+
+                          <div className="two-col">
+                            <label className="label">
+                              Year
+
+                              <input
+                                className="input"
+                                name="grade"
+                                defaultValue={
+                                  schoolClass.grade
+                                }
+                                required
+                              />
+                            </label>
+
+                            <label className="label">
+                              Section
+
+                              <input
+                                className="input"
+                                name="section"
+                                defaultValue={
+                                  schoolClass.section ??
+                                  ""
+                                }
+                                required
+                              />
+                            </label>
+                          </div>
+
+                          <label className="label">
+                            Class code
+
+                            <input
+                              className="input"
+                              name="classCode"
+                              defaultValue={
+                                schoolClass.classCode
+                              }
+                              required
+                            />
+                          </label>
+
+                          <label className="label">
+                            Sort order
+
+                            <input
+                              className="input"
+                              type="number"
+                              name="sortOrder"
+                              defaultValue={
+                                schoolClass.sortOrder
+                              }
+                            />
+                          </label>
+
+                          <button
+                            className="primary"
+                            type="submit"
+                          >
+                            Save Class
+                          </button>
+                        </form>
+
+                        <div
+                          className="divider"
+                        />
+
+                        <div className="actions-row">
+                          <form
+                            action={
+                              toggleSchoolClass
+                            }
+                          >
+                            <input
+                              type="hidden"
+                              name="id"
+                              value={
+                                schoolClass.id
+                              }
+                            />
+
+                            <button
+                              className="secondary"
+                              type="submit"
+                            >
+                              {schoolClass.isActive
+                                ? "Disable"
+                                : "Enable"}
+                            </button>
+                          </form>
+
+                          <form
+                            action={
+                              deleteSchoolClass
+                            }
+                          >
+                            <input
+                              type="hidden"
+                              name="id"
+                              value={
+                                schoolClass.id
+                              }
+                            />
+
+                            <button
+                              className="danger"
+                              type="submit"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+          </details>
         </section>
 
-        {/* Pickup Slots */}
+        {/* ---------------------------------------------------------------- */}
+        {/* PICKUP SLOTS                                                     */}
+        {/* ---------------------------------------------------------------- */}
 
         <section className="panel">
           <h2>Pickup Slots</h2>
@@ -748,64 +868,70 @@ export default async function SchoolSettingsPage({
                 No pickup slots configured.
               </p>
             ) : (
-              school.pickupSlots.map((slot) => (
-                <div
-                  className="list-row"
-                  key={slot.id}
-                >
-                  <div>
-                    <strong>
-                      {slot.label}
-                    </strong>
+              school.pickupSlots.map(
+                (slot) => (
+                  <div
+                    className="list-row"
+                    key={slot.id}
+                  >
+                    <div>
+                      <strong>
+                        {slot.label}
+                      </strong>
 
-                    <div className="subtle compact">
-                      {slot.startTime}–
-                      {slot.endTime} ·{" "}
-                      {slot.isActive
-                        ? "ACTIVE"
-                        : "INACTIVE"}
+                      <div className="subtle compact">
+                        {slot.startTime}–
+                        {slot.endTime} ·{" "}
+                        {slot.isActive
+                          ? "ACTIVE"
+                          : "INACTIVE"}
+                      </div>
+                    </div>
+
+                    <div className="actions-row">
+                      <form
+                        action={
+                          togglePickupSlot
+                        }
+                      >
+                        <input
+                          type="hidden"
+                          name="id"
+                          value={slot.id}
+                        />
+
+                        <button
+                          className="secondary"
+                          type="submit"
+                        >
+                          {slot.isActive
+                            ? "Disable"
+                            : "Enable"}
+                        </button>
+                      </form>
+
+                      <form
+                        action={
+                          deletePickupSlot
+                        }
+                      >
+                        <input
+                          type="hidden"
+                          name="id"
+                          value={slot.id}
+                        />
+
+                        <button
+                          className="danger"
+                          type="submit"
+                        >
+                          Remove
+                        </button>
+                      </form>
                     </div>
                   </div>
-
-                  <div className="actions-row">
-                    <form
-                      action={togglePickupSlot}
-                    >
-                      <input
-                        type="hidden"
-                        name="id"
-                        value={slot.id}
-                      />
-
-                      <button
-                        className="secondary"
-                        type="submit"
-                      >
-                        {slot.isActive
-                          ? "Disable"
-                          : "Enable"}
-                      </button>
-                    </form>
-
-                    <form
-                      action={deletePickupSlot}
-                    >
-                      <input
-                        type="hidden"
-                        name="id"
-                        value={slot.id}
-                      />
-
-                      <button
-                        className="danger"
-                        type="submit"
-                      >
-                        Remove
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              ))
+                ),
+              )
             )}
           </div>
         </section>
