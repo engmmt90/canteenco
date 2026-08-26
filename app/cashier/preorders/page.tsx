@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import PreOrderQueue from "./preorder-queue";
 
 export default async function CashierPreOrdersPage() {
-  const session = await requireCashier();
+  const session =
+    await requireCashier();
 
   const where: any = {
     status: {
@@ -16,10 +17,12 @@ export default async function CashierPreOrdersPage() {
   };
 
   if (
-    session.user.role !== "SUPER_ADMIN" &&
+    session.user.role !==
+      "SUPER_ADMIN" &&
     session.user.schoolId
   ) {
-    where.schoolId = session.user.schoolId;
+    where.schoolId =
+      session.user.schoolId;
   }
 
   const orders =
@@ -28,7 +31,9 @@ export default async function CashierPreOrdersPage() {
 
       include: {
         student: true,
+
         school: true,
+
         pickupSlot: true,
 
         items: {
@@ -42,69 +47,83 @@ export default async function CashierPreOrdersPage() {
         {
           pickupDate: "asc",
         },
+
         {
           pickupSlot: {
             sortOrder: "asc",
           },
         },
+
         {
           createdAt: "asc",
         },
       ],
     });
 
-  const plain = orders.map((order) => ({
-    id: order.id,
+  const plain = orders.map(
+    (order) => ({
+      id: order.id,
 
-    orderNumber: order.orderNumber,
+      orderNumber:
+        order.orderNumber,
 
-    status: order.status,
+      status:
+        order.status,
 
-    pickupDate:
-      order.pickupDate.toISOString(),
+      pickupDate:
+        order.pickupDate.toISOString(),
 
-    total: Number(order.total),
+      total:
+        Number(order.total),
 
-    labelPrintedAt:
-      order.labelPrintedAt
-        ? order.labelPrintedAt.toISOString()
-        : null,
+      labelPrintedAt:
+        order.labelPrintedAt
+          ? order.labelPrintedAt.toISOString()
+          : null,
 
-    student: {
-      id: order.student.id,
+      student: {
+        id:
+          order.student.id,
 
-      firstName:
-        order.student.firstName,
+        firstName:
+          order.student.firstName,
 
-      lastName:
-        order.student.lastName,
+        lastName:
+          order.student.lastName,
 
-      displayCode:
-        order.student.displayCode,
+        displayCode:
+          order.student.displayCode,
 
-      classCode:
-        order.student.classCode,
+        classCode:
+          order.student.classCode,
 
-      nfcCardNumber:
-        order.student.nfcCardNumber,
-    },
+        nfcCardNumber:
+          order.student
+            .nfcCardNumber,
+      },
 
-    schoolName:
-      order.school.name,
+      schoolName:
+        order.school.name,
 
-    pickupSlot: {
-      label:
-        order.pickupSlot.label,
-    },
+      pickupSlot: {
+        label:
+          order.pickupSlot.label,
+      },
 
-    items: order.items.map((item) => ({
-      id: item.id,
+      items:
+        order.items.map(
+          (item) => ({
+            id: item.id,
 
-      name: item.product.name,
+            name:
+              item.product.name,
 
-      quantity: item.quantity,
-    })),
-  }));
+            quantity:
+              item.quantity,
+          }),
+        ),
+    }),
+  );
 
   return (
     <PreOrderQueue

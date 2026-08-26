@@ -1,4 +1,5 @@
 import Link from "next/link";
+
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { saveProduct } from "@/app/actions/admin-management";
@@ -6,7 +7,9 @@ import { saveProduct } from "@/app/actions/admin-management";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string }>;
+  searchParams: Promise<{
+    edit?: string;
+  }>;
 }) {
   await requireAdmin();
 
@@ -17,20 +20,37 @@ export default async function Page({
     where: {
       deletedAt: null,
     },
+
     orderBy: [
-      { sortOrder: "asc" },
-      { name: "asc" },
+      {
+        sortOrder: "asc",
+      },
+      {
+        name: "asc",
+      },
     ],
   });
 
   const editingProduct = editId
-    ? products.find((product) => product.id === editId)
+    ? products.find(
+        (product) => product.id === editId,
+      )
     : null;
 
   return (
     <main className="content">
+      {/* Header */}
       <div className="page-heading">
-        <h1 className="brand">Products</h1>
+        <div>
+          <h1 className="brand">
+            Products
+          </h1>
+
+          <p className="subtle">
+            Manage products, prices and
+            product options.
+          </p>
+        </div>
 
         <Link
           className="secondary"
@@ -40,6 +60,7 @@ export default async function Page({
         </Link>
       </div>
 
+      {/* Add / Edit Product */}
       <form
         action={saveProduct}
         className="panel form"
@@ -58,71 +79,102 @@ export default async function Page({
           />
         )}
 
-        <input
-          className="input"
-          name="sku"
-          placeholder="SKU"
-          required
-          defaultValue={
-            editingProduct?.sku ?? ""
-          }
-        />
+        {/* SKU */}
+        <label className="label">
+          SKU
 
-        <input
-          className="input"
-          name="name"
-          placeholder="Product name"
-          required
-          defaultValue={
-            editingProduct?.name ?? ""
-          }
-        />
+          <input
+            className="input"
+            name="sku"
+            placeholder="SKU"
+            required
+            defaultValue={
+              editingProduct?.sku ?? ""
+            }
+          />
+        </label>
 
-        <input
-          className="input"
-          name="category"
-          placeholder="Category"
-          defaultValue={
-            editingProduct?.category ?? ""
-          }
-        />
+        {/* Name */}
+        <label className="label">
+          Product name
 
-        <input
-          className="input"
-          name="price"
-          type="number"
-          min="0"
-          step=".01"
-          placeholder="Price"
-          required
-          defaultValue={
-            editingProduct
-              ? Number(
-                  editingProduct.price,
-                ).toFixed(2)
-              : ""
-          }
-        />
+          <input
+            className="input"
+            name="name"
+            placeholder="Product name"
+            required
+            defaultValue={
+              editingProduct?.name ?? ""
+            }
+          />
+        </label>
 
-        <input
-          className="input"
-          name="sortOrder"
-          type="number"
-          defaultValue={
-            editingProduct?.sortOrder ?? 0
-          }
-        />
+        {/* Category */}
+        <label className="label">
+          Category
 
-        <input
-          className="input"
-          name="imageUrl"
-          type="url"
-          placeholder="Product image URL"
-          defaultValue={
-            editingProduct?.imageUrl ?? ""
-          }
-        />
+          <input
+            className="input"
+            name="category"
+            placeholder="Category"
+            defaultValue={
+              editingProduct?.category ?? ""
+            }
+          />
+        </label>
 
+        {/* Price */}
+        <label className="label">
+          Price
+
+          <input
+            className="input"
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Price"
+            required
+            defaultValue={
+              editingProduct
+                ? Number(
+                    editingProduct.price,
+                  ).toFixed(2)
+                : ""
+            }
+          />
+        </label>
+
+        {/* Sort Order */}
+        <label className="label">
+          Sort order
+
+          <input
+            className="input"
+            name="sortOrder"
+            type="number"
+            defaultValue={
+              editingProduct?.sortOrder ?? 0
+            }
+          />
+        </label>
+
+        {/* Image URL */}
+        <label className="label">
+          Product image URL
+
+          <input
+            className="input"
+            name="imageUrl"
+            type="url"
+            placeholder="https://..."
+            defaultValue={
+              editingProduct?.imageUrl ?? ""
+            }
+          />
+        </label>
+
+        {/* Current Image */}
         {editingProduct?.imageUrl && (
           <div
             style={{
@@ -139,7 +191,8 @@ export default async function Page({
                 height: 90,
                 objectFit: "cover",
                 borderRadius: 12,
-                border: "1px solid #e5e7eb",
+                border:
+                  "1px solid #e5e7eb",
               }}
             />
 
@@ -149,16 +202,23 @@ export default async function Page({
           </div>
         )}
 
-        <textarea
-          className="input"
-          name="description"
-          placeholder="Description"
-          defaultValue={
-            editingProduct?.description ??
-            ""
-          }
-        />
+        {/* Description */}
+        <label className="label">
+          Description
 
+          <textarea
+            className="input"
+            name="description"
+            placeholder="Description"
+            defaultValue={
+              editingProduct?.description ??
+              ""
+            }
+            rows={4}
+          />
+        </label>
+
+        {/* Active */}
         <label
           style={{
             display: "flex",
@@ -179,10 +239,12 @@ export default async function Page({
           Available for sale
         </label>
 
+        {/* Form Buttons */}
         <div
           style={{
             display: "flex",
             gap: 10,
+            flexWrap: "wrap",
           }}
         >
           <button
@@ -205,116 +267,208 @@ export default async function Page({
         </div>
       </form>
 
+      {/* Products List */}
       <section
         className="panel"
         style={{
           marginTop: 18,
         }}
       >
-        <div className="request-list">
-          {products.map((product) => (
+        <div className="page-heading">
+          <div>
+            <h2>Product List</h2>
+
+            <p className="subtle compact">
+              Manage your products and their
+              optional choices.
+            </p>
+          </div>
+
+          <span className="badge">
+            {products.length}{" "}
+            {products.length === 1
+              ? "PRODUCT"
+              : "PRODUCTS"}
+          </span>
+        </div>
+
+        <div
+          className="request-list"
+          style={{
+            marginTop: 16,
+          }}
+        >
+          {products.length === 0 ? (
             <div
-              className="list-row"
-              key={product.id}
+              style={{
+                padding: 20,
+                textAlign: "center",
+              }}
             >
+              <p className="subtle">
+                No products found.
+              </p>
+            </div>
+          ) : (
+            products.map((product) => (
               <div
+                className="list-row"
+                key={product.id}
                 style={{
-                  display: "flex",
                   alignItems: "center",
-                  gap: 12,
+                  gap: 16,
                 }}
               >
+                {/* Product Information */}
                 <div
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 10,
-                    overflow: "hidden",
-                    background: "#f3f4f6",
-                    flexShrink: 0,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    gap: 12,
+                    minWidth: 0,
+                    flex: 1,
                   }}
                 >
-                  {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className="subtle"
-                      style={{
-                        fontSize: 11,
-                      }}
-                    >
-                      No image
-                    </span>
-                  )}
-                </div>
-
-                <div>
-                  <strong>
-                    {product.name}
-                  </strong>
-
-                  <div className="subtle compact">
-                    {product.sku} ·{" "}
-                    {product.category ||
-                      "Uncategorised"}
-                  </div>
-
+                  {/* Product Image */}
                   <div
-                    className="subtle compact"
                     style={{
-                      marginTop: 4,
+                      width: 64,
+                      height: 64,
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      background:
+                        "#f3f4f6",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      justifyContent:
+                        "center",
                     }}
                   >
-                    Sort order:{" "}
-                    {product.sortOrder}
+                    {product.imageUrl ? (
+                      <img
+                        src={
+                          product.imageUrl
+                        }
+                        alt={
+                          product.name
+                        }
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit:
+                            "cover",
+                          display:
+                            "block",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="subtle"
+                        style={{
+                          fontSize: 11,
+                        }}
+                      >
+                        No image
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Product Details */}
+                  <div
+                    style={{
+                      minWidth: 0,
+                    }}
+                  >
+                    <strong>
+                      {product.name}
+                    </strong>
+
+                    <div className="subtle compact">
+                      {product.sku} ·{" "}
+                      {product.category ||
+                        "Uncategorised"}
+                    </div>
+
+                    {product.description && (
+                      <div
+                        className="subtle compact"
+                        style={{
+                          marginTop: 4,
+                          maxWidth: 600,
+                          overflow:
+                            "hidden",
+                          textOverflow:
+                            "ellipsis",
+                          whiteSpace:
+                            "nowrap",
+                        }}
+                      >
+                        {
+                          product.description
+                        }
+                      </div>
+                    )}
+
+                    <div
+                      className="subtle compact"
+                      style={{
+                        marginTop: 4,
+                      }}
+                    >
+                      Sort order:{" "}
+                      {product.sortOrder}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  flexWrap: "wrap",
-                  justifyContent:
-                    "flex-end",
-                }}
-              >
-                <strong>
-                  $
-                  {Number(
-                    product.price,
-                  ).toFixed(2)}
-                </strong>
-
-                <span className="badge">
-                  {product.isActive
-                    ? "AVAILABLE"
-                    : "DISABLED"}
-                </span>
-
-                <Link
-                  className="secondary"
-                  href={`/admin/products?edit=${product.id}`}
+                {/* Product Actions */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems:
+                      "center",
+                    gap: 10,
+                    flexWrap: "wrap",
+                    justifyContent:
+                      "flex-end",
+                  }}
                 >
-                  Edit
-                </Link>
+                  {/* Price */}
+                  <strong>
+                    $
+                    {Number(
+                      product.price,
+                    ).toFixed(2)}
+                  </strong>
+
+                  {/* Status */}
+                  <span className="badge">
+                    {product.isActive
+                      ? "AVAILABLE"
+                      : "DISABLED"}
+                  </span>
+
+                  {/* Options */}
+                  <Link
+                    className="secondary"
+                    href={`/admin/products/${product.id}/options`}
+                  >
+                    Options
+                  </Link>
+
+                  {/* Edit */}
+                  <Link
+                    className="secondary"
+                    href={`/admin/products?edit=${product.id}`}
+                  >
+                    Edit
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </main>
