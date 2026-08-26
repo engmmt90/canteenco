@@ -1,95 +1,158 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/authz";
 
-function str(formData: FormData, key: string) {
-  return String(formData.get(key) ?? "").trim();
+import { requireAdmin } from "@/lib/authz";
+import { prisma } from "@/lib/prisma";
+
+function getString(
+  formData: FormData,
+  key: string,
+) {
+  return String(
+    formData.get(key) ?? "",
+  ).trim();
 }
 
-function int(
+function getInteger(
   formData: FormData,
   key: string,
   fallback = 0,
 ) {
-  const value = Number.parseInt(
-    str(formData, key),
-    10,
+  const raw = getString(
+    formData,
+    key,
   );
+
+  if (!raw) {
+    return fallback;
+  }
+
+  const value =
+    Number.parseInt(raw, 10);
 
   return Number.isFinite(value)
     ? value
     : fallback;
 }
 
-function price(
+function getPrice(
   formData: FormData,
   key: string,
 ) {
-  const value = Number(
-    str(formData, key),
+  const raw = getString(
+    formData,
+    key,
   );
 
-  if (!Number.isFinite(value) || value < 0) {
+  const value = Number(raw);
+
+  if (
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
     throw new Error(
-      "Price must be a valid non-negative number.",
+      "Additional price must be a valid non-negative number.",
     );
   }
 
   return value.toFixed(2);
 }
 
+/*
+ * ============================================================
+ * SAVE OPTION GROUP
+ * ============================================================
+ */
+
 export async function saveProductOptionGroup(
   formData: FormData,
 ): Promise<void> {
   await requireAdmin();
 
-  const productId = str(formData, "productId");
-  const id = str(formData, "id");
-  const name = str(formData, "name");
+  const productId =
+    getString(
+      formData,
+      "productId",
+    );
 
-  const minSelections = int(
-    formData,
-    "minSelections",
-    0,
-  );
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
-  const maxSelections = int(
-    formData,
-    "maxSelections",
-    1,
-  );
+  const name =
+    getString(
+      formData,
+      "name",
+    );
 
-  const sortOrder = int(
-    formData,
-    "sortOrder",
-    0,
-  );
+  const minSelections =
+    getInteger(
+      formData,
+      "minSelections",
+      0,
+    );
+
+  const maxSelections =
+    getInteger(
+      formData,
+      "maxSelections",
+      1,
+    );
+
+  const sortOrder =
+    getInteger(
+      formData,
+      "sortOrder",
+      0,
+    );
 
   const isRequired =
-    formData.get("isRequired") === "on";
+    formData.get(
+      "isRequired",
+    ) === "on";
 
   const isActive =
-    formData.get("isActive") !== "off";
+    formData.get(
+      "isActive",
+    ) === "on";
 
   if (!productId) {
-    throw new Error("Product is required.");
+    throw new Error(
+      "Product is required.",
+    );
   }
 
   if (!name) {
     throw new Error(
-      "Option group name is required.",
+      "Group name is required.",
     );
   }
 
   if (
-    minSelections < 0 ||
-    maxSelections < 1 ||
-    minSelections > maxSelections
+    minSelections < 0
   ) {
     throw new Error(
-      "Invalid minimum or maximum selections.",
+      "Minimum selections cannot be negative.",
+    );
+  }
+
+  if (
+    maxSelections < 1
+  ) {
+    throw new Error(
+      "Maximum selections must be at least 1.",
+    );
+  }
+
+  if (
+    minSelections >
+    maxSelections
+  ) {
+    throw new Error(
+      "Minimum selections cannot be greater than maximum selections.",
     );
   }
 
@@ -98,33 +161,32 @@ export async function saveProductOptionGroup(
       where: {
         id: productId,
       },
+
       select: {
         id: true,
       },
     });
 
   if (!product) {
-    throw new Error("Product not found.");
+    throw new Error(
+      "Product not found.",
+    );
   }
 
   if (id) {
-    const group =
-      await prisma.productOptionGroup.findUnique(
-        {
-          where: {
-            id,
-          },
-          select: {
-            id: true,
-            productId: true,
-          },
+    const existingGroup =
+      await prisma.productOptionGroup.findFirst({
+        where: {
+          id,
+          productId,
         },
-      );
 
-    if (
-      !group ||
-      group.productId !== productId
-    ) {
+        select: {
+          id: true,
+        },
+      });
+
+    if (!existingGroup) {
       throw new Error(
         "Option group not found.",
       );
@@ -134,6 +196,7 @@ export async function saveProductOptionGroup(
       where: {
         id,
       },
+
       data: {
         name,
         minSelections,
@@ -161,15 +224,27 @@ export async function saveProductOptionGroup(
     `/admin/products/${productId}/options`,
   );
 
-  revalidatePath("/admin/products");
+  revalidatePath(
+    "/admin/products",
+  );
 }
+
+/*
+ * ============================================================
+ * DELETE OPTION GROUP
+ * ============================================================
+ */
 
 export async function deleteProductOptionGroup(
   formData: FormData,
 ): Promise<void> {
   await requireAdmin();
 
-  const id = str(formData, "id");
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
   if (!id) {
     throw new Error(
@@ -182,7 +257,9 @@ export async function deleteProductOptionGroup(
       where: {
         id,
       },
+
       select: {
+        id: true,
         productId: true,
       },
     });
@@ -203,35 +280,57 @@ export async function deleteProductOptionGroup(
     `/admin/products/${group.productId}/options`,
   );
 
-  revalidatePath("/admin/products");
+  revalidatePath(
+    "/admin/products",
+  );
 }
+
+/*
+ * ============================================================
+ * SAVE OPTION
+ * ============================================================
+ */
 
 export async function saveProductOption(
   formData: FormData,
 ): Promise<void> {
   await requireAdmin();
 
-  const groupId = str(
-    formData,
-    "groupId",
-  );
+  const groupId =
+    getString(
+      formData,
+      "groupId",
+    );
 
-  const id = str(formData, "id");
-  const name = str(formData, "name");
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
-  const additionalPrice = price(
-    formData,
-    "additionalPrice",
-  );
+  const name =
+    getString(
+      formData,
+      "name",
+    );
 
-  const sortOrder = int(
-    formData,
-    "sortOrder",
-    0,
-  );
+  const additionalPrice =
+    getPrice(
+      formData,
+      "additionalPrice",
+    );
+
+  const sortOrder =
+    getInteger(
+      formData,
+      "sortOrder",
+      0,
+    );
 
   const isActive =
-    formData.get("isActive") !== "off";
+    formData.get(
+      "isActive",
+    ) === "on";
 
   if (!groupId) {
     throw new Error(
@@ -250,6 +349,7 @@ export async function saveProductOption(
       where: {
         id: groupId,
       },
+
       select: {
         id: true,
         productId: true,
@@ -263,21 +363,19 @@ export async function saveProductOption(
   }
 
   if (id) {
-    const option =
-      await prisma.productOption.findUnique({
+    const existingOption =
+      await prisma.productOption.findFirst({
         where: {
           id,
+          groupId,
         },
+
         select: {
           id: true,
-          groupId: true,
         },
       });
 
-    if (
-      !option ||
-      option.groupId !== groupId
-    ) {
+    if (!existingOption) {
       throw new Error(
         "Option not found.",
       );
@@ -287,6 +385,7 @@ export async function saveProductOption(
       where: {
         id,
       },
+
       data: {
         name,
         additionalPrice,
@@ -309,14 +408,28 @@ export async function saveProductOption(
   revalidatePath(
     `/admin/products/${group.productId}/options`,
   );
+
+  revalidatePath(
+    "/admin/products",
+  );
 }
+
+/*
+ * ============================================================
+ * DELETE OPTION
+ * ============================================================
+ */
 
 export async function deleteProductOption(
   formData: FormData,
 ): Promise<void> {
   await requireAdmin();
 
-  const id = str(formData, "id");
+  const id =
+    getString(
+      formData,
+      "id",
+    );
 
   if (!id) {
     throw new Error(
@@ -329,8 +442,10 @@ export async function deleteProductOption(
       where: {
         id,
       },
+
       select: {
-        groupId: true,
+        id: true,
+
         group: {
           select: {
             productId: true,
@@ -353,5 +468,9 @@ export async function deleteProductOption(
 
   revalidatePath(
     `/admin/products/${option.group.productId}/options`,
+  );
+
+  revalidatePath(
+    "/admin/products",
   );
 }
