@@ -26,6 +26,7 @@ const STAFF_ROLES: UserRole[] = [
 type CartLine = {
   productId: string;
   quantity: number;
+  optionIds?: string[];
 };
 
 type CashierSaleResult =
@@ -145,6 +146,42 @@ export async function getCashierProducts() {
       deletedAt: null,
     },
 
+    include: {
+      optionGroups: {
+        where: {
+          isActive: true,
+        },
+
+        orderBy: [
+          {
+            sortOrder: "asc",
+          },
+
+          {
+            name: "asc",
+          },
+        ],
+
+        include: {
+          options: {
+            where: {
+              isActive: true,
+            },
+
+            orderBy: [
+              {
+                sortOrder: "asc",
+              },
+
+              {
+                name: "asc",
+              },
+            ],
+          },
+        },
+      },
+    },
+
     orderBy: [
       {
         sortOrder: "asc",
@@ -157,12 +194,14 @@ export async function getCashierProducts() {
   });
 }
 
-export async function createCashierSale(input: {
-  studentId: string;
-  items: CartLine[];
-  idempotencyKey: string;
-  adminPassword?: string;
-}): Promise<CashierSaleResult> {
+export async function createCashierSale(
+  input: {
+    studentId: string;
+    items: CartLine[];
+    idempotencyKey: string;
+    adminPassword?: string;
+  },
+): Promise<CashierSaleResult> {
   const session = await auth();
 
   if (
@@ -204,6 +243,12 @@ export async function createCashierSale(input: {
   try {
     return await prisma.$transaction(
       async (tx) => {
+        /*
+         * ------------------------------------------------------------
+         * IDEMPOTENCY
+         * ------------------------------------------------------------
+         */
+
         const existingSale =
           await tx.sale.findUnique({
             where: {
@@ -226,6 +271,12 @@ export async function createCashierSale(input: {
             duplicate: true,
           };
         }
+
+        /*
+         * ------------------------------------------------------------
+         * STUDENT
+         * ------------------------------------------------------------
+         */
 
         const student =
           await tx.student.findUnique({
@@ -261,6 +312,12 @@ export async function createCashierSale(input: {
           );
         }
 
+        /*
+         * ------------------------------------------------------------
+         * WALLET
+         * ------------------------------------------------------------
+         */
+
         const wallet =
           student.parent.wallet;
 
@@ -273,6 +330,12 @@ export async function createCashierSale(input: {
             "Family wallet is not active",
           );
         }
+
+        /*
+         * ------------------------------------------------------------
+         * PRODUCTS + OPTIONS
+         * ------------------------------------------------------------
+         */
 
         const uniqueProductIds = [
           ...new Set(
@@ -292,6 +355,22 @@ export async function createCashierSale(input: {
               isActive: true,
               deletedAt: null,
             },
+
+            include: {
+              optionGroups: {
+                where: {
+                  isActive: true,
+                },
+
+                include: {
+                  options: {
+                    where: {
+                      isActive: true,
+                    },
+                  },
+                },
+              },
+            },
           });
 
         if (
@@ -310,25 +389,151 @@ export async function createCashierSale(input: {
           ]),
         );
 
+        /*
+         * ------------------------------------------------------------
+         * VALIDATE OPTIONS + CALCULATE TOTAL
+         * ------------------------------------------------------------
+         */
+
+        const normalizedItems =
+          cleanItems.map((line) => {
+            const product =
+              productMap.get(
+                line.productId,
+              );
+
+            if (!product) {
+              throw new Error(
+                "A product is unavailable",
+              );
+            }
+
+            const requestedOptionIds = [
+              ...new Set(
+                (line.optionIds ?? []).filter(
+                  Boolean,
+                ),
+              ),
+            ];
+
+            const allOptions =
+              product.optionGroups.flatMap(
+                (group) => group.options,
+              );
+
+            const selectedOptions =
+              allOptions.filter((option) =>
+                requestedOptionIds.includes(
+                  option.id,
+                ),
+              );
+
+            /*
+             * Make sure the browser did not
+             * submit an option belonging to
+             * another product.
+             */
+
+            if (
+              selectedOptions.length !==
+              requestedOptionIds.length
+            ) {
+              throw new Error(
+                `Invalid options selected for ${product.name}`,
+              );
+            }
+
+            /*
+             * Validate every option group.
+             */
+
+            for (const group of
+              product.optionGroups) {
+              const groupOptionIds =
+                group.options.map(
+                  (option) =>
+                    option.id,
+                );
+
+              const selectedInGroup =
+                selectedOptions.filter(
+                  (option) =>
+                    groupOptionIds.includes(
+                      option.id,
+                    ),
+                );
+
+              const count =
+                selectedInGroup.length;
+
+              const minimum =
+                Math.max(
+                  group.minSelections,
+                  group.isRequired
+                    ? 1
+                    : 0,
+                );
+
+              if (count < minimum) {
+                throw new Error(
+                  `${group.name} requires at least ${minimum} selection${minimum === 1 ? "" : "s"} for ${product.name}`,
+                );
+              }
+
+              if (
+                count >
+                group.maxSelections
+              ) {
+                throw new Error(
+                  `${group.name} allows a maximum of ${group.maxSelections} selections for ${product.name}`,
+                );
+              }
+            }
+
+            /*
+             * Calculate option surcharge
+             * directly from the database.
+             */
+
+            const optionsTotal =
+              selectedOptions.reduce(
+                (
+                  sum,
+                  option,
+                ) =>
+                  sum.add(
+                    option.additionalPrice,
+                  ),
+
+                new Prisma.Decimal(0),
+              );
+
+            const unitPrice =
+              product.price.add(
+                optionsTotal,
+              );
+
+            const lineTotal =
+              unitPrice.mul(
+                line.quantity,
+              );
+
+            return {
+              product,
+              quantity: line.quantity,
+              selectedOptions,
+              unitPrice,
+              lineTotal,
+            };
+          });
+
         let total =
           new Prisma.Decimal(0);
 
-        for (const line of cleanItems) {
-          const product =
-            productMap.get(
-              line.productId,
-            );
-
-          if (!product) {
-            throw new Error(
-              "A product is unavailable",
-            );
-          }
-
+        for (const line of
+          normalizedItems) {
           total = total.add(
-            product.price.mul(
-              line.quantity,
-            ),
+            line.lineTotal,
           );
         }
 
@@ -424,8 +629,8 @@ export async function createCashierSale(input: {
 
           const preOrdersSpent =
             new Prisma.Decimal(
-              preOrdersToday._sum.total ??
-                0,
+              preOrdersToday._sum
+                .total ?? 0,
             );
 
           const spentToday =
@@ -460,6 +665,12 @@ export async function createCashierSale(input: {
             };
           }
         }
+
+        /*
+         * ------------------------------------------------------------
+         * BALANCE
+         * ------------------------------------------------------------
+         */
 
         const proposedBalance =
           wallet.balance.sub(total);
@@ -527,7 +738,8 @@ export async function createCashierSale(input: {
             | (typeof admins)[number]
             | null = null;
 
-          for (const admin of admins) {
+          for (const admin of
+            admins) {
             const passwordMatches =
               await bcrypt.compare(
                 input.adminPassword,
@@ -535,7 +747,8 @@ export async function createCashierSale(input: {
               );
 
             if (passwordMatches) {
-              approvedAdmin = admin;
+              approvedAdmin =
+                admin;
               break;
             }
           }
@@ -589,9 +802,10 @@ export async function createCashierSale(input: {
         const sale =
           await tx.sale.create({
             data: {
-              saleNumber: `SALE-${Date.now()}-${randomUUID()
-                .slice(0, 6)
-                .toUpperCase()}`,
+              saleNumber:
+                `SALE-${Date.now()}-${randomUUID()
+                  .slice(0, 6)
+                  .toUpperCase()}`,
 
               idempotencyKey:
                 input.idempotencyKey,
@@ -613,45 +827,51 @@ export async function createCashierSale(input: {
               total,
 
               isOverdraftOverride:
-                proposedBalance.lt(0),
+                proposedBalance.lt(
+                  0,
+                ),
 
               overrideApprovedById:
                 approverId,
 
               items: {
                 create:
-                  cleanItems.map(
-                    (line) => {
-                      const product =
-                        productMap.get(
-                          line.productId,
-                        );
+                  normalizedItems.map(
+                    (line) => ({
+                      productId:
+                        line.product.id,
 
-                      if (!product) {
-                        throw new Error(
-                          "A product is unavailable",
-                        );
-                      }
+                      productNameSnapshot:
+                        line.product
+                          .name,
 
-                      return {
-                        productId:
-                          product.id,
+                      quantity:
+                        line.quantity,
 
-                        productNameSnapshot:
-                          product.name,
+                      unitPrice:
+                        line.unitPrice,
 
-                        unitPrice:
-                          product.price,
+                      lineTotal:
+                        line.lineTotal,
 
-                        quantity:
-                          line.quantity,
+                      options: {
+                        create:
+                          line.selectedOptions.map(
+                            (option) => ({
+                              productOptionId:
+                                option.id,
 
-                        lineTotal:
-                          product.price.mul(
-                            line.quantity,
+                              optionName:
+                                option.name,
+
+                              additionalPrice:
+                                option.additionalPrice,
+
+                              quantity: 1,
+                            }),
                           ),
-                      };
-                    },
+                      },
+                    }),
                   ),
               },
             },
@@ -667,7 +887,8 @@ export async function createCashierSale(input: {
           data: {
             walletId: wallet.id,
 
-            studentId: student.id,
+            studentId:
+              student.id,
 
             type: proposedBalance.lt(
               0,
@@ -680,7 +901,8 @@ export async function createCashierSale(input: {
             balanceAfter:
               proposedBalance,
 
-            description: `Canteen sale ${sale.saleNumber}`,
+            description:
+              `Canteen sale ${sale.saleNumber}`,
 
             saleId: sale.id,
           },
@@ -720,10 +942,17 @@ export async function createCashierSale(input: {
 
           metadata: {
             saleId: sale.id,
-            studentId: student.id,
-            amount: Number(total),
+
+            studentId:
+              student.id,
+
+            amount:
+              Number(total),
+
             balanceAfter:
-              Number(proposedBalance),
+              Number(
+                proposedBalance,
+              ),
           },
 
           schoolId:
@@ -778,7 +1007,8 @@ export async function createCashierSale(input: {
             )}.`,
 
             metadata: {
-              walletId: wallet.id,
+              walletId:
+                wallet.id,
 
               balance:
                 Number(
@@ -819,7 +1049,9 @@ export async function createCashierSale(input: {
             ),
 
           overdraft:
-            proposedBalance.lt(0),
+            proposedBalance.lt(
+              0,
+            ),
         };
       },
 
