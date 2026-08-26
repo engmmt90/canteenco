@@ -120,7 +120,6 @@ export async function findCashierStudents(
       {
         firstName: "asc",
       },
-
       {
         lastName: "asc",
       },
@@ -140,58 +139,61 @@ export async function getCashierProducts() {
     throw new Error("Unauthorized");
   }
 
-  return prisma.product.findMany({
-    where: {
-      isActive: true,
-      deletedAt: null,
-    },
+  const products =
+    await prisma.product.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+      },
 
-    include: {
-      optionGroups: {
-        where: {
-          isActive: true,
-        },
-
-        orderBy: [
-          {
-            sortOrder: "asc",
+      include: {
+        optionGroups: {
+          where: {
+            isActive: true,
           },
 
-          {
-            name: "asc",
-          },
-        ],
-
-        include: {
-          options: {
-            where: {
-              isActive: true,
+          orderBy: [
+            {
+              sortOrder: "asc",
             },
 
-            orderBy: [
-              {
-                sortOrder: "asc",
+            {
+              name: "asc",
+            },
+          ],
+
+          include: {
+            options: {
+              where: {
+                isActive: true,
               },
 
-              {
-                name: "asc",
-              },
-            ],
+              orderBy: [
+                {
+                  sortOrder: "asc",
+                },
+
+                {
+                  name: "asc",
+                },
+              ],
+            },
           },
         },
       },
-    },
 
-    orderBy: [
-      {
-        sortOrder: "asc",
-      },
+      orderBy: [
+        {
+          sortOrder: "asc",
+        },
 
-      {
-        name: "asc",
-      },
-    ],
-  });
+        {
+          name: "asc",
+        },
+      ],
+    });
+
+  return products;
 }
 
 export async function createCashierSale(
@@ -226,12 +228,15 @@ export async function createCashierSale(
     };
   }
 
-  const cleanItems = input.items.filter(
-    (item) =>
-      Number.isInteger(item.quantity) &&
-      item.quantity > 0 &&
-      Boolean(item.productId),
-  );
+  const cleanItems =
+    input.items.filter(
+      (item) =>
+        Number.isInteger(
+          item.quantity,
+        ) &&
+        item.quantity > 0 &&
+        Boolean(item.productId),
+    );
 
   if (!cleanItems.length) {
     return {
@@ -264,7 +269,9 @@ export async function createCashierSale(
             saleNumber:
               existingSale.saleNumber,
             total:
-              existingSale.total.toFixed(2),
+              existingSale.total.toFixed(
+                2,
+              ),
             balanceAfter: "",
             overdraft:
               existingSale.isOverdraftOverride,
@@ -295,7 +302,8 @@ export async function createCashierSale(
                 include: {
                   wallet: true,
                   user: true,
-                  notificationPreference: true,
+                  notificationPreference:
+                    true,
                 },
               },
             },
@@ -362,11 +370,31 @@ export async function createCashierSale(
                   isActive: true,
                 },
 
+                orderBy: [
+                  {
+                    sortOrder: "asc",
+                  },
+
+                  {
+                    name: "asc",
+                  },
+                ],
+
                 include: {
                   options: {
                     where: {
                       isActive: true,
                     },
+
+                    orderBy: [
+                      {
+                        sortOrder: "asc",
+                      },
+
+                      {
+                        name: "asc",
+                      },
+                    ],
                   },
                 },
               },
@@ -382,150 +410,177 @@ export async function createCashierSale(
           );
         }
 
-        const productMap = new Map(
-          products.map((product) => [
-            product.id,
-            product,
-          ]),
-        );
+        const productMap =
+          new Map(
+            products.map(
+              (product) => [
+                product.id,
+                product,
+              ],
+            ),
+          );
 
         /*
          * ------------------------------------------------------------
-         * VALIDATE OPTIONS + CALCULATE TOTAL
+         * VALIDATE OPTIONS
          * ------------------------------------------------------------
          */
 
         const normalizedItems =
-          cleanItems.map((line) => {
-            const product =
-              productMap.get(
-                line.productId,
-              );
-
-            if (!product) {
-              throw new Error(
-                "A product is unavailable",
-              );
-            }
-
-            const requestedOptionIds = [
-              ...new Set(
-                (line.optionIds ?? []).filter(
-                  Boolean,
-                ),
-              ),
-            ];
-
-            const allOptions =
-              product.optionGroups.flatMap(
-                (group) => group.options,
-              );
-
-            const selectedOptions =
-              allOptions.filter((option) =>
-                requestedOptionIds.includes(
-                  option.id,
-                ),
-              );
-
-            /*
-             * Make sure the browser did not
-             * submit an option belonging to
-             * another product.
-             */
-
-            if (
-              selectedOptions.length !==
-              requestedOptionIds.length
-            ) {
-              throw new Error(
-                `Invalid options selected for ${product.name}`,
-              );
-            }
-
-            /*
-             * Validate every option group.
-             */
-
-            for (const group of
-              product.optionGroups) {
-              const groupOptionIds =
-                group.options.map(
-                  (option) =>
-                    option.id,
+          cleanItems.map(
+            (line) => {
+              const product =
+                productMap.get(
+                  line.productId,
                 );
 
-              const selectedInGroup =
-                selectedOptions.filter(
+              if (!product) {
+                throw new Error(
+                  "A product is unavailable",
+                );
+              }
+
+              const requestedOptionIds =
+                [
+                  ...new Set(
+                    (
+                      line.optionIds ??
+                      []
+                    ).filter(
+                      Boolean,
+                    ),
+                  ),
+                ];
+
+              const allOptions =
+                product.optionGroups.flatMap(
+                  (group) =>
+                    group.options,
+                );
+
+              const selectedOptions =
+                allOptions.filter(
                   (option) =>
-                    groupOptionIds.includes(
+                    requestedOptionIds.includes(
                       option.id,
                     ),
                 );
 
-              const count =
-                selectedInGroup.length;
-
-              const minimum =
-                Math.max(
-                  group.minSelections,
-                  group.isRequired
-                    ? 1
-                    : 0,
-                );
-
-              if (count < minimum) {
-                throw new Error(
-                  `${group.name} requires at least ${minimum} selection${minimum === 1 ? "" : "s"} for ${product.name}`,
-                );
-              }
+              /*
+               * Prevent selecting an option
+               * belonging to another product.
+               */
 
               if (
-                count >
-                group.maxSelections
+                selectedOptions.length !==
+                requestedOptionIds.length
               ) {
                 throw new Error(
-                  `${group.name} allows a maximum of ${group.maxSelections} selections for ${product.name}`,
+                  `Invalid options selected for ${product.name}`,
                 );
               }
-            }
 
-            /*
-             * Calculate option surcharge
-             * directly from the database.
-             */
+              /*
+               * Validate every group.
+               */
 
-            const optionsTotal =
-              selectedOptions.reduce(
-                (
-                  sum,
-                  option,
-                ) =>
-                  sum.add(
-                    option.additionalPrice,
+              for (const group of
+                product.optionGroups) {
+                const groupOptionIds =
+                  group.options.map(
+                    (option) =>
+                      option.id,
+                  );
+
+                const selectedInGroup =
+                  selectedOptions.filter(
+                    (option) =>
+                      groupOptionIds.includes(
+                        option.id,
+                      ),
+                  );
+
+                const count =
+                  selectedInGroup.length;
+
+                const minimum =
+                  Math.max(
+                    group.minSelections,
+                    group.isRequired
+                      ? 1
+                      : 0,
+                  );
+
+                if (
+                  count < minimum
+                ) {
+                  throw new Error(
+                    `${group.name} requires at least ${minimum} selection${
+                      minimum === 1
+                        ? ""
+                        : "s"
+                    } for ${product.name}`,
+                  );
+                }
+
+                if (
+                  group.maxSelections >
+                    0 &&
+                  count >
+                    group.maxSelections
+                ) {
+                  throw new Error(
+                    `${group.name} allows a maximum of ${group.maxSelections} selections for ${product.name}`,
+                  );
+                }
+              }
+
+              /*
+               * Calculate option surcharge
+               * from the database.
+               */
+
+              const optionsTotal =
+                selectedOptions.reduce(
+                  (
+                    sum,
+                    option,
+                  ) =>
+                    sum.add(
+                      option.additionalPrice,
+                    ),
+
+                  new Prisma.Decimal(
+                    0,
                   ),
+                );
 
-                new Prisma.Decimal(0),
-              );
+              const unitPrice =
+                product.price.add(
+                  optionsTotal,
+                );
 
-            const unitPrice =
-              product.price.add(
-                optionsTotal,
-              );
+              const lineTotal =
+                unitPrice.mul(
+                  line.quantity,
+                );
 
-            const lineTotal =
-              unitPrice.mul(
-                line.quantity,
-              );
+              return {
+                product,
+                quantity:
+                  line.quantity,
+                selectedOptions,
+                unitPrice,
+                lineTotal,
+              };
+            },
+          );
 
-            return {
-              product,
-              quantity: line.quantity,
-              selectedOptions,
-              unitPrice,
-              lineTotal,
-            };
-          });
+        /*
+         * ------------------------------------------------------------
+         * TOTAL
+         * ------------------------------------------------------------
+         */
 
         let total =
           new Prisma.Decimal(0);
@@ -541,19 +596,14 @@ export async function createCashierSale(
          * ------------------------------------------------------------
          * DAILY SPENDING LIMIT
          * ------------------------------------------------------------
-         *
-         * null = unlimited
-         *
-         * The limit applies to:
-         * - Cashier sales
-         * - Pre-orders
          */
 
         if (
           student.dailySpendLimit !==
           null
         ) {
-          const now = new Date();
+          const now =
+            new Date();
 
           const startOfToday =
             new Date(now);
@@ -566,7 +616,9 @@ export async function createCashierSale(
           );
 
           const startOfTomorrow =
-            new Date(startOfToday);
+            new Date(
+              startOfToday,
+            );
 
           startOfTomorrow.setDate(
             startOfTomorrow.getDate() +
@@ -576,61 +628,63 @@ export async function createCashierSale(
           const [
             salesToday,
             preOrdersToday,
-          ] = await Promise.all([
-            tx.sale.aggregate({
-              where: {
-                studentId:
-                  student.id,
+          ] =
+            await Promise.all([
+              tx.sale.aggregate({
+                where: {
+                  studentId:
+                    student.id,
 
-                createdAt: {
-                  gte: startOfToday,
-                  lt: startOfTomorrow,
+                  createdAt: {
+                    gte: startOfToday,
+                    lt: startOfTomorrow,
+                  },
+
+                  status:
+                    "COMPLETED",
                 },
 
-                status: "COMPLETED",
-              },
+                _sum: {
+                  total: true,
+                },
+              }),
 
-              _sum: {
-                total: true,
-              },
-            }),
+              tx.preOrder.aggregate({
+                where: {
+                  studentId:
+                    student.id,
 
-            tx.preOrder.aggregate({
-              where: {
-                studentId:
-                  student.id,
+                  createdAt: {
+                    gte: startOfToday,
+                    lt: startOfTomorrow,
+                  },
 
-                createdAt: {
-                  gte: startOfToday,
-                  lt: startOfTomorrow,
+                  status: {
+                    in: [
+                      "CONFIRMED",
+                      "PREPARING",
+                      "READY",
+                      "PICKED_UP",
+                    ],
+                  },
                 },
 
-                status: {
-                  in: [
-                    "CONFIRMED",
-                    "PREPARING",
-                    "READY",
-                    "PICKED_UP",
-                  ],
+                _sum: {
+                  total: true,
                 },
-              },
-
-              _sum: {
-                total: true,
-              },
-            }),
-          ]);
+              }),
+            ]);
 
           const salesSpent =
             new Prisma.Decimal(
-              salesToday._sum.total ??
-                0,
+              salesToday._sum
+                .total ?? 0,
             );
 
           const preOrdersSpent =
             new Prisma.Decimal(
-              preOrdersToday._sum
-                .total ?? 0,
+              preOrdersToday
+                ._sum.total ?? 0,
             );
 
           const spentToday =
@@ -639,7 +693,9 @@ export async function createCashierSale(
             );
 
           const projectedSpent =
-            spentToday.add(total);
+            spentToday.add(
+              total,
+            );
 
           if (
             projectedSpent.gt(
@@ -651,7 +707,9 @@ export async function createCashierSale(
                 student.dailySpendLimit.sub(
                   spentToday,
                 ),
-                new Prisma.Decimal(0),
+                new Prisma.Decimal(
+                  0,
+                ),
               );
 
             return {
@@ -673,12 +731,9 @@ export async function createCashierSale(
          */
 
         const proposedBalance =
-          wallet.balance.sub(total);
-
-        const settings =
-          student.school.settings;
-
-        void settings;
+          wallet.balance.sub(
+            total,
+          );
 
         let approverId:
           | string
@@ -686,19 +741,22 @@ export async function createCashierSale(
 
         /*
          * ------------------------------------------------------------
-         * NEGATIVE BALANCE / ADMIN APPROVAL
+         * ADMIN OVERRIDE
          * ------------------------------------------------------------
          */
 
         if (
           proposedBalance.lt(0)
         ) {
-          if (!input.adminPassword) {
+          if (
+            !input.adminPassword
+          ) {
             return {
               ok: false,
               error:
                 "Insufficient balance",
-              needsAdminOverride: true,
+              needsAdminOverride:
+                true,
             };
           }
 
@@ -746,9 +804,12 @@ export async function createCashierSale(
                 admin.passwordHash,
               );
 
-            if (passwordMatches) {
+            if (
+              passwordMatches
+            ) {
               approvedAdmin =
                 admin;
+
               break;
             }
           }
@@ -758,7 +819,8 @@ export async function createCashierSale(
               ok: false,
               error:
                 "Invalid admin password",
-              needsAdminOverride: true,
+              needsAdminOverride:
+                true,
             };
           }
 
@@ -776,11 +838,13 @@ export async function createCashierSale(
           await tx.wallet.updateMany({
             where: {
               id: wallet.id,
-              balance: wallet.balance,
+              balance:
+                wallet.balance,
             },
 
             data: {
-              balance: proposedBalance,
+              balance:
+                proposedBalance,
             },
           });
 
@@ -883,34 +947,38 @@ export async function createCashierSale(
          * ------------------------------------------------------------
          */
 
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
+        await tx.walletTransaction.create(
+          {
+            data: {
+              walletId:
+                wallet.id,
 
-            studentId:
-              student.id,
+              studentId:
+                student.id,
 
-            type: proposedBalance.lt(
-              0,
-            )
-              ? WalletTransactionType.OVERDRAFT_SALE
-              : WalletTransactionType.SALE_DEBIT,
+              type: proposedBalance.lt(
+                0,
+              )
+                ? WalletTransactionType.OVERDRAFT_SALE
+                : WalletTransactionType.SALE_DEBIT,
 
-            amount: total.neg(),
+              amount:
+                total.neg(),
 
-            balanceAfter:
-              proposedBalance,
+              balanceAfter:
+                proposedBalance,
 
-            description:
-              `Canteen sale ${sale.saleNumber}`,
+              description:
+                `Canteen sale ${sale.saleNumber}`,
 
-            saleId: sale.id,
+              saleId: sale.id,
+            },
           },
-        });
+        );
 
         /*
          * ------------------------------------------------------------
-         * PARENT PURCHASE NOTIFICATION
+         * PURCHASE NOTIFICATION
          * ------------------------------------------------------------
          */
 
@@ -941,7 +1009,8 @@ export async function createCashierSale(
           )}.`,
 
           metadata: {
-            saleId: sale.id,
+            saleId:
+              sale.id,
 
             studentId:
               student.id,
