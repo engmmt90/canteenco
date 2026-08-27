@@ -11,6 +11,29 @@ import {
   updatePreOrderStatus,
 } from "@/app/actions/preorders";
 
+/* ============================================================
+ * TYPES
+ * ============================================================ */
+
+type PreOrderOption = {
+  id: string;
+  groupId: string;
+  groupName: string;
+  optionId: string;
+  name: string;
+  additionalPrice: number;
+};
+
+type PreOrderItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice?: number;
+  lineTotal?: number;
+
+  options: PreOrderOption[];
+};
+
 type O = {
   id: string;
   orderNumber: string;
@@ -34,12 +57,12 @@ type O = {
     label: string;
   };
 
-  items: Array<{
-    id: string;
-    name: string;
-    quantity: number;
-  }>;
+  items: PreOrderItem[];
 };
+
+/* ============================================================
+ * COMPONENT
+ * ============================================================ */
 
 export default function PreOrderQueue({
   initialOrders,
@@ -73,6 +96,10 @@ export default function PreOrderQueue({
     nfcStudentCard,
     setNfcStudentCard,
   ] = useState("");
+
+  /* ==========================================================
+   * STATUS
+   * ========================================================== */
 
   async function move(
     order: O,
@@ -115,6 +142,10 @@ export default function PreOrderQueue({
     );
   }
 
+  /* ==========================================================
+   * PRINT
+   * ========================================================== */
+
   async function printLabel(
     order: O,
   ) {
@@ -141,6 +172,10 @@ export default function PreOrderQueue({
     }, 50);
   }
 
+  /* ==========================================================
+   * CLASSES
+   * ========================================================== */
+
   const classes =
     useMemo(() => {
       return Array.from(
@@ -155,6 +190,10 @@ export default function PreOrderQueue({
         ),
       ).sort();
     }, [orders]);
+
+  /* ==========================================================
+   * PICKUP SLOTS
+   * ========================================================== */
 
   const pickupSlots =
     useMemo(() => {
@@ -171,17 +210,10 @@ export default function PreOrderQueue({
       ).sort();
     }, [orders]);
 
-  /*
+  /* ==========================================================
    * NFC AUTO DETECTION
-   *
-   * The reader types the card number
-   * quickly like a keyboard.
-   *
-   * We wait 220ms after the last
-   * character, then automatically
-   * treat the input as a completed
-   * NFC scan.
-   */
+   * ========================================================== */
+
   useEffect(() => {
     const value =
       nfcInput.trim();
@@ -235,6 +267,10 @@ export default function PreOrderQueue({
     orders,
   ]);
 
+  /* ==========================================================
+   * FILTER
+   * ========================================================== */
+
   const filteredOrders =
     useMemo(() => {
       return orders.filter(
@@ -278,17 +314,29 @@ export default function PreOrderQueue({
       selectedPickupSlot,
     ]);
 
+  /* ==========================================================
+   * CLEAR NFC
+   * ========================================================== */
+
   function clearNfc() {
     setNfcInput("");
     setNfcStudentCard("");
     setMessage("");
   }
 
+  /* ==========================================================
+   * CLEAR FILTERS
+   * ========================================================== */
+
   function clearFilters() {
     setSelectedClass("");
     setSelectedPickupSlot("");
     clearNfc();
   }
+
+  /* ==========================================================
+   * GROUP ORDERS
+   * ========================================================== */
 
   const groups =
     filteredOrders.reduce<
@@ -314,12 +362,20 @@ export default function PreOrderQueue({
       {},
     );
 
+  /* ==========================================================
+   * ACTIVE FILTERS
+   * ========================================================== */
+
   const hasActiveFilters =
     Boolean(
       selectedClass ||
         selectedPickupSlot ||
         nfcStudentCard,
     );
+
+  /* ==========================================================
+   * NFC STUDENT
+   * ========================================================== */
 
   const nfcStudent =
     nfcStudentCard
@@ -338,8 +394,16 @@ export default function PreOrderQueue({
         )?.student ?? null
       : null;
 
+  /* ==========================================================
+   * RENDER
+   * ========================================================== */
+
   return (
     <main className="cashier">
+      {/* ======================================================
+       * HEADER
+       * ==================================================== */}
+
       <div className="page-heading">
         <div>
           <h1 className="brand">
@@ -361,7 +425,9 @@ export default function PreOrderQueue({
         </a>
       </div>
 
-      {/* NFC SEARCH */}
+      {/* ======================================================
+       * NFC SEARCH
+       * ==================================================== */}
 
       <section
         className="panel"
@@ -385,9 +451,7 @@ export default function PreOrderQueue({
 
               setNfcInput(value);
 
-              if (
-                !value.trim()
-              ) {
+              if (!value.trim()) {
                 setNfcStudentCard(
                   "",
                 );
@@ -454,7 +518,9 @@ export default function PreOrderQueue({
         )}
       </section>
 
-      {/* FILTERS */}
+      {/* ======================================================
+       * FILTERS
+       * ==================================================== */}
 
       <section
         className="panel"
@@ -579,11 +645,19 @@ export default function PreOrderQueue({
         )}
       </section>
 
+      {/* ======================================================
+       * MESSAGE
+       * ==================================================== */}
+
       {message && (
         <p className="alert">
           {message}
         </p>
       )}
+
+      {/* ======================================================
+       * FILTER INFO
+       * ==================================================== */}
 
       {hasActiveFilters && (
         <div
@@ -615,7 +689,9 @@ export default function PreOrderQueue({
         </div>
       )}
 
-      {/* ORDERS */}
+      {/* ======================================================
+       * ORDERS
+       * ==================================================== */}
 
       {Object.entries(
         groups,
@@ -641,6 +717,10 @@ export default function PreOrderQueue({
                       order.id
                     }
                   >
+                    {/* ----------------------------------------
+                     * ORDER HEADER
+                     * -------------------------------------- */}
+
                     <div className="request-head">
                       <div>
                         <strong>
@@ -651,21 +731,25 @@ export default function PreOrderQueue({
 
                         <div className="subtle compact">
                           {
-                            order.student
+                            order
+                              .student
                               .firstName
                           }{" "}
                           {
-                            order.student
+                            order
+                              .student
                               .lastName
                           }
                           {" · "}
                           {
-                            order.student
+                            order
+                              .student
                               .displayCode
                           }
                           {" · Class "}
                           {
-                            order.student
+                            order
+                              .student
                               .classCode
                           }
                         </div>
@@ -678,31 +762,183 @@ export default function PreOrderQueue({
                       </span>
                     </div>
 
-                    <div>
+                    {/* ----------------------------------------
+                     * ORDER ITEMS
+                     * -------------------------------------- */}
+
+                    <div
+                      style={{
+                        marginTop: 14,
+                        display: "grid",
+                        gap: 12,
+                      }}
+                    >
                       {order.items.map(
                         (item) => (
                           <div
                             key={
                               item.id
                             }
+                            style={{
+                              padding:
+                                "12px 14px",
+                              border:
+                                "1px solid #e5e7eb",
+                              borderRadius: 12,
+                              background:
+                                "#fafafa",
+                            }}
                           >
-                            {
-                              item.quantity
-                            }{" "}
-                            ×{" "}
-                            {
-                              item.name
-                            }
+                            {/* PRODUCT */}
+
+                            <div
+                              style={{
+                                display:
+                                  "flex",
+                                justifyContent:
+                                  "space-between",
+                                gap: 12,
+                                alignItems:
+                                  "flex-start",
+                              }}
+                            >
+                              <strong
+                                style={{
+                                  fontSize: 16,
+                                }}
+                              >
+                                {
+                                  item.quantity
+                                }{" "}
+                                ×{" "}
+                                {
+                                  item.name
+                                }
+                              </strong>
+
+                              {item.lineTotal !==
+                                undefined && (
+                                <strong>
+                                  $
+                                  {item.lineTotal.toFixed(
+                                    2,
+                                  )}
+                                </strong>
+                              )}
+                            </div>
+
+                            {/* OPTIONS */}
+
+                            {item.options.length >
+                              0 && (
+                              <div
+                                style={{
+                                  marginTop: 9,
+                                  paddingLeft: 4,
+                                  display:
+                                    "grid",
+                                  gap: 5,
+                                }}
+                              >
+                                {item.options.map(
+                                  (
+                                    option,
+                                  ) => (
+                                    <div
+                                      key={
+                                        option.id
+                                      }
+                                      style={{
+                                        display:
+                                          "flex",
+                                        justifyContent:
+                                          "space-between",
+                                        gap: 10,
+                                        fontSize:
+                                          14,
+                                      }}
+                                    >
+                                      <span>
+                                        <span className="subtle">
+                                          {
+                                            option.groupName
+                                          }
+                                          :
+                                        </span>{" "}
+                                        <strong>
+                                          {
+                                            option.name
+                                          }
+                                        </strong>
+                                      </span>
+
+                                      {option.additionalPrice >
+                                      0 ? (
+                                        <span className="subtle">
+                                          +$
+                                          {option.additionalPrice.toFixed(
+                                            2,
+                                          )}
+                                        </span>
+                                      ) : (
+                                        <span className="subtle">
+                                          Included
+                                        </span>
+                                      )}
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            )}
                           </div>
                         ),
                       )}
                     </div>
 
+                    {/* ----------------------------------------
+                     * TOTAL
+                     * -------------------------------------- */}
+
+                    <div
+                      style={{
+                        display:
+                          "flex",
+                        justifyContent:
+                          "space-between",
+                        alignItems:
+                          "center",
+                        marginTop: 14,
+                        paddingTop: 12,
+                        borderTop:
+                          "1px solid #e5e7eb",
+                      }}
+                    >
+                      <span className="subtle">
+                        Total
+                      </span>
+
+                      <strong
+                        style={{
+                          fontSize: 18,
+                        }}
+                      >
+                        $
+                        {order.total.toFixed(
+                          2,
+                        )}
+                      </strong>
+                    </div>
+
+                    {/* ----------------------------------------
+                     * ACTIONS
+                     * -------------------------------------- */}
+
                     <div className="actions-row">
                       <button
+                        type="button"
                         className="secondary"
                         onClick={() =>
-                          printLabel(
+                          void printLabel(
                             order,
                           )
                         }
@@ -716,9 +952,10 @@ export default function PreOrderQueue({
                       {order.status ===
                         "CONFIRMED" && (
                         <button
+                          type="button"
                           className="secondary"
                           onClick={() =>
-                            move(
+                            void move(
                               order,
                               "PREPARING",
                             )
@@ -735,9 +972,10 @@ export default function PreOrderQueue({
                           "PREPARING"
                       ) && (
                         <button
+                          type="button"
                           className="primary"
                           onClick={() =>
-                            move(
+                            void move(
                               order,
                               "READY",
                             )
@@ -750,9 +988,10 @@ export default function PreOrderQueue({
                       {order.status ===
                         "READY" && (
                         <button
+                          type="button"
                           className="primary"
                           onClick={() =>
-                            move(
+                            void move(
                               order,
                               "PICKED_UP",
                             )
@@ -769,6 +1008,10 @@ export default function PreOrderQueue({
           </section>
         ),
       )}
+
+      {/* ======================================================
+       * EMPTY
+       * ==================================================== */}
 
       {filteredOrders.length ===
         0 && (
@@ -795,7 +1038,9 @@ export default function PreOrderQueue({
         </section>
       )}
 
-      {/* PRINT LABEL */}
+      {/* ======================================================
+       * PRINT LABEL
+       * ==================================================== */}
 
       {printOrder && (
         <div className="print-label">
@@ -835,6 +1080,63 @@ export default function PreOrderQueue({
                 .pickupSlot.label
             }
           </span>
+
+          {/* PRINT ITEMS */}
+
+          <div
+            style={{
+              marginTop: 8,
+              display: "grid",
+              gap: 5,
+            }}
+          >
+            {printOrder.items.map(
+              (item) => (
+                <div
+                  key={item.id}
+                >
+                  <strong>
+                    {
+                      item.quantity
+                    }{" "}
+                    ×{" "}
+                    {
+                      item.name
+                    }
+                  </strong>
+
+                  {item.options.length >
+                    0 && (
+                    <div
+                      style={{
+                        marginLeft: 8,
+                      }}
+                    >
+                      {item.options.map(
+                        (
+                          option,
+                        ) => (
+                          <div
+                            key={
+                              option.id
+                            }
+                          >
+                            {
+                              option.groupName
+                            }
+                            :{" "}
+                            {
+                              option.name
+                            }
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  )}
+                </div>
+              ),
+            )}
+          </div>
         </div>
       )}
     </main>

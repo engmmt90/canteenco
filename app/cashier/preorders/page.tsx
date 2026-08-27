@@ -39,6 +39,16 @@ export default async function CashierPreOrdersPage() {
         items: {
           include: {
             product: true,
+
+            options: {
+              include: {
+                productOption: {
+                  include: {
+                    group: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -120,6 +130,40 @@ export default async function CashierPreOrdersPage() {
 
             quantity:
               item.quantity,
+
+            unitPrice:
+              Number(item.unitPrice),
+
+            lineTotal:
+              Number(item.lineTotal),
+
+            options:
+              item.options.map(
+                (option) => ({
+                  id:
+                    option.id,
+
+                  groupId:
+                    option.productOption
+                      .group.id,
+
+                  groupName:
+                    option.productOption
+                      .group.name,
+
+                  optionId:
+                    option.productOption
+                      .id,
+
+                  name:
+                    option.optionName,
+
+                  additionalPrice:
+                    Number(
+                      option.additionalPrice,
+                    ),
+                }),
+              ),
           }),
         ),
     }),
