@@ -23,9 +23,25 @@ const STAFF_ROLES: UserRole[] = [
   UserRole.CASHIER,
 ];
 
+type PreOrderOptionInput = {
+  groupId: string;
+  optionId: string;
+};
+
 type PreOrderLine = {
   productId: string;
   quantity: number;
+
+  /*
+   * New format used by preorder-form.tsx
+   */
+  options?: PreOrderOptionInput[];
+
+  /*
+   * Also accept optionIds for compatibility
+   * with older versions of the form.
+   */
+  optionIds?: string[];
 };
 
 type CreatePreOrderResult =
@@ -62,88 +78,176 @@ type CancelPreOrderResult =
       error: string;
     };
 
-function localDateTime(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
+/* ============================================================
+ * HELPERS
+ * ============================================================ */
+
+function getLocalDateTime(
+  timeZone: string,
+) {
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      },
+    ).formatToParts(new Date());
 
   const get = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? "";
+    parts.find(
+      (part) =>
+        part.type === type,
+    )?.value ?? "";
 
   return {
-    date: `${get("year")}-${get("month")}-${get("day")}`,
-    time: `${get("hour")}:${get("minute")}`,
+    date: `${get("year")}-${get(
+      "month",
+    )}-${get("day")}`,
+
+    time: `${get("hour")}:${get(
+      "minute",
+    )}`,
   };
 }
+
+/* ============================================================
+ * PARENT PRE-ORDER DATA
+ * ============================================================ */
 
 export async function getParentPreOrderData() {
   const session = await auth();
 
   if (
     !session?.user?.id ||
-    session.user.role !== UserRole.PARENT
+    session.user.role !==
+      UserRole.PARENT
   ) {
-    throw new Error("Unauthorized");
+    throw new Error(
+      "Unauthorized",
+    );
   }
 
-  const parent = await prisma.parentProfile.findUnique({
-    where: {
-      userId: session.user.id,
-    },
-    include: {
-      wallet: true,
-      students: {
+  const parent =
+    await prisma.parentProfile.findUnique(
+      {
         where: {
-          status: StudentStatus.ACTIVE,
-          deletedAt: null,
+          userId: session.user.id,
         },
+
         include: {
-          school: {
+          wallet: true,
+
+          students: {
+            where: {
+              status:
+                StudentStatus.ACTIVE,
+
+              deletedAt: null,
+            },
+
             include: {
-              settings: true,
-              pickupSlots: {
-                where: {
-                  isActive: true,
-                },
-                orderBy: {
-                  sortOrder: "asc",
+              school: {
+                include: {
+                  settings: true,
+
+                  pickupSlots: {
+                    where: {
+                      isActive: true,
+                    },
+
+                    orderBy: {
+                      sortOrder: "asc",
+                    },
+                  },
                 },
               },
             },
+
+            orderBy: [
+              {
+                firstName: "asc",
+              },
+              {
+                lastName: "asc",
+              },
+            ],
           },
         },
-        orderBy: [
-          {
-            firstName: "asc",
-          },
-          {
-            lastName: "asc",
-          },
-        ],
       },
-    },
-  });
+    );
 
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      deletedAt: null,
-    },
-    orderBy: [
-      {
-        sortOrder: "asc",
+  /*
+   * IMPORTANT:
+   *
+   * Product
+   *   └── optionGroups
+   *          └── options
+   *
+   * This is what allows the parent UI
+   * to display:
+   *
+   * Sauce
+   *   ├── Sauce 1
+   *   ├── Sauce 2
+   *   └── Sauce 3
+   */
+
+  const products =
+    await prisma.product.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
       },
-      {
-        name: "asc",
+
+      include: {
+        optionGroups: {
+          where: {
+            isActive: true,
+          },
+
+          orderBy: [
+            {
+              sortOrder: "asc",
+            },
+            {
+              name: "asc",
+            },
+          ],
+
+          include: {
+            options: {
+              where: {
+                isActive: true,
+              },
+
+              orderBy: [
+                {
+                  sortOrder: "asc",
+                },
+                {
+                  name: "asc",
+                },
+              ],
+            },
+          },
+        },
       },
-    ],
-  });
+
+      orderBy: [
+        {
+          sortOrder: "asc",
+        },
+        {
+          name: "asc",
+        },
+      ],
+    });
 
   return {
     parent,
@@ -151,18 +255,25 @@ export async function getParentPreOrderData() {
   };
 }
 
-export async function createParentPreOrder(input: {
-  studentId: string;
-  pickupSlotId: string;
-  pickupDate: string;
-  items: PreOrderLine[];
-  idempotencyKey: string;
-}): Promise<CreatePreOrderResult> {
+/* ============================================================
+ * CREATE PARENT PRE-ORDER
+ * ============================================================ */
+
+export async function createParentPreOrder(
+  input: {
+    studentId: string;
+    pickupSlotId: string;
+    pickupDate: string;
+    items: PreOrderLine[];
+    idempotencyKey: string;
+  },
+): Promise<CreatePreOrderResult> {
   const session = await auth();
 
   if (
     !session?.user?.id ||
-    session.user.role !== UserRole.PARENT
+    session.user.role !==
+      UserRole.PARENT
   ) {
     return {
       ok: false,
@@ -171,8 +282,10 @@ export async function createParentPreOrder(input: {
   }
 
   if (
-    !input.idempotencyKey ||
+    !input.studentId ||
+    !input.pickupSlotId ||
     !input.pickupDate ||
+    !input.idempotencyKey ||
     !input.items.length
   ) {
     return {
@@ -183,129 +296,235 @@ export async function createParentPreOrder(input: {
 
   try {
     return await prisma.$transaction(
-      async (tx): Promise<CreatePreOrderResult> => {
-        const existing = await tx.preOrder.findUnique({
-          where: {
-            idempotencyKey: input.idempotencyKey,
-          },
-        });
+      async (tx) => {
+        /*
+         * ------------------------------------------------------
+         * IDEMPOTENCY
+         * ------------------------------------------------------
+         */
+
+        const existing =
+          await tx.preOrder.findUnique(
+            {
+              where: {
+                idempotencyKey:
+                  input.idempotencyKey,
+              },
+            },
+          );
 
         if (existing) {
           const transaction =
-            await tx.walletTransaction.findUnique({
-              where: {
-                preOrderId: existing.id,
+            await tx.walletTransaction.findUnique(
+              {
+                where: {
+                  preOrderId:
+                    existing.id,
+                },
               },
-            });
+            );
 
           return {
             ok: true,
             orderId: existing.id,
-            orderNumber: existing.orderNumber,
-            total: existing.total.toFixed(2),
+            orderNumber:
+              existing.orderNumber,
+            total:
+              existing.total.toFixed(
+                2,
+              ),
             balanceAfter:
-              transaction?.balanceAfter.toFixed(2) ?? "",
+              transaction?.balanceAfter.toFixed(
+                2,
+              ) ?? "",
             duplicate: true,
           };
         }
 
+        /*
+         * ------------------------------------------------------
+         * PARENT
+         * ------------------------------------------------------
+         */
+
         const parent =
-          await tx.parentProfile.findUnique({
-            where: {
-              userId: session.user.id,
+          await tx.parentProfile.findUnique(
+            {
+              where: {
+                userId:
+                  session.user.id,
+              },
+
+              include: {
+                wallet: true,
+              },
             },
-            include: {
-              wallet: true,
-            },
-          });
+          );
 
         if (
           !parent?.wallet ||
-          parent.wallet.status !== WalletStatus.ACTIVE
+          parent.wallet.status !==
+            WalletStatus.ACTIVE
         ) {
           throw new Error(
             "Family wallet is not active",
           );
         }
 
-        const student = await tx.student.findFirst({
-          where: {
-            id: input.studentId,
-            parentId: parent.id,
-            status: StudentStatus.ACTIVE,
-            deletedAt: null,
-          },
-          include: {
-            school: {
-              include: {
-                settings: true,
+        /*
+         * ------------------------------------------------------
+         * STUDENT
+         * ------------------------------------------------------
+         */
+
+        const student =
+          await tx.student.findFirst({
+            where: {
+              id: input.studentId,
+
+              parentId:
+                parent.id,
+
+              status:
+                StudentStatus.ACTIVE,
+
+              deletedAt: null,
+            },
+
+            include: {
+              school: {
+                include: {
+                  settings: true,
+                },
               },
             },
-          },
-        });
+          });
 
         if (!student) {
-          throw new Error("Student not available");
+          throw new Error(
+            "Student not available",
+          );
         }
 
-        if (!student.school.settings?.preOrderEnabled) {
+        /*
+         * ------------------------------------------------------
+         * PRE-ORDER ENABLED
+         * ------------------------------------------------------
+         */
+
+        if (
+          !student.school.settings
+            ?.preOrderEnabled
+        ) {
           throw new Error(
             "Pre-orders are disabled for this school",
           );
         }
 
-        const slot = await tx.pickupSlot.findFirst({
-          where: {
-            id: input.pickupSlotId,
-            schoolId: student.schoolId,
-            isActive: true,
-          },
-        });
+        /*
+         * ------------------------------------------------------
+         * PICKUP SLOT
+         * ------------------------------------------------------
+         */
 
-        if (!slot) {
+        const pickupSlot =
+          await tx.pickupSlot.findFirst(
+            {
+              where: {
+                id:
+                  input.pickupSlotId,
+
+                schoolId:
+                  student.schoolId,
+
+                isActive: true,
+              },
+            },
+          );
+
+        if (!pickupSlot) {
           throw new Error(
             "Pickup time is not available",
           );
         }
 
-        const today = localDateTime(
-          student.school.settings.timezone,
-        );
+        /*
+         * ------------------------------------------------------
+         * CUTOFF
+         * ------------------------------------------------------
+         */
 
-        if (input.pickupDate < today.date) {
+        const now =
+          getLocalDateTime(
+            student.school.settings
+              .timezone,
+          );
+
+        if (
+          input.pickupDate <
+          now.date
+        ) {
           throw new Error(
             "Pickup date cannot be in the past",
           );
         }
 
         if (
-          input.pickupDate === today.date &&
-          today.time >=
-            student.school.settings.preOrderCutoffTime
+          input.pickupDate ===
+            now.date &&
+          now.time >=
+            student.school.settings
+              .preOrderCutoffTime
         ) {
           throw new Error(
             `Pre-orders are closed for today after ${student.school.settings.preOrderCutoffTime}`,
           );
         }
 
-        const cleanItems = input.items.filter(
-          (item) =>
-            Number.isInteger(item.quantity) &&
-            item.quantity > 0 &&
-            Boolean(item.productId),
-        );
+        /*
+         * ------------------------------------------------------
+         * CLEAN ITEMS
+         * ------------------------------------------------------
+         */
+
+        const cleanItems =
+          input.items.filter(
+            (item) =>
+              Boolean(
+                item.productId,
+              ) &&
+              Number.isInteger(
+                item.quantity,
+              ) &&
+              item.quantity > 0,
+          );
 
         if (!cleanItems.length) {
-          throw new Error("Order has no valid items");
+          throw new Error(
+            "Order has no valid items",
+          );
         }
+
+        /*
+         * ------------------------------------------------------
+         * PRODUCT IDS
+         * ------------------------------------------------------
+         */
 
         const productIds = [
           ...new Set(
             cleanItems.map(
-              (item) => item.productId,
+              (item) =>
+                item.productId,
             ),
           ),
         ];
+
+        /*
+         * ------------------------------------------------------
+         * PRODUCTS + OPTIONS
+         * ------------------------------------------------------
+         */
 
         const products =
           await tx.product.findMany({
@@ -313,85 +532,356 @@ export async function createParentPreOrder(input: {
               id: {
                 in: productIds,
               },
+
               isActive: true,
+
               deletedAt: null,
+            },
+
+            include: {
+              optionGroups: {
+                where: {
+                  isActive: true,
+                },
+
+                orderBy: [
+                  {
+                    sortOrder:
+                      "asc",
+                  },
+
+                  {
+                    name: "asc",
+                  },
+                ],
+
+                include: {
+                  options: {
+                    where: {
+                      isActive: true,
+                    },
+
+                    orderBy: [
+                      {
+                        sortOrder:
+                          "asc",
+                      },
+
+                      {
+                        name: "asc",
+                      },
+                    ],
+                  },
+                },
+              },
             },
           });
 
         if (
-          products.length !== productIds.length
+          products.length !==
+          productIds.length
         ) {
           throw new Error(
             "One or more products are unavailable",
           );
         }
 
-        const productMap = new Map(
-          products.map((product) => [
-            product.id,
-            product,
-          ]),
-        );
-
-        let total = new Prisma.Decimal(0);
-
-        for (const line of cleanItems) {
-          const product = productMap.get(
-            line.productId,
+        const productMap =
+          new Map(
+            products.map(
+              (product) => [
+                product.id,
+                product,
+              ],
+            ),
           );
-
-          if (!product) {
-            throw new Error(
-              "One or more products are unavailable",
-            );
-          }
-
-          total = total.add(
-            product.price.mul(line.quantity),
-          );
-        }
 
         /*
-         * ============================================================
-         * DAILY SPENDING LIMIT
-         * ============================================================
-         *
-         * The limit belongs to the student.
-         *
-         * null = unlimited
-         *
-         * The daily total includes:
-         *
-         *   1. Completed cashier sales
-         *   2. Active pre-orders
-         *
-         * Therefore a student cannot bypass the daily limit by
-         * switching between cashier purchases and pre-orders.
-         *
-         * Example:
-         *
-         * Daily limit = $20
-         * Cashier sales today = $8
-         * Existing pre-orders = $7
-         *
-         * Already spent = $15
-         * Remaining = $5
-         *
-         * A new $6 pre-order is rejected.
+         * ------------------------------------------------------
+         * NORMALIZE ITEMS
+         * ------------------------------------------------------
          */
 
-        if (student.dailySpendLimit !== null) {
-          const now = new Date();
+        let total =
+          new Prisma.Decimal(0);
 
-          const startOfToday = new Date(now);
-          startOfToday.setHours(0, 0, 0, 0);
+        const normalizedItems =
+          cleanItems.map(
+            (line) => {
+              const product =
+                productMap.get(
+                  line.productId,
+                );
 
-          const startOfTomorrow = new Date(
-            startOfToday,
+              if (!product) {
+                throw new Error(
+                  "Product unavailable",
+                );
+              }
+
+              /*
+               * Support both:
+               *
+               * options:
+               * [
+               *   {
+               *     groupId,
+               *     optionId
+               *   }
+               * ]
+               *
+               * and:
+               *
+               * optionIds:
+               * [...]
+               */
+
+              let requestedOptions =
+                line.options ?? [];
+
+              if (
+                !requestedOptions.length &&
+                line.optionIds?.length
+              ) {
+                requestedOptions =
+                  line.optionIds.map(
+                    (optionId) => {
+                      const group =
+                        product.optionGroups.find(
+                          (
+                            item,
+                          ) =>
+                            item.options.some(
+                              (
+                                option,
+                              ) =>
+                                option.id ===
+                                optionId,
+                            ),
+                        );
+
+                      if (!group) {
+                        throw new Error(
+                          `Invalid option for ${product.name}`,
+                        );
+                      }
+
+                      return {
+                        groupId:
+                          group.id,
+
+                        optionId,
+                      };
+                    },
+                  );
+              }
+
+              /*
+               * Prevent duplicate option
+               * selections.
+               */
+
+              const uniqueSelections =
+                new Map<
+                  string,
+                  PreOrderOptionInput
+                >();
+
+              for (const selection of
+                requestedOptions) {
+                uniqueSelections.set(
+                  `${selection.groupId}:${selection.optionId}`,
+                  selection,
+                );
+              }
+
+              const selections = [
+                ...uniqueSelections.values(),
+              ];
+
+              /*
+               * ------------------------------------------------
+               * VALIDATE OPTIONS
+               * ------------------------------------------------
+               */
+
+              const selectedOptions =
+                selections.map(
+                  (selection) => {
+                    const group =
+                      product.optionGroups.find(
+                        (item) =>
+                          item.id ===
+                          selection.groupId,
+                      );
+
+                    if (!group) {
+                      throw new Error(
+                        `Invalid option group for ${product.name}`,
+                      );
+                    }
+
+                    const option =
+                      group.options.find(
+                        (item) =>
+                          item.id ===
+                          selection.optionId,
+                      );
+
+                    if (!option) {
+                      throw new Error(
+                        `Invalid option for ${product.name}`,
+                      );
+                    }
+
+                    return {
+                      group,
+                      option,
+                    };
+                  },
+                );
+
+              /*
+               * ------------------------------------------------
+               * CHECK EVERY OPTION GROUP
+               * ------------------------------------------------
+               */
+
+              for (const group of
+                product.optionGroups) {
+                const selectedCount =
+                  selectedOptions.filter(
+                    (selection) =>
+                      selection.group.id ===
+                      group.id,
+                  ).length;
+
+                const minimum =
+                  Math.max(
+                    group.minSelections,
+                    group.isRequired
+                      ? 1
+                      : 0,
+                  );
+
+                if (
+                  selectedCount <
+                  minimum
+                ) {
+                  throw new Error(
+                    `${group.name}: please select at least ${minimum} option${
+                      minimum === 1
+                        ? ""
+                        : "s"
+                    } for ${product.name}`,
+                  );
+                }
+
+                if (
+                  group.maxSelections >
+                    0 &&
+                  selectedCount >
+                    group.maxSelections
+                ) {
+                  throw new Error(
+                    `${group.name}: maximum ${group.maxSelections} option${
+                      group.maxSelections ===
+                      1
+                        ? ""
+                        : "s"
+                    } allowed for ${product.name}`,
+                  );
+                }
+              }
+
+              /*
+               * ------------------------------------------------
+               * OPTION PRICE
+               * ------------------------------------------------
+               */
+
+              const optionsTotal =
+                selectedOptions.reduce(
+                  (
+                    sum,
+                    selection,
+                  ) =>
+                    sum.add(
+                      selection.option
+                        .additionalPrice,
+                    ),
+
+                  new Prisma.Decimal(
+                    0,
+                  ),
+                );
+
+              /*
+               * ------------------------------------------------
+               * UNIT PRICE
+               * ------------------------------------------------
+               */
+
+              const unitPrice =
+                product.price.add(
+                  optionsTotal,
+                );
+
+              /*
+               * ------------------------------------------------
+               * LINE TOTAL
+               * ------------------------------------------------
+               */
+
+              const lineTotal =
+                unitPrice.mul(
+                  line.quantity,
+                );
+
+              total =
+                total.add(
+                  lineTotal,
+                );
+
+              return {
+                product,
+                quantity:
+                  line.quantity,
+                unitPrice,
+                lineTotal,
+                selectedOptions,
+              };
+            },
           );
 
-          startOfTomorrow.setDate(
-            startOfTomorrow.getDate() + 1,
+        /*
+         * ------------------------------------------------------
+         * DAILY SPENDING LIMIT
+         * ------------------------------------------------------
+         */
+
+        if (
+          student.dailySpendLimit !==
+          null
+        ) {
+          const today =
+            new Date();
+
+          const start =
+            new Date(today);
+
+          start.setHours(
+            0,
+            0,
+            0,
+            0,
+          );
+
+          const end =
+            new Date(start);
+
+          end.setDate(
+            end.getDate() + 1,
           );
 
           const [
@@ -400,13 +890,18 @@ export async function createParentPreOrder(input: {
           ] = await Promise.all([
             tx.sale.aggregate({
               where: {
-                studentId: student.id,
+                studentId:
+                  student.id,
+
                 createdAt: {
-                  gte: startOfToday,
-                  lt: startOfTomorrow,
+                  gte: start,
+                  lt: end,
                 },
-                status: "COMPLETED",
+
+                status:
+                  "COMPLETED",
               },
+
               _sum: {
                 total: true,
               },
@@ -414,11 +909,14 @@ export async function createParentPreOrder(input: {
 
             tx.preOrder.aggregate({
               where: {
-                studentId: student.id,
+                studentId:
+                  student.id,
+
                 createdAt: {
-                  gte: startOfToday,
-                  lt: startOfTomorrow,
+                  gte: start,
+                  lt: end,
                 },
+
                 status: {
                   in: [
                     PreOrderStatus.CONFIRMED,
@@ -428,176 +926,231 @@ export async function createParentPreOrder(input: {
                   ],
                 },
               },
+
               _sum: {
                 total: true,
               },
             }),
           ]);
 
-          const salesSpent =
+          const spent =
             new Prisma.Decimal(
-              salesToday._sum.total ?? 0,
+              salesToday._sum.total ??
+                0,
+            ).add(
+              new Prisma.Decimal(
+                preOrdersToday._sum
+                  .total ?? 0,
+              ),
             );
 
-          const preOrdersSpent =
-            new Prisma.Decimal(
-              preOrdersToday._sum.total ?? 0,
-            );
-
-          const spentToday =
-            salesSpent.add(preOrdersSpent);
-
-          const projectedSpent =
-            spentToday.add(total);
+          const projected =
+            spent.add(total);
 
           if (
-            projectedSpent.gt(
+            projected.gt(
               student.dailySpendLimit,
             )
           ) {
             const remaining =
               student.dailySpendLimit.sub(
-                spentToday,
+                spent,
               );
-
-            if (remaining.gt(0)) {
-              throw new Error(
-                `Daily spending limit exceeded. This student has $${remaining.toFixed(
-                  2,
-                )} remaining today.`,
-              );
-            }
 
             throw new Error(
-              "Daily spending limit reached. No more spending is allowed today.",
+              remaining.gt(0)
+                ? `Daily spending limit exceeded. This student has $${remaining.toFixed(
+                    2,
+                  )} remaining today.`
+                : "Daily spending limit reached.",
             );
           }
         }
 
         /*
-         * ============================================================
-         * WALLET BALANCE
-         * ============================================================
+         * ------------------------------------------------------
+         * WALLET
+         * ------------------------------------------------------
          */
 
-        const proposedBalance =
-          parent.wallet.balance.sub(total);
+        const newBalance =
+          parent.wallet.balance.sub(
+            total,
+          );
 
-        if (proposedBalance.lt(0)) {
+        if (
+          newBalance.lt(0)
+        ) {
           throw new Error(
             "Insufficient family wallet balance for this pre-order",
           );
         }
 
-        const guardedWalletUpdate =
+        /*
+         * Optimistic balance guard.
+         */
+
+        const walletUpdated =
           await tx.wallet.updateMany({
             where: {
               id: parent.wallet.id,
-              balance: parent.wallet.balance,
+
+              balance:
+                parent.wallet.balance,
             },
+
             data: {
-              balance: proposedBalance,
+              balance:
+                newBalance,
             },
           });
 
-        if (guardedWalletUpdate.count !== 1) {
+        if (
+          walletUpdated.count !==
+          1
+        ) {
           throw new Error(
             "Wallet balance changed. Please retry the order.",
           );
         }
 
         /*
-         * ============================================================
-         * CREATE PRE-ORDER
-         * ============================================================
+         * ------------------------------------------------------
+         * CREATE ORDER
+         * ------------------------------------------------------
          */
 
-        const pickupDate = new Date(
-          `${input.pickupDate}T00:00:00.000Z`,
-        );
+        const pickupDate =
+          new Date(
+            `${input.pickupDate}T00:00:00.000Z`,
+          );
 
-        const order = await tx.preOrder.create({
-          data: {
-            orderNumber: `PO-${Date.now()}-${randomUUID()
-              .slice(0, 6)
-              .toUpperCase()}`,
+        const orderNumber =
+          `PO-${Date.now()}-${randomUUID()
+            .slice(0, 6)
+            .toUpperCase()}`;
 
-            idempotencyKey:
-              input.idempotencyKey,
+        const order =
+          await tx.preOrder.create({
+            data: {
+              orderNumber,
 
-            schoolId: student.schoolId,
-            studentId: student.id,
-            walletId: parent.wallet.id,
-            pickupSlotId: slot.id,
-            pickupDate,
+              idempotencyKey:
+                input.idempotencyKey,
 
-            status: PreOrderStatus.CONFIRMED,
+              schoolId:
+                student.schoolId,
 
-            total,
+              studentId:
+                student.id,
 
-            items: {
-              create: cleanItems.map((line) => {
-                const product =
-                  productMap.get(
-                    line.productId,
-                  );
+              walletId:
+                parent.wallet.id,
 
-                if (!product) {
-                  throw new Error(
-                    "One or more products are unavailable",
-                  );
-                }
+              pickupSlotId:
+                pickupSlot.id,
 
-                return {
-                  productId: product.id,
-                  quantity: line.quantity,
-                  unitPrice: product.price,
-                  lineTotal:
-                    product.price.mul(
-                      line.quantity,
-                    ),
-                };
-              }),
+              pickupDate,
+
+              status:
+                PreOrderStatus.CONFIRMED,
+
+              total,
+
+              items: {
+                create:
+                  normalizedItems.map(
+                    (line) => ({
+                      productId:
+                        line.product.id,
+
+                      quantity:
+                        line.quantity,
+
+                      unitPrice:
+                        line.unitPrice,
+
+                      lineTotal:
+                        line.lineTotal,
+
+                      options: {
+                        create:
+                          line.selectedOptions.map(
+                            (
+                              selection,
+                            ) => ({
+                              productOptionId:
+                                selection
+                                  .option
+                                  .id,
+
+                              optionName:
+                                selection
+                                  .option
+                                  .name,
+
+                              additionalPrice:
+                                selection
+                                  .option
+                                  .additionalPrice,
+
+                              quantity: 1,
+                            }),
+                          ),
+                      },
+                    }),
+                  ),
+              },
+            },
+          });
+
+        /*
+         * ------------------------------------------------------
+         * WALLET TRANSACTION
+         * ------------------------------------------------------
+         */
+
+        await tx.walletTransaction.create(
+          {
+            data: {
+              walletId:
+                parent.wallet.id,
+
+              studentId:
+                student.id,
+
+              type:
+                WalletTransactionType.PREORDER_DEBIT,
+
+              amount:
+                total.neg(),
+
+              balanceAfter:
+                newBalance,
+
+              description:
+                `Pre-order ${order.orderNumber}`,
+
+              preOrderId:
+                order.id,
             },
           },
-        });
+        );
 
         /*
-         * ============================================================
-         * WALLET TRANSACTION
-         * ============================================================
-         */
-
-        await tx.walletTransaction.create({
-          data: {
-            walletId: parent.wallet.id,
-            studentId: student.id,
-
-            type:
-              WalletTransactionType.PREORDER_DEBIT,
-
-            amount: total.neg(),
-
-            balanceAfter: proposedBalance,
-
-            description: `Pre-order ${order.orderNumber}`,
-
-            preOrderId: order.id,
-          },
-        });
-
-        /*
-         * ============================================================
-         * PARENT NOTIFICATION
-         * ============================================================
+         * ------------------------------------------------------
+         * NOTIFICATION
+         * ------------------------------------------------------
          */
 
         await queueParentNotification({
           tx,
 
-          userId: session.user.id,
+          userId:
+            session.user.id,
 
-          parentId: parent.id,
+          parentId:
+            parent.id,
 
           event:
             NotificationEvent.PREORDER_CONFIRMED,
@@ -608,29 +1161,37 @@ export async function createParentPreOrder(input: {
           subject:
             "Pre-order confirmed",
 
-          message: `We received pre-order ${
-            order.orderNumber
-          } for ${student.firstName} ${
-            student.lastName
-          }. Pickup: ${
-            slot.label
-          }. Total: $${total.toFixed(2)}.`,
+          message:
+            `We received pre-order ${order.orderNumber} for ${student.firstName} ${student.lastName}. Pickup: ${pickupSlot.label}. Total: $${total.toFixed(
+              2,
+            )}.`,
 
           metadata: {
-            preOrderId: order.id,
-            studentId: student.id,
+            preOrderId:
+              order.id,
+
+            studentId:
+              student.id,
           },
 
-          schoolId: student.schoolId,
+          schoolId:
+            student.schoolId,
         });
 
         return {
           ok: true,
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          total: total.toFixed(2),
+
+          orderId:
+            order.id,
+
+          orderNumber:
+            order.orderNumber,
+
+          total:
+            total.toFixed(2),
+
           balanceAfter:
-            proposedBalance.toFixed(2),
+            newBalance.toFixed(2),
         };
       },
 
@@ -643,6 +1204,7 @@ export async function createParentPreOrder(input: {
   } catch (error) {
     return {
       ok: false,
+
       error:
         error instanceof Error
           ? error.message
@@ -650,6 +1212,10 @@ export async function createParentPreOrder(input: {
     };
   }
 }
+
+/* ============================================================
+ * CASHIER PRE-ORDERS
+ * ============================================================ */
 
 export async function getCashierPreOrders(
   date?: string,
@@ -662,33 +1228,39 @@ export async function getCashierPreOrders(
       session.user.role as UserRole,
     )
   ) {
-    throw new Error("Unauthorized");
+    throw new Error(
+      "Unauthorized",
+    );
   }
 
-  const where: Prisma.PreOrderWhereInput = {
-    status: {
-      in: [
-        PreOrderStatus.CONFIRMED,
-        PreOrderStatus.PREPARING,
-        PreOrderStatus.READY,
-      ],
-    },
-  };
+  const where: Prisma.PreOrderWhereInput =
+    {
+      status: {
+        in: [
+          PreOrderStatus.CONFIRMED,
+          PreOrderStatus.PREPARING,
+          PreOrderStatus.READY,
+        ],
+      },
+    };
 
   if (
     session.user.role !==
       UserRole.SUPER_ADMIN &&
     session.user.schoolId
   ) {
-    where.schoolId = session.user.schoolId;
+    where.schoolId =
+      session.user.schoolId;
   }
 
   if (date) {
-    const start = new Date(
-      `${date}T00:00:00.000Z`,
-    );
+    const start =
+      new Date(
+        `${date}T00:00:00.000Z`,
+      );
 
-    const end = new Date(start);
+    const end =
+      new Date(start);
 
     end.setUTCDate(
       end.getUTCDate() + 1,
@@ -705,12 +1277,16 @@ export async function getCashierPreOrders(
 
     include: {
       student: true,
+
       school: true,
+
       pickupSlot: true,
 
       items: {
         include: {
           product: true,
+
+          options: true,
         },
       },
     },
@@ -719,17 +1295,23 @@ export async function getCashierPreOrders(
       {
         pickupDate: "asc",
       },
+
       {
         pickupSlot: {
           sortOrder: "asc",
         },
       },
+
       {
         createdAt: "asc",
       },
     ],
   });
 }
+
+/* ============================================================
+ * UPDATE PRE-ORDER STATUS
+ * ============================================================ */
 
 export async function updatePreOrderStatus(
   orderId: string,
@@ -752,32 +1334,25 @@ export async function updatePreOrderStatus(
     };
   }
 
-  const target =
-    status as PreOrderStatus;
-
   try {
     return await prisma.$transaction(
-      async (
-        tx,
-      ): Promise<UpdatePreOrderStatusResult> => {
+      async (tx) => {
         const order =
-          await tx.preOrder.findUnique({
-            where: {
-              id: orderId,
-            },
+          await tx.preOrder.findUnique(
+            {
+              where: {
+                id: orderId,
+              },
 
-            include: {
-              student: {
-                include: {
-                  parent: {
-                    include: {
-                      user: true,
-                    },
+              include: {
+                student: {
+                  include: {
+                    parent: true,
                   },
                 },
               },
             },
-          });
+          );
 
         if (!order) {
           throw new Error(
@@ -791,8 +1366,13 @@ export async function updatePreOrderStatus(
           session.user.schoolId !==
             order.schoolId
         ) {
-          throw new Error("Unauthorized");
+          throw new Error(
+            "Unauthorized",
+          );
         }
+
+        const target =
+          status as PreOrderStatus;
 
         const allowed: Record<
           string,
@@ -831,14 +1411,16 @@ export async function updatePreOrderStatus(
           target ===
           PreOrderStatus.READY
         ) {
-          data.readyAt = new Date();
+          data.readyAt =
+            new Date();
         }
 
         if (
           target ===
           PreOrderStatus.PICKED_UP
         ) {
-          data.pickedUpAt = new Date();
+          data.pickedUpAt =
+            new Date();
         }
 
         const updated =
@@ -850,81 +1432,18 @@ export async function updatePreOrderStatus(
             data,
           });
 
-        if (
-          target ===
-          PreOrderStatus.READY
-        ) {
-          await queueParentNotification({
-            tx,
-
-            userId:
-              order.student.parent.userId,
-
-            parentId:
-              order.student.parent.id,
-
-            event:
-              NotificationEvent.PREORDER_READY,
-
-            preferenceKey:
-              "notifyPreOrder",
-
-            subject:
-              "Order ready",
-
-            message: `Order ${order.orderNumber} for ${order.student.firstName} is ready for pickup.`,
-
-            metadata: {
-              preOrderId: order.id,
-            },
-
-            schoolId:
-              order.schoolId,
-          });
-        }
-
-        if (
-          target ===
-          PreOrderStatus.PICKED_UP
-        ) {
-          await queueParentNotification({
-            tx,
-
-            userId:
-              order.student.parent.userId,
-
-            parentId:
-              order.student.parent.id,
-
-            event:
-              NotificationEvent.PREORDER_PICKED_UP,
-
-            preferenceKey:
-              "notifyPickup",
-
-            subject:
-              "Order picked up",
-
-            message: `Order ${order.orderNumber} for ${order.student.firstName} has been picked up.`,
-
-            metadata: {
-              preOrderId: order.id,
-            },
-
-            schoolId:
-              order.schoolId,
-          });
-        }
-
         return {
           ok: true,
-          status: updated.status,
+
+          status:
+            updated.status,
         };
       },
     );
   } catch (error) {
     return {
       ok: false,
+
       error:
         error instanceof Error
           ? error.message
@@ -933,11 +1452,20 @@ export async function updatePreOrderStatus(
   }
 }
 
+/* ============================================================
+ * MARK LABEL PRINTED
+ * ============================================================ */
+
 export async function markPreOrderLabelPrinted(
   orderId: string,
 ): Promise<
-  | { ok: true }
-  | { ok: false; error?: string }
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      error?: string;
+    }
 > {
   const session = await auth();
 
@@ -954,11 +1482,13 @@ export async function markPreOrderLabelPrinted(
   }
 
   const order =
-    await prisma.preOrder.findUnique({
-      where: {
-        id: orderId,
+    await prisma.preOrder.findUnique(
+      {
+        where: {
+          id: orderId,
+        },
       },
-    });
+    );
 
   if (!order) {
     return {
@@ -985,7 +1515,8 @@ export async function markPreOrderLabelPrinted(
     },
 
     data: {
-      labelPrintedAt: new Date(),
+      labelPrintedAt:
+        new Date(),
     },
   });
 
@@ -994,6 +1525,10 @@ export async function markPreOrderLabelPrinted(
   };
 }
 
+/* ============================================================
+ * CANCEL OWN PRE-ORDER
+ * ============================================================ */
+
 export async function cancelOwnPreOrder(
   orderId: string,
 ): Promise<CancelPreOrderResult> {
@@ -1001,7 +1536,8 @@ export async function cancelOwnPreOrder(
 
   if (
     !session?.user?.id ||
-    session.user.role !== UserRole.PARENT
+    session.user.role !==
+      UserRole.PARENT
   ) {
     return {
       ok: false,
@@ -1011,19 +1547,20 @@ export async function cancelOwnPreOrder(
 
   try {
     return await prisma.$transaction(
-      async (
-        tx,
-      ): Promise<CancelPreOrderResult> => {
+      async (tx) => {
         const parent =
-          await tx.parentProfile.findUnique({
-            where: {
-              userId: session.user.id,
-            },
+          await tx.parentProfile.findUnique(
+            {
+              where: {
+                userId:
+                  session.user.id,
+              },
 
-            include: {
-              wallet: true,
+              include: {
+                wallet: true,
+              },
             },
-          });
+          );
 
         if (!parent?.wallet) {
           throw new Error(
@@ -1032,16 +1569,16 @@ export async function cancelOwnPreOrder(
         }
 
         const order =
-          await tx.preOrder.findFirst({
-            where: {
-              id: orderId,
-              walletId: parent.wallet.id,
-            },
+          await tx.preOrder.findFirst(
+            {
+              where: {
+                id: orderId,
 
-            include: {
-              student: true,
+                walletId:
+                  parent.wallet.id,
+              },
             },
-          });
+          );
 
         if (!order) {
           throw new Error(
@@ -1058,34 +1595,42 @@ export async function cancelOwnPreOrder(
           );
         }
 
-        const updated =
-          await tx.preOrder.updateMany({
-            where: {
-              id: order.id,
-              status:
-                PreOrderStatus.CONFIRMED,
+        const changed =
+          await tx.preOrder.updateMany(
+            {
+              where: {
+                id: order.id,
+
+                status:
+                  PreOrderStatus.CONFIRMED,
+              },
+
+              data: {
+                status:
+                  PreOrderStatus.CANCELLED,
+
+                cancelledAt:
+                  new Date(),
+              },
             },
+          );
 
-            data: {
-              status:
-                PreOrderStatus.CANCELLED,
-
-              cancelledAt: new Date(),
-            },
-          });
-
-        if (updated.count !== 1) {
+        if (
+          changed.count !== 1
+        ) {
           throw new Error(
             "Order status changed. Please refresh.",
           );
         }
 
         const wallet =
-          await tx.wallet.findUnique({
-            where: {
-              id: parent.wallet.id,
+          await tx.wallet.findUnique(
+            {
+              where: {
+                id: parent.wallet.id,
+              },
             },
-          });
+          );
 
         if (!wallet) {
           throw new Error(
@@ -1093,7 +1638,7 @@ export async function cancelOwnPreOrder(
           );
         }
 
-        const newBalance =
+        const balanceAfter =
           wallet.balance.add(
             order.total,
           );
@@ -1104,60 +1649,39 @@ export async function cancelOwnPreOrder(
           },
 
           data: {
-            balance: newBalance,
+            balance:
+              balanceAfter,
           },
         });
 
-        await tx.walletTransaction.create({
-          data: {
-            walletId: wallet.id,
-            studentId: order.studentId,
+        await tx.walletTransaction.create(
+          {
+            data: {
+              walletId:
+                wallet.id,
 
-            type:
-              WalletTransactionType.REFUND,
+              studentId:
+                order.studentId,
 
-            amount: order.total,
+              type:
+                WalletTransactionType.REFUND,
 
-            balanceAfter: newBalance,
+              amount:
+                order.total,
 
-            description:
-              `Refund for cancelled pre-order ${order.orderNumber}`,
+              balanceAfter,
+
+              description:
+                `Refund for cancelled pre-order ${order.orderNumber}`,
+            },
           },
-        });
-
-        await queueParentNotification({
-          tx,
-
-          userId: session.user.id,
-
-          parentId: parent.id,
-
-          event:
-            NotificationEvent.PREORDER_CANCELLED,
-
-          preferenceKey:
-            "notifyRefund",
-
-          subject:
-            "Pre-order cancelled",
-
-          message: `Order ${
-            order.orderNumber
-          } was cancelled and $${order.total.toFixed(
-            2,
-          )} returned to your family wallet.`,
-
-          metadata: {
-            preOrderId: order.id,
-          },
-
-          schoolId: order.schoolId,
-        });
+        );
 
         return {
           ok: true,
+
           balanceAfter:
-            newBalance.toFixed(2),
+            balanceAfter.toFixed(2),
         };
       },
 
@@ -1170,6 +1694,7 @@ export async function cancelOwnPreOrder(
   } catch (error) {
     return {
       ok: false,
+
       error:
         error instanceof Error
           ? error.message
@@ -1178,20 +1703,42 @@ export async function cancelOwnPreOrder(
   }
 }
 
+/* ============================================================
+ * FORM ACTION
+ * ============================================================ */
+
 export async function cancelOwnPreOrderFromForm(
   formData: FormData,
 ): Promise<void> {
-  const orderId = String(
-    formData.get("orderId") ?? "",
-  );
+  const orderId =
+    String(
+      formData.get(
+        "orderId",
+      ) ?? "",
+    ).trim();
 
-  const result =
-    await cancelOwnPreOrder(orderId);
-
-  if (!result.ok) {
-    throw new Error(result.error);
+  if (!orderId) {
+    throw new Error(
+      "Order ID is required",
+    );
   }
 
-  revalidatePath("/parent/preorders");
-  revalidatePath("/parent/wallet");
+  const result =
+    await cancelOwnPreOrder(
+      orderId,
+    );
+
+  if (!result.ok) {
+    throw new Error(
+      result.error,
+    );
+  }
+
+  revalidatePath(
+    "/parent/preorders",
+  );
+
+  revalidatePath(
+    "/parent/wallet",
+  );
 }
