@@ -1268,9 +1268,11 @@ export default function CashierClient() {
               </div>
             </div>
           </div>
+        </>
+      )}
 
-          {/* ==================================================
-              PRODUCTS + CURRENT SALE
+      {/* ==================================================
+          PRODUCTS + CURRENT SALE
           ================================================== */}
 
           <section className="cashier-grid">
@@ -1282,6 +1284,12 @@ export default function CashierClient() {
               <h2>
                 Products
               </h2>
+
+              {!student && (
+                <p className="subtle compact" style={{ marginTop: 4, marginBottom: 10 }}>
+                  Select a student before adding products.
+                </p>
+              )}
 
               <div
                 className="products"
@@ -1323,6 +1331,7 @@ export default function CashierClient() {
                         key={
                           product.id
                         }
+                        disabled={!student}
                         onClick={() =>
                           handleProductClick(
                             product,
@@ -1332,6 +1341,8 @@ export default function CashierClient() {
                           padding: 10,
                           display:
                             "flex",
+                          opacity: student ? 1 : 0.55,
+                          cursor: student ? "pointer" : "not-allowed",
                           flexDirection:
                             "column",
                           alignItems:
@@ -1806,12 +1817,8 @@ export default function CashierClient() {
               )}
             </aside>
           </section>
-        </>
-      )}
 
-      {/* ======================================================
-          PRODUCT OPTIONS MODAL
-      ====================================================== */}
+      {/* ====================================================== */}
 
       {selectedProduct && (
         <div
