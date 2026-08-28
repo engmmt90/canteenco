@@ -55,6 +55,57 @@ export default async function ParentDashboardPage() {
         })
       : 0;
 
+  const studentIds =
+    parent?.students.map(
+      (student) => student.id,
+    ) ?? [];
+
+  const today = new Date();
+  const startOfToday =
+    new Date(today);
+
+  startOfToday.setHours(
+    0,
+    0,
+    0,
+    0,
+  );
+
+  const startOfTomorrow =
+    new Date(startOfToday);
+
+  startOfTomorrow.setDate(
+    startOfTomorrow.getDate() + 1,
+  );
+
+  const salesToday =
+    studentIds.length > 0
+      ? await prisma.sale.aggregate({
+          where: {
+            studentId: {
+              in: studentIds,
+            },
+
+            createdAt: {
+              gte: startOfToday,
+              lt: startOfTomorrow,
+            },
+
+            status: {
+              not: "VOIDED",
+            },
+          },
+
+          _sum: {
+            total: true,
+          },
+        })
+      : null;
+
+  const spentToday = Number(
+    salesToday?._sum.total ?? 0,
+  ).toFixed(2);
+
   return (
     <main className="content">
       <div className="page-heading">
@@ -107,6 +158,17 @@ export default async function ParentDashboardPage() {
             {activePreOrders}
           </strong>
         </Link>
+
+        <Link
+          className="stat"
+          href="/parent/purchase-history"
+        >
+          Spent today
+
+          <strong>
+            ${spentToday}
+          </strong>
+        </Link>
       </div>
 
       <div
@@ -125,8 +187,22 @@ export default async function ParentDashboardPage() {
                 <div
                   className="student-row"
                   key={student.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent:
+                      "space-between",
+                    gap: 12,
+                  }}
                 >
-                  <div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection:
+                        "column",
+                      minWidth: 0,
+                    }}
+                  >
                     <strong>
                       {student.firstName}{" "}
                       {student.lastName}
@@ -142,6 +218,15 @@ export default async function ParentDashboardPage() {
                   <Link
                     className="secondary"
                     href={`/parent/purchase-history?studentId=${student.id}`}
+                    style={{
+                      width: "auto",
+                      flexShrink: 0,
+                      whiteSpace:
+                        "nowrap",
+                      padding:
+                        "6px 10px",
+                      fontSize: 13,
+                    }}
                   >
                     View Purchases
                   </Link>
