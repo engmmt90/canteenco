@@ -126,16 +126,25 @@ export default async function ParentDashboardPage() {
                   className="student-row"
                   key={student.id}
                 >
-                  <strong>
-                    {student.firstName}{" "}
-                    {student.lastName}
-                  </strong>
+                  <div>
+                    <strong>
+                      {student.firstName}{" "}
+                      {student.lastName}
+                    </strong>
 
-                  <span>
-                    {student.displayCode} · Grade{" "}
-                    {student.grade}
-                    {student.classSection ?? ""}
-                  </span>
+                    <span>
+                      {student.displayCode} · Grade{" "}
+                      {student.grade}
+                      {student.classSection ?? ""}
+                    </span>
+                  </div>
+
+                  <Link
+                    className="secondary"
+                    href={`/parent/purchase-history?studentId=${student.id}`}
+                  >
+                    View Purchases
+                  </Link>
                 </div>
               ),
             )}
