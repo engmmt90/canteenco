@@ -9,12 +9,14 @@ export default async function Page({
 }: {
   searchParams: Promise<{
     edit?: string;
+    add?: string;
   }>;
 }) {
   await requireAdmin();
 
   const params = await searchParams;
   const editId = params.edit;
+  const showAddForm = params.add === "1";
 
   const products = await prisma.product.findMany({
     where: {
@@ -60,7 +62,24 @@ export default async function Page({
         </Link>
       </div>
 
+      {/* Add Product button */}
+      {!editingProduct && !showAddForm && (
+        <div
+          style={{
+            marginBottom: 18,
+          }}
+        >
+          <Link
+            className="primary"
+            href="/admin/products?add=1"
+          >
+            + Add Product
+          </Link>
+        </div>
+      )}
+
       {/* Add / Edit Product */}
+      {(editingProduct || showAddForm) && (
       <form
         action={saveProduct}
         className="panel form"
@@ -256,16 +275,17 @@ export default async function Page({
               : "Add Product"}
           </button>
 
-          {editingProduct && (
-            <Link
-              className="secondary"
-              href="/admin/products"
-            >
-              Cancel Edit
-            </Link>
-          )}
+          <Link
+            className="secondary"
+            href="/admin/products"
+          >
+            {editingProduct
+              ? "Cancel Edit"
+              : "Cancel"}
+          </Link>
         </div>
       </form>
+      )}
 
       {/* Products List */}
       <section
