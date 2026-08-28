@@ -13,6 +13,7 @@ import {
   createCashierSale,
   findCashierStudents,
   getCashierProducts,
+  getRecentCashierSales,
 } from "@/app/actions/sales";
 
 import {
@@ -72,6 +73,13 @@ type PrintLabel = {
   createdAt: string;
   lines: PrintLine[];
 };
+
+type RecentSale =
+  Awaited<
+    ReturnType<
+      typeof getRecentCashierSales
+    >
+  >[number];
 
 /* ============================================================
  * COMPONENT
@@ -180,6 +188,21 @@ export default function CashierClient() {
     setPrintLabel,
   ] = useState<PrintLabel | null>(null);
 
+  const [
+    recentSales,
+    setRecentSales,
+  ] = useState<RecentSale[]>([]);
+
+  const [
+    loadingRecentSales,
+    setLoadingRecentSales,
+  ] = useState(false);
+
+  const [
+    selectedRecentSale,
+    setSelectedRecentSale,
+  ] = useState<RecentSale | null>(null);
+
   const [key, setKey] =
     useState(() =>
       crypto.randomUUID(),
@@ -214,6 +237,28 @@ export default function CashierClient() {
   }
 
   /* ==========================================================
+   * LAST SALES
+   * ========================================================== */
+
+  async function loadRecentSales() {
+    setLoadingRecentSales(true);
+
+    try {
+      const latest =
+        await getRecentCashierSales(5);
+
+      setRecentSales(latest);
+    } catch (error) {
+      console.error(
+        "Could not load recent sales",
+        error,
+      );
+    } finally {
+      setLoadingRecentSales(false);
+    }
+  }
+
+  /* ==========================================================
    * LOAD PRODUCTS
    * ========================================================== */
 
@@ -227,6 +272,8 @@ export default function CashierClient() {
             : "Could not load products",
         );
       });
+
+    void loadRecentSales();
 
     focusNfcInput();
   }, []);
@@ -1085,6 +1132,7 @@ export default function CashierClient() {
       );
       setKey(crypto.randomUUID());
       void loadDailySpending(student.id);
+      void loadRecentSales();
 
       if (printAfterSale) {
         setPrintLabel({
@@ -2148,8 +2196,401 @@ export default function CashierClient() {
                 {message}
               </p>
             )}
+
+          <div
+            style={{
+              marginTop: 18,
+              paddingTop: 16,
+              borderTop:
+                "1px solid #e5e7eb",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent:
+                  "space-between",
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                }}
+              >
+                Last Sales
+              </h3>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  void loadRecentSales()
+                }
+                disabled={
+                  loadingRecentSales
+                }
+                style={{
+                  minHeight: 30,
+                  padding: "4px 9px",
+                  fontSize: 12,
+                }}
+              >
+                {loadingRecentSales
+                  ? "Loading…"
+                  : "Refresh"}
+              </button>
+            </div>
+
+            {loadingRecentSales &&
+            recentSales.length === 0 ? (
+              <p className="subtle compact">
+                Loading last sales…
+              </p>
+            ) : recentSales.length ===
+              0 ? (
+              <p className="subtle compact">
+                No recent sales yet.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 7,
+                }}
+              >
+                {recentSales.map(
+                  (sale) => (
+                    <button
+                      type="button"
+                      key={sale.id}
+                      className="secondary"
+                      onClick={() =>
+                        setSelectedRecentSale(
+                          sale,
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        padding:
+                          "9px 10px",
+                        textAlign: "left",
+                        display: "grid",
+                        gridTemplateColumns:
+                          "1fr auto",
+                        gap: "3px 10px",
+                        alignItems:
+                          "center",
+                      }}
+                    >
+                      <strong
+                        style={{
+                          minWidth: 0,
+                          overflow:
+                            "hidden",
+                          textOverflow:
+                            "ellipsis",
+                          whiteSpace:
+                            "nowrap",
+                        }}
+                      >
+                        {
+                          sale.student
+                            .firstName
+                        }{" "}
+                        {
+                          sale.student
+                            .lastName
+                        }
+                      </strong>
+
+                      <strong>
+                        $
+                        {Number(
+                          sale.total,
+                        ).toFixed(2)}
+                      </strong>
+
+                      <span className="subtle compact">
+                        #
+                        {sale.saleNumber.slice(
+                          -6,
+                        )}{" "}
+                        ·{" "}
+                        {new Date(
+                          sale.createdAt,
+                        ).toLocaleTimeString(
+                          [],
+                          {
+                            hour:
+                              "2-digit",
+                            minute:
+                              "2-digit",
+                          },
+                        )}
+                      </span>
+
+                      <span className="subtle compact">
+                        View details
+                      </span>
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
         </aside>
       </section>
+
+      {/* ======================================================
+          LAST SALE DETAILS MODAL
+      ====================================================== */}
+
+      {selectedRecentSale && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() =>
+            setSelectedRecentSale(null)
+          }
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9997,
+            background:
+              "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 18,
+          }}
+        >
+          <div
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              maxHeight:
+                "calc(100vh - 36px)",
+              overflowY: "auto",
+              background: "white",
+              borderRadius: 18,
+              padding: 22,
+              boxShadow:
+                "0 24px 80px rgba(0,0,0,0.35)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "flex-start",
+                gap: 14,
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                  }}
+                >
+                  Sale Details
+                </h2>
+
+                <p
+                  className="subtle"
+                  style={{
+                    margin:
+                      "6px 0 0",
+                  }}
+                >
+                  {
+                    selectedRecentSale
+                      .saleNumber
+                  }
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  setSelectedRecentSale(
+                    null,
+                  )
+                }
+                style={{
+                  width: 40,
+                  height: 40,
+                  padding: 0,
+                  fontSize: 20,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                background: "#f9fafb",
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 16,
+              }}
+            >
+              <strong>
+                {
+                  selectedRecentSale
+                    .student.firstName
+                }{" "}
+                {
+                  selectedRecentSale
+                    .student.lastName
+                }
+              </strong>
+
+              <div className="subtle compact">
+                {
+                  selectedRecentSale
+                    .student.displayCode
+                }
+              </div>
+
+              <div
+                className="subtle compact"
+                style={{
+                  marginTop: 5,
+                }}
+              >
+                {new Date(
+                  selectedRecentSale
+                    .createdAt,
+                ).toLocaleString()}
+              </div>
+            </div>
+
+            <div>
+              {selectedRecentSale.items.map(
+                (item, itemIndex) => (
+                  <div
+                    key={`${selectedRecentSale.id}-${itemIndex}`}
+                    style={{
+                      padding:
+                        "11px 0",
+                      borderBottom:
+                        "1px solid #e5e7eb",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <strong>
+                          {
+                            item.productName
+                          }
+                        </strong>
+
+                        <div className="subtle compact">
+                          $
+                          {Number(
+                            item.unitPrice,
+                          ).toFixed(2)}{" "}
+                          ×{" "}
+                          {item.quantity}
+                        </div>
+                      </div>
+
+                      <strong>
+                        $
+                        {Number(
+                          item.lineTotal,
+                        ).toFixed(2)}
+                      </strong>
+                    </div>
+
+                    {item.options.map(
+                      (
+                        option,
+                        optionIndex,
+                      ) => (
+                        <div
+                          key={`${selectedRecentSale.id}-${itemIndex}-${optionIndex}`}
+                          className="subtle compact"
+                          style={{
+                            marginTop: 4,
+                            fontSize: 12,
+                          }}
+                        >
+                          +{" "}
+                          {
+                            option.optionName
+                          }
+                          {Number(
+                            option.additionalPrice,
+                          ) > 0
+                            ? ` (+$${Number(
+                                option.additionalPrice,
+                              ).toFixed(
+                                2,
+                              )})`
+                            : ""}
+                        </div>
+                      ),
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "center",
+                marginTop: 16,
+                fontSize: 20,
+              }}
+            >
+              <strong>Total</strong>
+              <strong>
+                $
+                {Number(
+                  selectedRecentSale.total,
+                ).toFixed(2)}
+              </strong>
+            </div>
+
+            <button
+              type="button"
+              className="primary"
+              onClick={() =>
+                setSelectedRecentSale(null)
+              }
+              style={{
+                width: "100%",
+                marginTop: 18,
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ======================================================
           PRODUCT OPTIONS MODAL

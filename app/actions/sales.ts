@@ -196,6 +196,107 @@ export async function getCashierProducts() {
   return products;
 }
 
+
+export async function getRecentCashierSales(
+  limit = 5,
+) {
+  const session = await auth();
+
+  if (
+    !session?.user?.id ||
+    !STAFF_ROLES.includes(
+      session.user.role as UserRole,
+    )
+  ) {
+    throw new Error("Unauthorized");
+  }
+
+  const safeLimit = Math.min(
+    Math.max(
+      Number.isFinite(limit)
+        ? Math.trunc(limit)
+        : 5,
+      1,
+    ),
+    10,
+  );
+
+  const sales =
+    await prisma.sale.findMany({
+      where: {
+        cashierUserId:
+          session.user.id,
+        status: "COMPLETED",
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+
+      take: safeLimit,
+
+      include: {
+        student: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayCode: true,
+          },
+        },
+
+        items: {
+          include: {
+            options: true,
+          },
+        },
+      },
+    });
+
+  return sales.map((sale) => ({
+    id: sale.id,
+    saleNumber: sale.saleNumber,
+    total: sale.total.toFixed(2),
+    createdAt:
+      sale.createdAt.toISOString(),
+
+    student: {
+      id: sale.student.id,
+      firstName:
+        sale.student.firstName,
+      lastName:
+        sale.student.lastName,
+      displayCode:
+        sale.student.displayCode,
+    },
+
+    items: sale.items.map(
+      (item) => ({
+        productName:
+          item.productNameSnapshot,
+        quantity: item.quantity,
+        unitPrice:
+          item.unitPrice.toFixed(2),
+        lineTotal:
+          item.lineTotal.toFixed(2),
+
+        options: item.options.map(
+          (option) => ({
+            optionName:
+              option.optionName,
+            additionalPrice:
+              option.additionalPrice.toFixed(
+                2,
+              ),
+            quantity:
+              option.quantity,
+          }),
+        ),
+      }),
+    ),
+  }));
+}
+
 export async function createCashierSale(
   input: {
     studentId: string;
