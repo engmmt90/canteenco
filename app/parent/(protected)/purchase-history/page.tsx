@@ -160,6 +160,11 @@ export default async function PurchaseHistoryPage({
               quantity: true,
               unitPrice: true,
               lineTotal: true,
+              options: {
+                select: {
+                  optionName: true,
+                },
+              },
             },
           },
         },
@@ -201,6 +206,11 @@ export default async function PurchaseHistoryPage({
                   name: true,
                 },
               },
+              options: {
+                select: {
+                  optionName: true,
+                },
+              },
             },
           },
         },
@@ -223,6 +233,9 @@ export default async function PurchaseHistoryPage({
       items: sale.items.map((item) => ({
         name: item.productNameSnapshot,
         quantity: item.quantity,
+        options: item.options.map(
+          (option) => option.optionName,
+        ),
       })),
     })),
 
@@ -237,6 +250,9 @@ export default async function PurchaseHistoryPage({
       items: order.items.map((item) => ({
         name: item.product.name,
         quantity: item.quantity,
+        options: item.options.map(
+          (option) => option.optionName,
+        ),
       })),
     })),
   ].sort(
@@ -269,8 +285,8 @@ export default async function PurchaseHistoryPage({
             </h1>
 
             <p className="subtle">
-              View purchases and pre-orders
-              for your children.
+              View canteen sales and pre-orders
+              for all children or one child.
             </p>
           </div>
 
@@ -317,7 +333,7 @@ export default async function PurchaseHistoryPage({
                 }
               >
                 <option value="">
-                  All Students
+                  All Children
                 </option>
 
                 {parent.students.map(
@@ -486,6 +502,16 @@ export default async function PurchaseHistoryPage({
                       >
                         {item.quantity} ×{" "}
                         {item.name}
+
+                        {item.options.length >
+                          0 && (
+                          <span>
+                            {" · "}
+                            {item.options.join(
+                              ", ",
+                            )}
+                          </span>
+                        )}
                       </div>
                     ),
                   )}
