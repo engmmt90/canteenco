@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { requireParent } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import PreOrderForm from "./preorder-form";
@@ -217,14 +219,25 @@ export default async function ParentPreOrdersPage() {
 
   return (
     <main className="content">
-      <h1 className="brand">
-        Pre-Orders
-      </h1>
+      <div className="page-heading">
+        <div>
+          <h1 className="brand">
+            Pre-Orders
+          </h1>
 
-      <p className="subtle">
-        Order ahead for your child
-        and choose a pickup time.
-      </p>
+          <p className="subtle">
+            Order ahead for your child
+            and choose a pickup time.
+          </p>
+        </div>
+
+        <Link
+          className="secondary"
+          href="/parent/dashboard"
+        >
+          Dashboard
+        </Link>
+      </div>
 
       <PreOrderForm data={data} />
 
