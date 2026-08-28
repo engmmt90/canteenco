@@ -37,6 +37,24 @@ export default async function ParentDashboardPage() {
       ).toFixed(2)
     : "0.00";
 
+  const activePreOrders =
+    parent?.wallet
+      ? await prisma.preOrder.count({
+          where: {
+            walletId:
+              parent.wallet.id,
+
+            status: {
+              in: [
+                "CONFIRMED",
+                "PREPARING",
+                "READY",
+              ],
+            },
+          },
+        })
+      : 0;
+
   return (
     <main className="content">
       <div className="page-heading">
@@ -79,11 +97,16 @@ export default async function ParentDashboardPage() {
           </strong>
         </div>
 
-        <div className="stat">
+        <Link
+          className="stat"
+          href="/parent/preorders"
+        >
           Pre-orders
 
-          <strong>0</strong>
-        </div>
+          <strong>
+            {activePreOrders}
+          </strong>
+        </Link>
       </div>
 
       <div
