@@ -19,6 +19,10 @@ import {
   getStudentDailySpending,
 } from "@/app/actions/student-spending";
 
+/* ============================================================
+ * TYPES
+ * ============================================================ */
+
 type Student =
   Awaited<
     ReturnType<typeof findCashierStudents>
@@ -29,29 +33,6 @@ type Product =
     ReturnType<typeof getCashierProducts>
   >[number];
 
-type ProductOption = {
-  id: string;
-  name: string;
-  additionalPrice: unknown;
-  isActive: boolean;
-  sortOrder: number;
-};
-
-type ProductOptionGroup = {
-  id: string;
-  name: string;
-  minSelections: number;
-  maxSelections: number;
-  isRequired: boolean;
-  isActive: boolean;
-  sortOrder: number;
-  options: ProductOption[];
-};
-
-type ProductWithOptions = Product & {
-  optionGroups?: ProductOptionGroup[];
-};
-
 type DailySpending = {
   dailyLimit: number | null;
   spentToday: number;
@@ -59,23 +40,49 @@ type DailySpending = {
 };
 
 type CartLine = {
+  id: string;
   productId: string;
   quantity: number;
   optionIds: string[];
 };
 
-type CartItem = {
-  key: string;
-  productId: string;
-  quantity: number;
-  optionIds: string[];
+type SelectedOptions = Record<
+  string,
+  string[]
+>;
+
+type PrintLineOption = {
+  groupName: string;
+  optionName: string;
+  additionalPrice: number;
 };
+
+type PrintLine = {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  options: PrintLineOption[];
+};
+
+type PrintLabel = {
+  saleNumber: string;
+  studentName: string;
+  studentCode: string;
+  total: number;
+  createdAt: string;
+  lines: PrintLine[];
+};
+
+/* ============================================================
+ * COMPONENT
+ * ============================================================ */
 
 export default function CashierClient() {
-  const [q, setQ] = useState("");
+  /* ==========================================================
+   * STUDENT SEARCH
+   * ========================================================== */
 
-  const [nfc, setNfc] = useState("");
-  const [nfcMessage, setNfcMessage] =
+  const [q, setQ] =
     useState("");
 
   const [results, setResults] =
@@ -84,11 +91,58 @@ export default function CashierClient() {
   const [student, setStudent] =
     useState<Student | null>(null);
 
+  /* ==========================================================
+   * NFC
+   * ========================================================== */
+
+  const [nfc, setNfc] =
+    useState("");
+
+  const [
+    nfcMessage,
+    setNfcMessage,
+  ] = useState("");
+
+  const nfcInputRef =
+    useRef<HTMLInputElement | null>(
+      null,
+    );
+
+  /* ==========================================================
+   * PRODUCTS
+   * ========================================================== */
+
   const [products, setProducts] =
-    useState<ProductWithOptions[]>([]);
+    useState<Product[]>([]);
+
+  /* ==========================================================
+   * CART
+   * ========================================================== */
 
   const [cart, setCart] =
-    useState<CartItem[]>([]);
+    useState<CartLine[]>([]);
+
+  /* ==========================================================
+   * PRODUCT OPTIONS
+   * ========================================================== */
+
+  const [
+    selectedProduct,
+    setSelectedProduct,
+  ] = useState<Product | null>(
+    null,
+  );
+
+  const [
+    selectedOptions,
+    setSelectedOptions,
+  ] = useState<SelectedOptions>(
+    {},
+  );
+
+  /* ==========================================================
+   * SALE
+   * ========================================================== */
 
   const [busy, setBusy] =
     useState(false);
@@ -96,11 +150,15 @@ export default function CashierClient() {
   const [message, setMessage] =
     useState("");
 
-  const [adminPassword, setAdminPassword] =
-    useState("");
+  const [
+    adminPassword,
+    setAdminPassword,
+  ] = useState("");
 
-  const [needsOverride, setNeedsOverride] =
-    useState(false);
+  const [
+    needsOverride,
+    setNeedsOverride,
+  ] = useState(false);
 
   const [
     showBalancePopup,
@@ -113,45 +171,55 @@ export default function CashierClient() {
   ] = useState(false);
 
   const [
+    pendingPrint,
+    setPendingPrint,
+  ] = useState(false);
+
+  const [
+    printLabel,
+    setPrintLabel,
+  ] = useState<PrintLabel | null>(null);
+
+  const [key, setKey] =
+    useState(() =>
+      crypto.randomUUID(),
+    );
+
+  /* ==========================================================
+   * DAILY SPENDING
+   * ========================================================== */
+
+  const [
     dailySpending,
     setDailySpending,
-  ] = useState<DailySpending | null>(null);
+  ] =
+    useState<DailySpending | null>(
+      null,
+    );
 
   const [
     loadingDailySpending,
     setLoadingDailySpending,
   ] = useState(false);
 
-  const [
-    selectedProduct,
-    setSelectedProduct,
-  ] =
-    useState<ProductWithOptions | null>(null);
+  /* ==========================================================
+   * NFC FOCUS
+   * ========================================================== */
 
-  const [
-    selectedOptions,
-    setSelectedOptions,
-  ] = useState<Record<string, string[]>>({});
+  function focusNfcInput() {
+    window.setTimeout(() => {
+      nfcInputRef.current?.focus();
+      nfcInputRef.current?.select();
+    }, 50);
+  }
 
-  const [key, setKey] =
-    useState(() => crypto.randomUUID());
-
-  const nfcInputRef =
-    useRef<HTMLInputElement | null>(null);
-
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * LOAD PRODUCTS
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
   useEffect(() => {
     getCashierProducts()
-      .then((data) => {
-        setProducts(
-          data as ProductWithOptions[],
-        );
-      })
+      .then(setProducts)
       .catch((error) => {
         setMessage(
           error instanceof Error
@@ -159,30 +227,21 @@ export default function CashierClient() {
             : "Could not load products",
         );
       });
+
+    focusNfcInput();
   }, []);
 
-  /*
-   * ------------------------------------------------------------
-   * NFC FOCUS
-   * ------------------------------------------------------------
-   */
-
-  function focusNfcInput() {
-    setTimeout(() => {
-      nfcInputRef.current?.focus();
-    }, 50);
-  }
-
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * DAILY SPENDING
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
   async function loadDailySpending(
     studentId: string,
   ) {
-    setLoadingDailySpending(true);
+    setLoadingDailySpending(
+      true,
+    );
+
     setDailySpending(null);
 
     try {
@@ -191,7 +250,9 @@ export default function CashierClient() {
           studentId,
         );
 
-      setDailySpending(spending);
+      setDailySpending(
+        spending,
+      );
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -199,15 +260,15 @@ export default function CashierClient() {
           : "Could not load daily spending",
       );
     } finally {
-      setLoadingDailySpending(false);
+      setLoadingDailySpending(
+        false,
+      );
     }
   }
 
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * NORMAL STUDENT SEARCH
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
   async function search() {
     const value = q.trim();
@@ -218,15 +279,22 @@ export default function CashierClient() {
     }
 
     setMessage("");
+    setNfcMessage("");
 
     try {
       const found =
-        await findCashierStudents(value);
+        await findCashierStudents(
+          value,
+        );
 
       setResults(found);
 
-      if (found.length === 1) {
-        select(found[0]);
+      if (
+        found.length === 1
+      ) {
+        selectStudent(
+          found[0],
+        );
       }
     } catch (error) {
       setMessage(
@@ -237,16 +305,16 @@ export default function CashierClient() {
     }
   }
 
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * NFC SEARCH
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
   async function searchNfc() {
-    const value = nfc.trim();
+    const value =
+      nfc.trim();
 
     if (!value) {
+      focusNfcInput();
       return;
     }
 
@@ -255,25 +323,32 @@ export default function CashierClient() {
 
     try {
       const found =
-        await findCashierStudents(value);
+        await findCashierStudents(
+          value,
+        );
 
-      if (found.length === 0) {
+      if (
+        found.length === 0
+      ) {
         setNfcMessage(
           "No active student is linked to this NFC card.",
         );
 
         setNfc("");
+
         focusNfcInput();
 
         return;
       }
 
-      if (found.length === 1) {
-        select(found[0]);
+      if (
+        found.length === 1
+      ) {
+        selectStudent(
+          found[0],
+        );
 
         setNfc("");
-
-        focusNfcInput();
 
         return;
       }
@@ -281,32 +356,47 @@ export default function CashierClient() {
       setNfcMessage(
         "More than one student was found. Please use the student search.",
       );
+
+      setNfc("");
+
+      focusNfcInput();
     } catch (error) {
       setNfcMessage(
         error instanceof Error
           ? error.message
           : "NFC search failed",
       );
+
+      setNfc("");
+
+      focusNfcInput();
     }
   }
 
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * SELECT STUDENT
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
-  function select(selected: Student) {
+  function selectStudent(
+    selected: Student,
+  ) {
     setStudent(selected);
 
     setResults([]);
 
-    setQ(selected.displayCode);
+    setQ(
+      selected.displayCode,
+    );
 
     setNfc("");
+
     setNfcMessage("");
 
     setCart([]);
+
+    setSelectedProduct(null);
+
+    setSelectedOptions({});
 
     setMessage("");
 
@@ -315,586 +405,711 @@ export default function CashierClient() {
     setAdminPassword("");
 
     setShowBalancePopup(false);
+
     setShowAdminApproval(false);
 
     void loadDailySpending(
       selected.id,
     );
-
-    focusNfcInput();
   }
 
-  /*
-   * ------------------------------------------------------------
-   * PRODUCT OPTIONS HELPERS
-   * ------------------------------------------------------------
-   */
-
-  function getProductOptions(
-    product: ProductWithOptions,
-  ) {
-    return (
-      product.optionGroups?.filter(
-        (group) =>
-          group.isActive &&
-          group.options?.some(
-            (option) => option.isActive,
-          ),
-      ) ?? []
-    );
-  }
-
-  function productHasOptions(
-    product: ProductWithOptions,
-  ) {
-    return (
-      getProductOptions(product).length > 0
-    );
-  }
-
-  function optionPrice(
-    option: ProductOption,
-  ) {
-    return Number(
-      option.additionalPrice ?? 0,
-    );
-  }
-
-  function selectedOptionCount(
-    groupId: string,
-  ) {
-    return (
-      selectedOptions[groupId]?.length ?? 0
-    );
-  }
-
-  function allRequiredOptionsSelected() {
-    if (!selectedProduct) {
-      return true;
-    }
-
-    const groups =
-      getProductOptions(selectedProduct);
-
-    for (const group of groups) {
-      const count =
-        selectedOptionCount(group.id);
-
-      const min =
-        Math.max(
-          group.minSelections ?? 0,
-          group.isRequired ? 1 : 0,
-        );
-
-      if (count < min) {
-        return false;
-      }
-
-      if (
-        group.maxSelections > 0 &&
-        count > group.maxSelections
-      ) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  function optionValidationMessage() {
-    if (!selectedProduct) {
-      return "";
-    }
-
-    const groups =
-      getProductOptions(selectedProduct);
-
-    for (const group of groups) {
-      const count =
-        selectedOptionCount(group.id);
-
-      const min =
-        Math.max(
-          group.minSelections ?? 0,
-          group.isRequired ? 1 : 0,
-        );
-
-      if (count < min) {
-        return `${group.name}: please select at least ${min} option${
-          min === 1 ? "" : "s"
-        }.`;
-      }
-
-      if (
-        group.maxSelections > 0 &&
-        count > group.maxSelections
-      ) {
-        return `${group.name}: please select no more than ${group.maxSelections} option${
-          group.maxSelections === 1
-            ? ""
-            : "s"
-        }.`;
-      }
-    }
-
-    return "";
-  }
-
-  function toggleOption(
-    group: ProductOptionGroup,
-    optionId: string,
-  ) {
-    setSelectedOptions((current) => {
-      const existing =
-        current[group.id] ?? [];
-
-      const alreadySelected =
-        existing.includes(optionId);
-
-      if (alreadySelected) {
-        return {
-          ...current,
-          [group.id]: existing.filter(
-            (id) => id !== optionId,
-          ),
-        };
-      }
-
-      const max =
-        group.maxSelections;
-
-      if (
-        max > 0 &&
-        existing.length >= max
-      ) {
-        if (max === 1) {
-          return {
-            ...current,
-            [group.id]: [optionId],
-          };
-        }
-
-        return current;
-      }
-
-      return {
-        ...current,
-        [group.id]: [
-          ...existing,
-          optionId,
-        ],
-      };
-    });
-  }
-
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * OPEN PRODUCT
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
-  function handleProductClick(
-    product: ProductWithOptions,
+  function openProduct(
+    product: Product,
   ) {
-    if (!productHasOptions(product)) {
-      addProduct(
-        product.id,
-        [],
+    /*
+     * Products are visible before
+     * a student is selected, but
+     * cannot be added.
+     */
+
+    if (!student) {
+      return;
+    }
+
+    /*
+     * No option groups:
+     * add directly.
+     */
+
+    if (
+      !product.optionGroups ||
+      product.optionGroups
+        .length === 0
+    ) {
+      addSimpleProduct(
+        product,
       );
 
       return;
     }
 
-    const initial: Record<
-      string,
-      string[]
-    > = {};
+    /*
+     * Product with options.
+     */
 
-    for (const group of getProductOptions(
-      product,
-    )) {
+    const initial: SelectedOptions =
+      {};
+
+    for (const group of
+      product.optionGroups) {
       initial[group.id] = [];
     }
 
-    setSelectedOptions(initial);
+    setSelectedOptions(
+      initial,
+    );
 
-    setSelectedProduct(product);
+    setSelectedProduct(
+      product,
+    );
+
+    setMessage("");
   }
 
-  /*
-   * ------------------------------------------------------------
-   * ADD PRODUCT
-   * ------------------------------------------------------------
-   */
+  /* ==========================================================
+   * SIMPLE PRODUCT
+   * ========================================================== */
 
-  function addProduct(
-    productId: string,
-    optionIds: string[],
+  function addSimpleProduct(
+    product: Product,
   ) {
-    const optionKey =
-      [...optionIds]
-        .sort()
-        .join("|");
-
-    const itemKey =
-      `${productId}:${optionKey}`;
-
-    setCart((current) => {
-      const existing =
-        current.find(
-          (item) =>
-            item.key === itemKey,
-        );
-
-      if (existing) {
-        return current.map((item) =>
-          item.key === itemKey
-            ? {
-                ...item,
-                quantity:
-                  item.quantity + 1,
-              }
-            : item,
-        );
-      }
-
-      return [
-        ...current,
-        {
-          key: itemKey,
-          productId,
-          quantity: 1,
-          optionIds,
-        },
-      ];
-    });
-  }
-
-  /*
-   * ------------------------------------------------------------
-   * CONFIRM PRODUCT WITH OPTIONS
-   * ------------------------------------------------------------
-   */
-
-  function confirmProductOptions() {
-    if (!selectedProduct) {
+    if (!student) {
       return;
     }
 
-    const validation =
-      optionValidationMessage();
+    /*
+     * If same simple product already
+     * exists, increase quantity.
+     */
 
-    if (validation) {
-      setMessage(validation);
+    const existing =
+      cart.find(
+        (line) =>
+          line.productId ===
+            product.id &&
+          line.optionIds.length ===
+            0,
+      );
+
+    if (existing) {
+      setCart((current) =>
+        current.map((line) =>
+          line.id ===
+          existing.id
+            ? {
+                ...line,
+                quantity:
+                  line.quantity +
+                  1,
+              }
+            : line,
+        ),
+      );
+
+      return;
+    }
+
+    setCart((current) => [
+      ...current,
+
+      {
+        id:
+          crypto.randomUUID(),
+
+        productId:
+          product.id,
+
+        quantity: 1,
+
+        optionIds: [],
+      },
+    ]);
+  }
+
+  /* ==========================================================
+   * OPTION TOGGLE
+   * ========================================================== */
+
+  function toggleOption(
+    group:
+      Product["optionGroups"][number],
+    optionId: string,
+  ) {
+    setSelectedOptions(
+      (current) => {
+        const existing =
+          current[group.id] ??
+          [];
+
+        /*
+         * Single select.
+         */
+
+        if (
+          group.maxSelections <=
+          1
+        ) {
+          return {
+            ...current,
+
+            [group.id]: [
+              optionId,
+            ],
+          };
+        }
+
+        /*
+         * Multi select.
+         */
+
+        if (
+          existing.includes(
+            optionId,
+          )
+        ) {
+          return {
+            ...current,
+
+            [group.id]:
+              existing.filter(
+                (id) =>
+                  id !== optionId,
+              ),
+          };
+        }
+
+        /*
+         * Maximum already reached.
+         */
+
+        if (
+          group.maxSelections >
+            0 &&
+          existing.length >=
+            group.maxSelections
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+
+          [group.id]: [
+            ...existing,
+            optionId,
+          ],
+        };
+      },
+    );
+
+    setMessage("");
+  }
+
+  /* ==========================================================
+   * VALIDATE OPTIONS
+   * ========================================================== */
+
+  function validateSelectedOptions() {
+    if (!selectedProduct) {
+      return "Product not selected.";
+    }
+
+    for (const group of
+      selectedProduct.optionGroups) {
+      const chosen =
+        selectedOptions[
+          group.id
+        ] ?? [];
+
+      const minimum =
+        Math.max(
+          group.minSelections,
+          group.isRequired
+            ? 1
+            : 0,
+        );
+
+      if (
+        chosen.length <
+        minimum
+      ) {
+        return `Please select ${
+          minimum === 1
+            ? "an option"
+            : `${minimum} options`
+        } for ${group.name}.`;
+      }
+
+      if (
+        group.maxSelections >
+          0 &&
+        chosen.length >
+          group.maxSelections
+      ) {
+        return `Maximum ${group.maxSelections} selection${
+          group.maxSelections ===
+          1
+            ? ""
+            : "s"
+        } allowed for ${group.name}.`;
+      }
+    }
+
+    return null;
+  }
+
+  /* ==========================================================
+   * ADD CONFIGURED PRODUCT
+   * ========================================================== */
+
+  function addConfiguredProduct() {
+    if (
+      !student ||
+      !selectedProduct
+    ) {
+      return;
+    }
+
+    const error =
+      validateSelectedOptions();
+
+    if (error) {
+      setMessage(error);
       return;
     }
 
     const optionIds =
-      Object.values(
-        selectedOptions,
-      ).flat();
+      selectedProduct.optionGroups.flatMap(
+        (group) =>
+          selectedOptions[
+            group.id
+          ] ?? [],
+      );
 
-    addProduct(
-      selectedProduct.id,
-      optionIds,
-    );
+    /*
+     * Create a stable option
+     * signature so same product +
+     * same options can increase
+     * quantity, while the same
+     * product with different options
+     * stays on a separate line.
+     */
+
+    const signature =
+      [...optionIds]
+        .sort()
+        .join("|");
+
+    const existing =
+      cart.find((line) => {
+        if (
+          line.productId !==
+          selectedProduct.id
+        ) {
+          return false;
+        }
+
+        return (
+          [...line.optionIds]
+            .sort()
+            .join("|") ===
+          signature
+        );
+      });
+
+    if (existing) {
+      setCart((current) =>
+        current.map((line) =>
+          line.id ===
+          existing.id
+            ? {
+                ...line,
+
+                quantity:
+                  line.quantity +
+                  1,
+              }
+            : line,
+        ),
+      );
+    } else {
+      setCart((current) => [
+        ...current,
+
+        {
+          id:
+            crypto.randomUUID(),
+
+          productId:
+            selectedProduct.id,
+
+          quantity: 1,
+
+          optionIds,
+        },
+      ]);
+    }
 
     setSelectedProduct(null);
+
     setSelectedOptions({});
+
     setMessage("");
   }
 
-  function closeProductOptions() {
-    setSelectedProduct(null);
-    setSelectedOptions({});
-  }
+  /* ==========================================================
+   * CART QUANTITY
+   * ========================================================== */
 
-  /*
-   * ------------------------------------------------------------
-   * REMOVE PRODUCT
-   * ------------------------------------------------------------
-   */
-
-  function removeCartItem(
-    cartKey: string,
+  function increaseLine(
+    lineId: string,
   ) {
-    setCart((current) => {
-      const item =
-        current.find(
-          (entry) =>
-            entry.key === cartKey,
-        );
+    if (!student) {
+      return;
+    }
 
-      if (!item) {
-        return current;
-      }
+    setCart((current) =>
+      current.map((line) =>
+        line.id === lineId
+          ? {
+              ...line,
 
-      if (item.quantity > 1) {
-        return current.map(
-          (entry) =>
-            entry.key === cartKey
-              ? {
-                  ...entry,
-                  quantity:
-                    entry.quantity - 1,
-                }
-              : entry,
-        );
-      }
-
-      return current.filter(
-        (entry) =>
-          entry.key !== cartKey,
-      );
-    });
+              quantity:
+                line.quantity +
+                1,
+            }
+          : line,
+      ),
+    );
   }
 
-  /*
-   * ------------------------------------------------------------
-   * PRODUCT MAP
-   * ------------------------------------------------------------
-   */
+  function decreaseLine(
+    lineId: string,
+  ) {
+    setCart((current) =>
+      current
+        .map((line) =>
+          line.id === lineId
+            ? {
+                ...line,
 
-  const productMap = useMemo(
-    () =>
-      new Map(
-        products.map((product) => [
-          product.id,
-          product,
-        ]),
+                quantity:
+                  line.quantity -
+                  1,
+              }
+            : line,
+        )
+        .filter(
+          (line) =>
+            line.quantity > 0,
+        ),
+    );
+  }
+
+  function removeLine(
+    lineId: string,
+  ) {
+    setCart((current) =>
+      current.filter(
+        (line) =>
+          line.id !== lineId,
       ),
-    [products],
-  );
+    );
+  }
 
-  /*
-   * ------------------------------------------------------------
-   * CART ITEM PRICE
-   * ------------------------------------------------------------
-   */
+  /* ==========================================================
+   * PRODUCT LOOKUP
+   * ========================================================== */
 
-  function getCartItemUnitPrice(
-    item: CartItem,
+  function getProduct(
+    productId: string,
+  ) {
+    return products.find(
+      (product) =>
+        product.id ===
+        productId,
+    );
+  }
+
+  /* ==========================================================
+   * OPTIONS PRICE
+   * ========================================================== */
+
+  function getOptionPrice(
+    line: CartLine,
   ) {
     const product =
-      productMap.get(
-        item.productId,
+      getProduct(
+        line.productId,
       );
 
     if (!product) {
       return 0;
     }
 
-    const basePrice =
-      Number(product.price);
+    let amount = 0;
 
-    const optionTotal =
-      item.optionIds.reduce(
-        (sum, optionId) => {
-          for (const group of getProductOptions(
-            product,
-          )) {
-            const option =
-              group.options.find(
-                (entry) =>
-                  entry.id === optionId,
-              );
-
-            if (option) {
-              return (
-                sum +
-                optionPrice(option)
-              );
-            }
-          }
-
-          return sum;
-        },
-        0,
-      );
-
-    return (
-      basePrice +
-      optionTotal
-    );
-  }
-
-  /*
-   * ------------------------------------------------------------
-   * TOTAL
-   * ------------------------------------------------------------
-   */
-
-  const total = useMemo(
-    () =>
-      cart.reduce(
-        (sum, item) =>
-          sum +
-          getCartItemUnitPrice(
-            item,
-          ) *
-            item.quantity,
-        0,
-      ),
-    [cart, products],
-  );
-
-  /*
-   * ------------------------------------------------------------
-   * BALANCE
-   * ------------------------------------------------------------
-   */
-
-  const balance =
-    student?.parent.wallet
-      ? Number(
-          student.parent.wallet.balance,
-        )
-      : 0;
-
-  /*
-   * ------------------------------------------------------------
-   * CART DISPLAY OPTIONS
-   * ------------------------------------------------------------
-   */
-
-  function getSelectedOptionNames(
-    item: CartItem,
-  ) {
-    const product =
-      productMap.get(
-        item.productId,
-      );
-
-    if (!product) {
-      return [];
-    }
-
-    const names: string[] = [];
-
-    for (const group of getProductOptions(
-      product,
-    )) {
-      for (const option of group.options) {
+    for (const group of
+      product.optionGroups ??
+      []) {
+      for (const option of
+        group.options) {
         if (
-          item.optionIds.includes(
+          line.optionIds.includes(
             option.id,
           )
         ) {
-          names.push(option.name);
+          amount += Number(
+            option.additionalPrice,
+          );
         }
       }
     }
 
-    return names;
+    return amount;
   }
 
-  /*
-   * ------------------------------------------------------------
-   * CONFIRM SALE
-   * ------------------------------------------------------------
-   */
+  /* ==========================================================
+   * UNIT PRICE
+   * ========================================================== */
 
-  async function confirm() {
+  function getUnitPrice(
+    line: CartLine,
+  ) {
+    const product =
+      getProduct(
+        line.productId,
+      );
+
+    if (!product) {
+      return 0;
+    }
+
+    return (
+      Number(
+        product.price,
+      ) +
+      getOptionPrice(line)
+    );
+  }
+
+  /* ==========================================================
+   * CART TOTAL
+   * ========================================================== */
+
+  const total =
+    useMemo(() => {
+      return cart.reduce(
+        (sum, line) =>
+          sum +
+          getUnitPrice(line) *
+            line.quantity,
+        0,
+      );
+    }, [
+      cart,
+      products,
+    ]);
+
+  /* ==========================================================
+   * BALANCE
+   * ========================================================== */
+
+  const balance =
+    student?.parent.wallet
+      ? Number(
+          student.parent.wallet
+            .balance,
+        )
+      : 0;
+
+  /* ==========================================================
+   * PRODUCT MODAL PRICE
+   * ========================================================== */
+
+  const selectedProductPrice =
+    useMemo(() => {
+      if (!selectedProduct) {
+        return 0;
+      }
+
+      let optionsTotal = 0;
+
+      for (const group of
+        selectedProduct.optionGroups) {
+        const chosen =
+          selectedOptions[
+            group.id
+          ] ?? [];
+
+        for (const option of
+          group.options) {
+          if (
+            chosen.includes(
+              option.id,
+            )
+          ) {
+            optionsTotal +=
+              Number(
+                option.additionalPrice,
+              );
+          }
+        }
+      }
+
+      return (
+        Number(
+          selectedProduct.price,
+        ) +
+        optionsTotal
+      );
+    }, [
+      selectedProduct,
+      selectedOptions,
+    ]);
+
+  /* ==========================================================
+   * CONFIRM SALE
+   * ========================================================== */
+
+  function resetForNextStudent() {
+    setStudent(null);
+    setDailySpending(null);
+    setQ("");
+    setNfc("");
+    setNfcMessage("");
+    setMessage("");
+    setCart([]);
+    setSelectedProduct(null);
+    setSelectedOptions({});
+    setAdminPassword("");
+    setNeedsOverride(false);
+    setPendingPrint(false);
+    setShowBalancePopup(false);
+    setShowAdminApproval(false);
+
+    window.setTimeout(() => {
+      focusNfcInput();
+    }, 50);
+  }
+
+  function buildPrintLines(): PrintLine[] {
+    return cart
+      .map((line) => {
+        const product = getProduct(line.productId);
+
+        if (!product) {
+          return null;
+        }
+
+        const options: PrintLineOption[] =
+          product.optionGroups.flatMap((group) =>
+            group.options
+              .filter((option) =>
+                line.optionIds.includes(option.id),
+              )
+              .map((option) => ({
+                groupName: group.name,
+                optionName: option.name,
+                additionalPrice: Number(
+                  option.additionalPrice,
+                ),
+              })),
+          );
+
+        return {
+          name: product.name,
+          quantity: line.quantity,
+          unitPrice: getUnitPrice(line),
+          options,
+        };
+      })
+      .filter(
+        (line): line is PrintLine => line !== null,
+      );
+  }
+
+  async function confirm(printAfterSale = false) {
     if (
       !student ||
       total <= 0 ||
+      cart.length === 0 ||
       busy
     ) {
       return;
     }
 
+    setPendingPrint(printAfterSale);
     setBusy(true);
     setMessage("");
 
-    try {
-      const items: CartLine[] =
-        cart
-          .filter(
-            (item) =>
-              item.quantity > 0,
-          )
-          .map((item) => ({
-            productId:
-              item.productId,
-            quantity:
-              item.quantity,
-            optionIds:
-              item.optionIds,
-          }));
+    const printLines = buildPrintLines();
 
-      const result =
-        await createCashierSale({
-          studentId:
-            student.id,
-          items,
-          idempotencyKey: key,
-          adminPassword:
-            adminPassword || undefined,
-        });
+    try {
+      const items = cart.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        optionIds: line.optionIds,
+      }));
+
+      const result = await createCashierSale({
+        studentId: student.id,
+        items,
+        idempotencyKey: key,
+        adminPassword: adminPassword || undefined,
+      });
 
       if (!result.ok) {
-        if (
-          result.needsAdminOverride ===
-          true
-        ) {
+        if (result.needsAdminOverride === true) {
           setNeedsOverride(true);
-
+          setPendingPrint(printAfterSale);
           setShowBalancePopup(true);
-
           setShowAdminApproval(false);
-
           return;
         }
 
-        setMessage(
-          result.error ||
-            "Sale failed",
-        );
-
-        void loadDailySpending(
-          student.id,
-        );
-
+        setMessage(result.error || "Sale failed");
+        void loadDailySpending(student.id);
         return;
       }
 
       setShowBalancePopup(false);
-
       setShowAdminApproval(false);
-
+      setNeedsOverride(false);
       setMessage(
         `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`,
       );
+      setKey(crypto.randomUUID());
+      void loadDailySpending(student.id);
 
-      setCart([]);
+      if (printAfterSale) {
+        setPrintLabel({
+          saleNumber: String(result.saleNumber),
+          studentName: `${student.firstName} ${student.lastName}`,
+          studentCode: student.displayCode,
+          total,
+          createdAt: new Date().toLocaleString(),
+          lines: printLines,
+        });
 
-      setAdminPassword("");
+        window.setTimeout(() => {
+          window.print();
+          setPrintLabel(null);
+          resetForNextStudent();
+        }, 250);
+      } else {
+        setCart([]);
+        setAdminPassword("");
+        setPendingPrint(false);
 
-      setNeedsOverride(false);
-
-      setKey(
-        crypto.randomUUID(),
-      );
-
-      void loadDailySpending(
-        student.id,
-      );
-
-      setTimeout(() => {
-        setStudent(null);
-
-        setDailySpending(null);
-
-        setQ("");
-
-        setNfc("");
-
-        setNfcMessage("");
-
-        setMessage("");
-
-        focusNfcInput();
-      }, 1800);
+        window.setTimeout(() => {
+          resetForNextStudent();
+        }, 1800);
+      }
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -906,24 +1121,27 @@ export default function CashierClient() {
     }
   }
 
-  /*
-   * ------------------------------------------------------------
+  /* ==========================================================
    * BALANCE POPUP
-   * ------------------------------------------------------------
-   */
+   * ========================================================== */
 
   function closeBalancePopup() {
-    setShowBalancePopup(false);
+    setShowBalancePopup(
+      false,
+    );
 
-    setShowAdminApproval(false);
+    setShowAdminApproval(
+      false,
+    );
 
     setAdminPassword("");
-
-    focusNfcInput();
+    setPendingPrint(false);
   }
 
   function askAdmin() {
-    setShowAdminApproval(true);
+    setShowAdminApproval(
+      true,
+    );
   }
 
   async function approveNegativeSale() {
@@ -933,17 +1151,51 @@ export default function CashierClient() {
       return;
     }
 
-    await confirm();
+    await confirm(pendingPrint);
   }
 
-  /*
-   * ------------------------------------------------------------
+  /* ============================================================
    * RENDER
-   * ------------------------------------------------------------
-   */
+   * ============================================================ */
 
   return (
-    <main className="cashier">
+    <>
+      <style>{`
+        .print-label {
+          display: none;
+        }
+
+        @media print {
+          @page {
+            margin: 0;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          .print-label,
+          .print-label * {
+            visibility: visible !important;
+          }
+
+          .print-label {
+            display: block !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 72mm;
+            padding: 4mm;
+            background: white;
+            color: black;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.3;
+          }
+        }
+      `}</style>
+
+      <main className="cashier">
       {/* ======================================================
           HEADER
       ====================================================== */}
@@ -986,10 +1238,17 @@ export default function CashierClient() {
       </div>
 
       {/* ======================================================
-          STUDENT SEARCH
+          STUDENT SEARCH + NFC
       ====================================================== */}
 
-      <div className="panel">
+      <div
+        className="panel"
+        style={{
+          marginBottom: 18,
+        }}
+      >
+        {/* NORMAL SEARCH */}
+
         <label className="label">
           Scan QR, enter student code,
           or search name
@@ -1003,12 +1262,16 @@ export default function CashierClient() {
             <input
               className="input"
               value={q}
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setQ(
                   event.target.value,
                 )
               }
-              onKeyDown={(event) => {
+              onKeyDown={(
+                event,
+              ) => {
                 if (
                   event.key ===
                   "Enter"
@@ -1033,9 +1296,7 @@ export default function CashierClient() {
           </div>
         </label>
 
-        {/* ==================================================
-            NFC
-        ================================================== */}
+        {/* NFC */}
 
         <div
           style={{
@@ -1049,17 +1310,25 @@ export default function CashierClient() {
             NFC Card
 
             <input
-              ref={nfcInputRef}
+              ref={
+                nfcInputRef
+              }
               className="input"
               value={nfc}
-              onChange={(event) => {
+              onChange={(
+                event,
+              ) => {
                 setNfc(
                   event.target.value,
                 );
 
-                setNfcMessage("");
+                setNfcMessage(
+                  "",
+                );
               }}
-              onKeyDown={(event) => {
+              onKeyDown={(
+                event,
+              ) => {
                 if (
                   event.key ===
                   "Enter"
@@ -1076,9 +1345,9 @@ export default function CashierClient() {
           </label>
 
           <p className="subtle compact">
-            Tap the student's NFC
-            card on the reader. The
-            card number will be entered
+            Tap the student's NFC card
+            on the reader. The student
+            will be selected
             automatically.
           </p>
 
@@ -1094,9 +1363,7 @@ export default function CashierClient() {
           )}
         </div>
 
-        {/* ==================================================
-            SEARCH RESULTS
-        ================================================== */}
+        {/* SEARCH RESULTS */}
 
         {results.length > 1 && (
           <div
@@ -1110,20 +1377,26 @@ export default function CashierClient() {
               (result) => (
                 <button
                   type="button"
-                  key={result.id}
+                  key={
+                    result.id
+                  }
                   className="product"
                   onClick={() =>
-                    select(result)
+                    selectStudent(
+                      result,
+                    )
                   }
-                  style={{
-                    textAlign:
-                      "left",
-                  }}
                 >
-                  {result.firstName}{" "}
-                  {result.lastName}{" "}
+                  {
+                    result.firstName
+                  }{" "}
+                  {
+                    result.lastName
+                  }{" "}
                   —{" "}
-                  {result.displayCode}
+                  {
+                    result.displayCode
+                  }
                 </button>
               ),
             )}
@@ -1132,58 +1405,82 @@ export default function CashierClient() {
       </div>
 
       {/* ======================================================
-          STUDENT + PRODUCTS
+          SELECTED STUDENT
       ====================================================== */}
 
       {student && (
-        <>
-          {/* ==================================================
-              STUDENT INFORMATION
-          ================================================== */}
+        <div
+          className="panel"
+          style={{
+            marginBottom: 18,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent:
+                "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <strong
+                style={{
+                  fontSize: 18,
+                }}
+              >
+                {
+                  student.firstName
+                }{" "}
+                {
+                  student.lastName
+                }
+              </strong>
 
-          <div className="panel">
-            <strong>
-              {student.firstName}{" "}
-              {student.lastName}
-            </strong>{" "}
-            · {student.displayCode} ·
-            Class{" "}
-            {student.classCode}
-
-            <br />
-
-            <div
-              style={{
-                marginTop: 8,
-                display: "grid",
-                gap: 5,
-              }}
-            >
-              {/* FAMILY WALLET */}
-
-              <div>
-                <span className="subtle">
-                  Family wallet
-                </span>{" "}
-                <strong>
-                  $
-                  {balance.toFixed(
-                    2,
-                  )}
-                </strong>
+              <div className="subtle compact">
+                {
+                  student.displayCode
+                }{" "}
+                · Class{" "}
+                {
+                  student.classCode
+                }
               </div>
+            </div>
 
-              {/* DAILY LIMIT */}
+            <div>
+              <span className="subtle">
+                Family wallet
+              </span>
 
-              <div>
-                <span className="subtle">
-                  Daily spending limit
-                  for this student
-                </span>{" "}
-                <strong>
-                  {loadingDailySpending
-                    ? "Loading..."
-                    : dailySpending
+              <br />
+
+              <strong>
+                $
+                {balance.toFixed(
+                  2,
+                )}
+              </strong>
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 12,
+              display: "grid",
+              gap: 5,
+            }}
+          >
+            <div>
+              <span className="subtle">
+                Daily spending limit
+              </span>{" "}
+
+              <strong>
+                {loadingDailySpending
+                  ? "Loading..."
+                  : dailySpending
                         ?.dailyLimit ===
                       null
                     ? "No limit"
@@ -1192,70 +1489,76 @@ export default function CashierClient() {
                           ?.dailyLimit ??
                           student.dailySpendLimit ??
                           0,
-                      ).toFixed(2)}`}
-                </strong>
-              </div>
+                      ).toFixed(
+                        2,
+                      )}`}
+              </strong>
+            </div>
 
-              {/* SPENT TODAY */}
+            <div>
+              <span className="subtle">
+                Spent today
+              </span>{" "}
 
-              <div>
-                <span className="subtle">
-                  Spent today
-                </span>{" "}
-                <strong>
-                  {loadingDailySpending
-                    ? "Loading..."
-                    : `$${Number(
-                        dailySpending
-                          ?.spentToday ??
-                          0,
-                      ).toFixed(2)}`}
-                </strong>
-              </div>
-
-              {/* REMAINING */}
-
-              <div>
-                <span
-                  className="subtle"
-                  style={
-                    !loadingDailySpending &&
-                    dailySpending?.remainingToday !==
-                      null &&
-                    Number(
-                      dailySpending?.remainingToday ??
+              <strong>
+                {loadingDailySpending
+                  ? "Loading..."
+                  : `$${Number(
+                      dailySpending
+                        ?.spentToday ??
                         0,
-                    ) < 5
-                      ? {
-                          color:
-                            "#dc2626",
-                          fontWeight: 700,
-                        }
-                      : undefined
-                  }
-                >
-                  Remaining today
-                </span>{" "}
+                    ).toFixed(
+                      2,
+                    )}`}
+              </strong>
+            </div>
 
-                <strong
-                  style={
-                    !loadingDailySpending &&
-                    dailySpending?.remainingToday !==
-                      null &&
-                    Number(
-                      dailySpending?.remainingToday ??
-                        0,
-                    ) < 5
-                      ? {
-                          color:
-                            "#dc2626",
-                        }
-                      : undefined
-                  }
-                >
-                  {loadingDailySpending
-                    ? "Loading..."
-                    : dailySpending
+            <div>
+              <span
+                className="subtle"
+                style={
+                  !loadingDailySpending &&
+                  dailySpending
+                    ?.remainingToday !==
+                    null &&
+                  Number(
+                    dailySpending
+                      ?.remainingToday ??
+                      0,
+                  ) < 5
+                    ? {
+                        color:
+                          "#dc2626",
+                        fontWeight:
+                          700,
+                      }
+                    : undefined
+                }
+              >
+                Remaining today
+              </span>{" "}
+
+              <strong
+                style={
+                  !loadingDailySpending &&
+                  dailySpending
+                    ?.remainingToday !==
+                    null &&
+                  Number(
+                    dailySpending
+                      ?.remainingToday ??
+                      0,
+                  ) < 5
+                    ? {
+                        color:
+                          "#dc2626",
+                      }
+                    : undefined
+                }
+              >
+                {loadingDailySpending
+                  ? "Loading..."
+                  : dailySpending
                         ?.remainingToday ===
                       null
                     ? "Unlimited"
@@ -1263,119 +1566,278 @@ export default function CashierClient() {
                         dailySpending
                           ?.remainingToday ??
                           0,
-                      ).toFixed(2)}`}
-                </strong>
-              </div>
+                      ).toFixed(
+                        2,
+                      )}`}
+              </strong>
             </div>
           </div>
-        </>
+        </div>
       )}
 
-      {/* ==================================================
+      {/* ======================================================
           PRODUCTS + CURRENT SALE
-          ================================================== */}
+          ALWAYS VISIBLE
+      ====================================================== */}
 
-          <section className="cashier-grid">
-            {/* =================================================
-                PRODUCTS
-            ================================================= */}
+      <section className="cashier-grid">
+        {/* PRODUCTS */}
 
-            <div className="panel">
-              <h2>
-                Products
-              </h2>
+        <div className="panel">
+          <h2>Products</h2>
 
-              {!student && (
-                <p className="subtle compact" style={{ marginTop: 4, marginBottom: 10 }}>
-                  Select a student before adding products.
-                </p>
-              )}
+          {!student && (
+            <p
+              className="subtle"
+              style={{
+                marginBottom: 14,
+              }}
+            >
+              Select a student before
+              adding products.
+            </p>
+          )}
 
-              <div
-                className="products"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fill, minmax(140px, 1fr))",
-                  gap: 12,
-                }}
-              >
-                {products.map(
-                  (product) => {
-                    const hasOptions =
-                      productHasOptions(
-                        product,
-                      );
+          <div
+            className="products"
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fill, minmax(140px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {products.map(
+              (product) => (
+                <button
+                  type="button"
+                  className="product"
+                  key={
+                    product.id
+                  }
+                  disabled={
+                    !student
+                  }
+                  onClick={() =>
+                    openProduct(
+                      product,
+                    )
+                  }
+                  style={{
+                    padding: 10,
 
-                    const quantity =
-                      cart
-                        .filter(
-                          (item) =>
-                            item.productId ===
-                            product.id,
-                        )
-                        .reduce(
-                          (
-                            sum,
-                            item,
-                          ) =>
-                            sum +
-                            item.quantity,
-                          0,
-                        );
+                    display: "flex",
 
-                    return (
-                      <button
-                        type="button"
-                        className="product"
-                        key={
-                          product.id
+                    flexDirection:
+                      "column",
+
+                    alignItems:
+                      "center",
+
+                    justifyContent:
+                      "flex-start",
+
+                    gap: 7,
+
+                    minHeight: 195,
+
+                    textAlign:
+                      "center",
+
+                    overflow:
+                      "hidden",
+
+                    /*
+                     * Visible at all times,
+                     * disabled until student.
+                     */
+                    opacity:
+                      student
+                        ? 1
+                        : 0.48,
+
+                    cursor:
+                      student
+                        ? "pointer"
+                        : "not-allowed",
+                  }}
+                >
+                  {/* IMAGE */}
+
+                  <div
+                    style={{
+                      width: "100%",
+                      height: 120,
+                      borderRadius: 10,
+                      overflow:
+                        "hidden",
+                      background:
+                        "#f3f4f6",
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      justifyContent:
+                        "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {product.imageUrl ? (
+                      <img
+                        src={
+                          product.imageUrl
                         }
-                        disabled={!student}
-                        onClick={() =>
-                          handleProductClick(
-                            product,
-                          )
+                        alt={
+                          product.name
                         }
                         style={{
-                          padding: 10,
+                          width:
+                            "100%",
+                          height:
+                            "100%",
+                          objectFit:
+                            "cover",
                           display:
-                            "flex",
-                          opacity: student ? 1 : 0.55,
-                          cursor: student ? "pointer" : "not-allowed",
-                          flexDirection:
-                            "column",
-                          alignItems:
-                            "center",
-                          justifyContent:
-                            "flex-start",
-                          gap: 7,
-                          minHeight: 195,
-                          textAlign:
-                            "center",
-                          overflow:
-                            "hidden",
+                            "block",
+                        }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontSize:
+                            12,
+                          color:
+                            "#9ca3af",
                         }}
                       >
-                        {/* IMAGE */}
+                        No image
+                      </span>
+                    )}
+                  </div>
+
+                  {/* NAME */}
+
+                  <strong
+                    style={{
+                      fontSize: 15,
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {product.name}
+                  </strong>
+
+                  {/* PRICE */}
+
+                  <span
+                    style={{
+                      fontWeight: 700,
+                    }}
+                  >
+                    $
+                    {Number(
+                      product.price,
+                    ).toFixed(
+                      2,
+                    )}
+                  </span>
+
+                  {/* OPTIONS INDICATOR */}
+
+                  {product
+                    .optionGroups
+                    ?.length >
+                    0 && (
+                    <span
+                      className="subtle"
+                      style={{
+                        fontSize: 12,
+                      }}
+                    >
+                      Options
+                    </span>
+                  )}
+                </button>
+              ),
+            )}
+          </div>
+        </div>
+
+        {/* ====================================================
+            CURRENT SALE
+        ==================================================== */}
+
+        <aside className="panel">
+          <h2>
+            Current Sale
+          </h2>
+
+          {!student ? (
+            <p className="subtle">
+              Select a student to start
+              a sale.
+            </p>
+          ) : cart.length ===
+            0 ? (
+            <p className="subtle">
+              No products added yet.
+            </p>
+          ) : (
+            <div>
+              {cart.map(
+                (line) => {
+                  const product =
+                    getProduct(
+                      line.productId,
+                    );
+
+                  if (!product) {
+                    return null;
+                  }
+
+                  const unitPrice =
+                    getUnitPrice(
+                      line,
+                    );
+
+                  return (
+                    <div
+                      key={
+                        line.id
+                      }
+                      style={{
+                        padding:
+                          "10px 0",
+                        borderBottom:
+                          "1px solid #e5e7eb",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "flex-start",
+                          gap: 10,
+                        }}
+                      >
+                        {/* THUMBNAIL */}
 
                         <div
                           style={{
-                            width:
-                              "100%",
-                            height: 120,
-                            borderRadius: 10,
+                            width: 42,
+                            height: 42,
+                            borderRadius:
+                              8,
                             overflow:
                               "hidden",
                             background:
                               "#f3f4f6",
+                            flexShrink: 0,
                             display:
                               "flex",
                             alignItems:
                               "center",
                             justifyContent:
                               "center",
-                            flexShrink: 0,
                           }}
                         >
                           {product.imageUrl ? (
@@ -1383,9 +1845,7 @@ export default function CashierClient() {
                               src={
                                 product.imageUrl
                               }
-                              alt={
-                                product.name
-                              }
+                              alt=""
                               style={{
                                 width:
                                   "100%",
@@ -1393,329 +1853,195 @@ export default function CashierClient() {
                                   "100%",
                                 objectFit:
                                   "cover",
-                                display:
-                                  "block",
                               }}
                             />
                           ) : (
-                            <span
-                              style={{
-                                fontSize: 12,
-                                color:
-                                  "#9ca3af",
-                              }}
-                            >
-                              No image
+                            <span className="subtle">
+                              —
                             </span>
                           )}
                         </div>
 
-                        {/* NAME */}
+                        {/* DETAILS */}
 
-                        <strong
-                          style={{
-                            fontSize: 15,
-                            lineHeight:
-                              1.2,
-                          }}
-                        >
-                          {
-                            product.name
-                          }
-                        </strong>
-
-                        {/* PRICE */}
-
-                        <span
-                          style={{
-                            fontWeight:
-                              700,
-                          }}
-                        >
-                          $
-                          {Number(
-                            product.price,
-                          ).toFixed(
-                            2,
-                          )}
-                        </span>
-
-                        {/* OPTIONS LABEL */}
-
-                        {hasOptions && (
-                          <span
-                            style={{
-                              fontSize: 12,
-                              fontWeight:
-                                600,
-                            }}
-                          >
-                            Options
-                            available
-                          </span>
-                        )}
-
-                        {/* QUANTITY */}
-
-                        {quantity >
-                        0 ? (
-                          <span
-                            style={{
-                              fontSize: 13,
-                              fontWeight:
-                                700,
-                            }}
-                          >
-                            ×{" "}
-                            {
-                              quantity
-                            }
-                          </span>
-                        ) : null}
-                      </button>
-                    );
-                  },
-                )}
-              </div>
-            </div>
-
-            {/* =================================================
-                CURRENT SALE
-            ================================================= */}
-
-            <aside className="panel">
-              <h2>
-                Current Sale
-              </h2>
-
-              {cart.length ===
-              0 ? (
-                <p className="subtle">
-                  No items selected.
-                </p>
-              ) : (
-                cart.map(
-                  (item) => {
-                    const product =
-                      productMap.get(
-                        item.productId,
-                      );
-
-                    if (!product) {
-                      return null;
-                    }
-
-                    const unitPrice =
-                      getCartItemUnitPrice(
-                        item,
-                      );
-
-                    const lineTotal =
-                      unitPrice *
-                      item.quantity;
-
-                    const optionNames =
-                      getSelectedOptionNames(
-                        item,
-                      );
-
-                    return (
-                      <div
-                        key={
-                          item.key
-                        }
-                        style={{
-                          padding:
-                            "10px 0",
-                          borderBottom:
-                            "1px solid #e5e7eb",
-                        }}
-                      >
                         <div
                           style={{
-                            display:
-                              "flex",
-                            alignItems:
-                              "center",
-                            gap: 10,
+                            flex: 1,
+                            minWidth: 0,
                           }}
                         >
-                          {/* SMALL IMAGE */}
-
-                          <div
-                            style={{
-                              width: 42,
-                              height: 42,
-                              borderRadius: 8,
-                              overflow:
-                                "hidden",
-                              background:
-                                "#f3f4f6",
-                              flexShrink: 0,
-                              display:
-                                "flex",
-                              alignItems:
-                                "center",
-                              justifyContent:
-                                "center",
-                            }}
-                          >
-                            {product.imageUrl ? (
-                              <img
-                                src={
-                                  product.imageUrl
-                                }
-                                alt=""
-                                style={{
-                                  width:
-                                    "100%",
-                                  height:
-                                    "100%",
-                                  objectFit:
-                                    "cover",
-                                  display:
-                                    "block",
-                                }}
-                              />
-                            ) : (
-                              <span
-                                style={{
-                                  fontSize: 10,
-                                  color:
-                                    "#9ca3af",
-                                }}
-                              >
-                                —
-                              </span>
-                            )}
-                          </div>
-
-                          {/* NAME */}
-
-                          <div
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            <strong
-                              style={{
-                                display:
-                                  "block",
-                                overflow:
-                                  "hidden",
-                                textOverflow:
-                                  "ellipsis",
-                                whiteSpace:
-                                  "nowrap",
-                              }}
-                            >
-                              {
-                                product.name
-                              }
-                            </strong>
-
-                            <span className="subtle">
-                              ×{" "}
-                              {
-                                item.quantity
-                              }
-                            </span>
-                          </div>
-
-                          {/* LINE PRICE */}
-
                           <strong>
-                            $
-                            {lineTotal.toFixed(
-                              2,
-                            )}
+                            {
+                              product.name
+                            }
                           </strong>
 
-                          {/* REMOVE */}
-
-                          <button
-                            type="button"
-                            className="secondary"
-                            onClick={() =>
-                              removeCartItem(
-                                item.key,
-                              )
-                            }
-                            style={{
-                              minWidth: 36,
-                              width: 36,
-                              height: 36,
-                              padding: 0,
-                              display:
-                                "flex",
-                              alignItems:
-                                "center",
-                              justifyContent:
-                                "center",
-                            }}
-                          >
-                            −
-                          </button>
-                        </div>
-
-                        {/* SELECTED OPTIONS */}
-
-                        {optionNames.length >
-                          0 && (
-                          <div
-                            style={{
-                              marginTop: 6,
-                              marginLeft: 52,
-                              fontSize: 12,
-                              color:
-                                "#6b7280",
-                            }}
-                          >
-                            {optionNames.join(
-                              ", ",
-                            )}
-                          </div>
-                        )}
-
-                        {/* UNIT PRICE */}
-
-                        {optionNames.length >
-                          0 && (
-                          <div
-                            style={{
-                              marginTop: 4,
-                              marginLeft: 52,
-                              fontSize: 12,
-                              color:
-                                "#6b7280",
-                            }}
-                          >
+                          <div className="subtle compact">
                             $
                             {unitPrice.toFixed(
                               2,
                             )}{" "}
-                            each
+                            ×{" "}
+                            {
+                              line.quantity
+                            }
                           </div>
-                        )}
+
+                          {/* OPTIONS */}
+
+                          {product.optionGroups.map(
+                            (
+                              group,
+                            ) =>
+                              group.options
+                                .filter(
+                                  (
+                                    option,
+                                  ) =>
+                                    line.optionIds.includes(
+                                      option.id,
+                                    ),
+                                )
+                                .map(
+                                  (
+                                    option,
+                                  ) => (
+                                    <div
+                                      key={
+                                        option.id
+                                      }
+                                      className="subtle compact"
+                                      style={{
+                                        fontSize:
+                                          12,
+                                      }}
+                                    >
+                                      {
+                                        group.name
+                                      }
+                                      :{" "}
+                                      {
+                                        option.name
+                                      }
+
+                                      {Number(
+                                        option.additionalPrice,
+                                      ) >
+                                        0 &&
+                                        ` (+$${Number(
+                                          option.additionalPrice,
+                                        ).toFixed(
+                                          2,
+                                        )})`}
+                                    </div>
+                                  ),
+                                ),
+                          )}
+                        </div>
+
+                        {/* LINE TOTAL */}
+
+                        <strong>
+                          $
+                          {(
+                            unitPrice *
+                            line.quantity
+                          ).toFixed(
+                            2,
+                          )}
+                        </strong>
                       </div>
-                    );
-                  },
-                )
+
+                      {/* QUANTITY */}
+
+                      <div
+                        style={{
+                          display:
+                            "flex",
+                          gap: 8,
+                          alignItems:
+                            "center",
+                          marginTop:
+                            8,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            decreaseLine(
+                              line.id,
+                            )
+                          }
+                          style={{
+                            width: 34,
+                            height: 34,
+                            padding: 0,
+                          }}
+                        >
+                          −
+                        </button>
+
+                        <strong>
+                          {
+                            line.quantity
+                          }
+                        </strong>
+
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            increaseLine(
+                              line.id,
+                            )
+                          }
+                          style={{
+                            width: 34,
+                            height: 34,
+                            padding: 0,
+                          }}
+                        >
+                          +
+                        </button>
+
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            removeLine(
+                              line.id,
+                            )
+                          }
+                          style={{
+                            marginLeft:
+                              "auto",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  );
+                },
               )}
+            </div>
+          )}
 
-              <div className="divider" />
+          <div className="divider" />
 
-              {/* TOTAL */}
+          <strong
+            style={{
+              fontSize: 18,
+            }}
+          >
+            Total: $
+            {total.toFixed(2)}
+          </strong>
 
-              <strong>
-                Total: $
-                {total.toFixed(2)}
-              </strong>
-
+          {student && (
+            <>
               <br />
-
-              {/* PROJECTED BALANCE */}
 
               <span>
                 Projected balance: $
@@ -1724,8 +2050,6 @@ export default function CashierClient() {
                   total
                 ).toFixed(2)}
               </span>
-
-              {/* DAILY SPENDING */}
 
               {dailySpending &&
               dailySpending.remainingToday !==
@@ -1748,191 +2072,285 @@ export default function CashierClient() {
 
                   <br />
 
-                  <span
-                    style={
+                  <span>
+                    Remaining after sale:
+                    ${" "}
+                    {Math.max(
+                      0,
                       dailySpending.remainingToday -
-                        total <
-                      0
-                        ? {
-                            color:
-                              "#dc2626",
-                            fontWeight:
-                              700,
-                          }
-                        : undefined
-                    }
-                  >
-                    Remaining after
-                    sale: $
-                    {(
-                      dailySpending.remainingToday -
-                      total
+                        total,
                     ).toFixed(2)}
                   </span>
                 </>
               ) : null}
+            </>
+          )}
 
-              <div
-                style={{
-                  height: 12,
-                }}
-              />
+          <div
+            style={{
+              height: 14,
+            }}
+          />
 
-              {/* CONFIRM */}
+          <button
+            type="button"
+            disabled={
+              !student ||
+              busy ||
+              total <= 0 ||
+              cart.length === 0
+            }
+            className="primary"
+            style={{
+              width: "100%",
+              minHeight: 48,
+              fontWeight: 700,
+            }}
+            onClick={() => void confirm(true)}
+          >
+            {busy ? "Processing…" : "Confirm & Print"}
+          </button>
 
-              <button
-                type="button"
-                disabled={
-                  busy ||
-                  total <= 0
+          <button
+            type="button"
+            disabled={
+              !student ||
+              busy ||
+              total <= 0 ||
+              cart.length === 0
+            }
+            className="secondary"
+            style={{
+              width: "100%",
+              marginTop: 8,
+              minHeight: 34,
+              fontSize: 13,
+            }}
+            onClick={() => void confirm(false)}
+          >
+            Confirm Sale
+          </button>
+
+          {message &&
+            !selectedProduct && (
+              <p
+                className={
+                  message.startsWith(
+                    "Sale ",
+                  )
+                    ? "success"
+                    : "alert"
                 }
-                className="primary"
                 style={{
-                  width:
-                    "100%",
+                  marginTop: 12,
                 }}
-                onClick={() =>
-                  void confirm()
-                }
               >
-                {busy
-                  ? "Processing…"
-                  : "Confirm Sale"}
-              </button>
+                {message}
+              </p>
+            )}
+        </aside>
+      </section>
 
-              {message && (
-                <p
-                  className={
-                    message
-                      .toLowerCase()
-                      .includes(
-                        "completed",
-                      )
-                      ? undefined
-                      : "alert"
-                  }
-                >
-                  {message}
-                </p>
-              )}
-            </aside>
-          </section>
-
-      {/* ====================================================== */}
+      {/* ======================================================
+          PRODUCT OPTIONS MODAL
+      ====================================================== */}
 
       {selectedProduct && (
         <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => {
+            setSelectedProduct(
+              null,
+            );
+
+            setSelectedOptions(
+              {},
+            );
+
+            setMessage("");
+          }}
           style={{
-            position:
-              "fixed",
+            position: "fixed",
             inset: 0,
+            zIndex: 9998,
             background:
-              "rgba(0, 0, 0, 0.55)",
+              "rgba(0,0,0,0.55)",
             display: "flex",
             alignItems:
               "center",
             justifyContent:
               "center",
-            zIndex: 9998,
-            padding: 20,
+            padding: 18,
           }}
         >
           <div
+            onClick={(
+              event,
+            ) =>
+              event.stopPropagation()
+            }
             style={{
-              width:
-                "100%",
-              maxWidth: 520,
+              width: "100%",
+              maxWidth: 650,
               maxHeight:
-                "90vh",
+                "calc(100vh - 36px)",
               overflowY:
                 "auto",
               background:
                 "white",
-              borderRadius: 16,
-              padding: 24,
+              borderRadius: 18,
+              padding: 22,
               boxShadow:
-                "0 20px 60px rgba(0,0,0,0.3)",
+                "0 24px 80px rgba(0,0,0,0.35)",
             }}
           >
-            <h2
-              style={{
-                marginTop: 0,
-                marginBottom: 6,
-              }}
-            >
-              {
-                selectedProduct.name
-              }
-            </h2>
+            {/* HEADER */}
 
             <div
-              className="subtle"
               style={{
-                marginBottom: 20,
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "flex-start",
+                gap: 16,
+                marginBottom:
+                  18,
               }}
             >
-              Base price: $
-              {Number(
-                selectedProduct.price,
-              ).toFixed(2)}
+              <div>
+                <h2
+                  style={{
+                    margin: 0,
+                  }}
+                >
+                  {
+                    selectedProduct.name
+                  }
+                </h2>
+
+                <p
+                  className="subtle"
+                  style={{
+                    margin:
+                      "6px 0 0",
+                  }}
+                >
+                  Base price: $
+                  {Number(
+                    selectedProduct.price,
+                  ).toFixed(
+                    2,
+                  )}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setSelectedProduct(
+                    null,
+                  );
+
+                  setSelectedOptions(
+                    {},
+                  );
+
+                  setMessage("");
+                }}
+                style={{
+                  width: 40,
+                  height: 40,
+                  padding: 0,
+                  fontSize: 20,
+                }}
+              >
+                ×
+              </button>
             </div>
 
-            {getProductOptions(
-              selectedProduct,
-            ).map(
+            {/* OPTION GROUPS */}
+
+            {selectedProduct.optionGroups.map(
               (group) => {
-                const selected =
+                const chosen =
                   selectedOptions[
                     group.id
                   ] ?? [];
 
-                const min =
+                const minimum =
                   Math.max(
-                    group.minSelections ??
-                      0,
+                    group.minSelections,
                     group.isRequired
                       ? 1
                       : 0,
                   );
 
+                const single =
+                  group.maxSelections <=
+                  1;
+
                 return (
-                  <div
+                  <section
                     key={
                       group.id
                     }
                     style={{
-                      marginBottom: 20,
+                      marginBottom:
+                        18,
+                      padding: 15,
+                      border:
+                        "1px solid #e5e7eb",
+                      borderRadius:
+                        14,
+                      background:
+                        "#fafafa",
                     }}
                   >
                     <div
                       style={{
+                        display:
+                          "flex",
+                        justifyContent:
+                          "space-between",
+                        gap: 12,
                         marginBottom:
-                          8,
+                          10,
                       }}
                     >
-                      <strong>
-                        {
-                          group.name
-                        }
-                      </strong>
+                      <div>
+                        <strong
+                          style={{
+                            fontSize:
+                              17,
+                          }}
+                        >
+                          {
+                            group.name
+                          }
+                        </strong>
 
-                      <div
-                        className="subtle"
-                        style={{
-                          marginTop: 3,
-                          fontSize: 12,
-                        }}
-                      >
-                        {min >
-                        0
-                          ? `Choose at least ${min}`
-                          : "Optional"}
-
-                        {group.maxSelections >
-                          0
-                          ? ` · Maximum ${group.maxSelections}`
-                          : ""}
+                        <div className="subtle compact">
+                          {single
+                            ? minimum >
+                              0
+                              ? "Choose 1"
+                              : "Optional"
+                            : group.maxSelections >
+                                0
+                              ? `Choose up to ${group.maxSelections}`
+                              : "Multiple selections allowed"}
+                        </div>
                       </div>
+
+                      {minimum >
+                        0 && (
+                        <span className="badge">
+                          Required
+                        </span>
+                      )}
                     </div>
 
                     <div
@@ -1942,149 +2360,280 @@ export default function CashierClient() {
                         gap: 8,
                       }}
                     >
-                      {group.options
-                        .filter(
-                          (
-                            option,
-                          ) =>
-                            option.isActive,
-                        )
-                        .map(
-                          (
-                            option,
-                          ) => {
-                            const isSelected =
-                              selected.includes(
-                                option.id,
-                              );
+                      {group.options.map(
+                        (
+                          option,
+                        ) => {
+                          const checked =
+                            chosen.includes(
+                              option.id,
+                            );
 
-                            return (
-                              <button
-                                type="button"
-                                key={
-                                  option.id
+                          return (
+                            <label
+                              key={
+                                option.id
+                              }
+                              style={{
+                                display:
+                                  "flex",
+                                alignItems:
+                                  "center",
+                                gap: 12,
+                                padding:
+                                  "12px 14px",
+                                border:
+                                  checked
+                                    ? "2px solid #111827"
+                                    : "1px solid #d1d5db",
+                                borderRadius:
+                                  11,
+                                background:
+                                  checked
+                                    ? "#f3f4f6"
+                                    : "white",
+                                cursor:
+                                  "pointer",
+                              }}
+                            >
+                              <input
+                                type={
+                                  single
+                                    ? "radio"
+                                    : "checkbox"
                                 }
-                                onClick={() =>
+                                name={
+                                  single
+                                    ? `cashier-option-${group.id}`
+                                    : undefined
+                                }
+                                checked={
+                                  checked
+                                }
+                                onChange={() =>
                                   toggleOption(
                                     group,
                                     option.id,
                                   )
                                 }
+                              />
+
+                              <span
                                 style={{
-                                  display:
-                                    "flex",
-                                  alignItems:
-                                    "center",
-                                  justifyContent:
-                                    "space-between",
-                                  gap: 10,
-                                  padding:
-                                    "12px 14px",
-                                  border:
-                                    isSelected
-                                      ? "2px solid #111827"
-                                      : "1px solid #d1d5db",
-                                  borderRadius:
-                                    10,
-                                  background:
-                                    isSelected
-                                      ? "#f3f4f6"
-                                      : "white",
-                                  cursor:
-                                    "pointer",
-                                  textAlign:
-                                    "left",
+                                  flex: 1,
                                 }}
                               >
-                                <span>
-                                  <strong>
-                                    {
-                                      option.name
-                                    }
-                                  </strong>
-                                </span>
+                                {
+                                  option.name
+                                }
+                              </span>
 
-                                <span
-                                  style={{
-                                    fontWeight:
-                                      700,
-                                  }}
-                                >
-                                  {optionPrice(
-                                    option,
-                                  ) >
-                                  0
-                                    ? `+$${optionPrice(
-                                        option,
-                                      ).toFixed(
-                                        2,
-                                      )}`
-                                    : "Included"}
+                              {Number(
+                                option.additionalPrice,
+                              ) >
+                              0 ? (
+                                <strong>
+                                  +$
+                                  {Number(
+                                    option.additionalPrice,
+                                  ).toFixed(
+                                    2,
+                                  )}
+                                </strong>
+                              ) : (
+                                <span className="subtle">
+                                  Included
                                 </span>
-                              </button>
-                            );
-                          },
-                        )}
+                              )}
+                            </label>
+                          );
+                        },
+                      )}
                     </div>
-                  </div>
+                  </section>
                 );
               },
             )}
 
-            {/* MODAL ACTIONS */}
+            {message && (
+              <p className="alert">
+                {message}
+              </p>
+            )}
+
+            {/* MODAL FOOTER */}
 
             <div
               style={{
-                display:
-                  "flex",
-                gap: 10,
-                marginTop: 10,
+                borderTop:
+                  "1px solid #e5e7eb",
+                paddingTop: 14,
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems:
+                  "center",
+                gap: 12,
               }}
             >
-              <button
-                type="button"
-                className="secondary"
-                style={{
-                  flex: 1,
-                }}
-                onClick={
-                  closeProductOptions
-                }
-              >
-                Cancel
-              </button>
+              <div>
+                <span className="subtle">
+                  Final price
+                </span>
 
-              <button
-                type="button"
-                className="primary"
+                <br />
+
+                <strong
+                  style={{
+                    fontSize: 22,
+                  }}
+                >
+                  $
+                  {selectedProductPrice.toFixed(
+                    2,
+                  )}
+                </strong>
+              </div>
+
+              <div
                 style={{
-                  flex: 1,
+                  display: "flex",
+                  gap: 8,
                 }}
-                disabled={
-                  !allRequiredOptionsSelected()
-                }
-                onClick={
-                  confirmProductOptions
-                }
               >
-                Add to Sale
-              </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    setSelectedProduct(
+                      null,
+                    );
+
+                    setSelectedOptions(
+                      {},
+                    );
+
+                    setMessage("");
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={
+                    addConfiguredProduct
+                  }
+                >
+                  Add to Sale
+                </button>
+              </div>
             </div>
-
-            {!allRequiredOptionsSelected() && (
-              <p
-                className="alert"
-                style={{
-                  marginBottom:
-                    0,
-                  marginTop: 12,
-                }}
-              >
-                {optionValidationMessage()}
-              </p>
-            )}
           </div>
         </div>
+      )}
+
+      {/* ======================================================
+          PRINT LABEL
+      ====================================================== */}
+
+      {printLabel && (
+        <section className="print-label">
+          <div
+            style={{
+              textAlign: "center",
+              fontWeight: 800,
+              fontSize: 17,
+              marginBottom: 8,
+            }}
+          >
+            CanteenCo
+          </div>
+
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: 10,
+            }}
+          >
+            Order #{printLabel.saleNumber}
+          </div>
+
+          <div>
+            <strong>Student:</strong>{" "}
+            {printLabel.studentName}
+          </div>
+
+          <div>
+            <strong>Code:</strong>{" "}
+            {printLabel.studentCode}
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <strong>Time:</strong>{" "}
+            {printLabel.createdAt}
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px dashed #000",
+              paddingTop: 8,
+            }}
+          >
+            {printLabel.lines.map((line, index) => (
+              <div
+                key={`${line.name}-${index}`}
+                style={{ marginBottom: 9 }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    fontWeight: 700,
+                  }}
+                >
+                  <span>
+                    {line.quantity} × {line.name}
+                  </span>
+                  <span>
+                    ${(line.unitPrice * line.quantity).toFixed(2)}
+                  </span>
+                </div>
+
+                {line.options.map((option, optionIndex) => (
+                  <div
+                    key={`${option.groupName}-${option.optionName}-${optionIndex}`}
+                    style={{
+                      paddingLeft: 10,
+                      fontSize: 11,
+                    }}
+                  >
+                    {option.groupName}: {option.optionName}
+                    {option.additionalPrice > 0 &&
+                      ` (+$${option.additionalPrice.toFixed(2)})`}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              borderTop: "1px dashed #000",
+              paddingTop: 8,
+              marginTop: 4,
+              display: "flex",
+              justifyContent: "space-between",
+              fontWeight: 800,
+              fontSize: 14,
+            }}
+          >
+            <span>Total</span>
+            <span>${printLabel.total.toFixed(2)}</span>
+          </div>
+        </section>
       )}
 
       {/* ======================================================
@@ -2094,8 +2643,7 @@ export default function CashierClient() {
       {showBalancePopup && (
         <div
           style={{
-            position:
-              "fixed",
+            position: "fixed",
             inset: 0,
             background:
               "rgba(0, 0, 0, 0.55)",
@@ -2110,8 +2658,7 @@ export default function CashierClient() {
         >
           <div
             style={{
-              width:
-                "100%",
+              width: "100%",
               maxWidth: 440,
               background:
                 "white",
@@ -2128,8 +2675,7 @@ export default function CashierClient() {
                     marginTop: 0,
                   }}
                 >
-                  Insufficient
-                  Balance
+                  Insufficient Balance
                 </h2>
 
                 <p>
@@ -2143,7 +2689,8 @@ export default function CashierClient() {
                   style={{
                     background:
                       "#f3f4f6",
-                    borderRadius: 10,
+                    borderRadius:
+                      10,
                     padding: 14,
                     marginBottom:
                       20,
@@ -2170,22 +2717,22 @@ export default function CashierClient() {
                   </div>
 
                   <div>
-                    Balance after
-                    sale:{" "}
+                    Balance after sale:{" "}
                     <strong>
                       $
                       {(
                         balance -
                         total
-                      ).toFixed(2)}
+                      ).toFixed(
+                        2,
+                      )}
                     </strong>
                   </div>
                 </div>
 
                 <div
                   style={{
-                    display:
-                      "flex",
+                    display: "flex",
                     gap: 10,
                   }}
                 >
@@ -2274,8 +2821,7 @@ export default function CashierClient() {
 
                 <div
                   style={{
-                    display:
-                      "flex",
+                    display: "flex",
                     gap: 10,
                   }}
                 >
@@ -2330,8 +2876,7 @@ export default function CashierClient() {
                     type="button"
                     className="secondary"
                     style={{
-                      width:
-                        "100%",
+                      width: "100%",
                     }}
                     disabled={
                       busy
@@ -2348,6 +2893,7 @@ export default function CashierClient() {
           </div>
         </div>
       )}
-    </main>
+      </main>
+    </>
   );
 }
