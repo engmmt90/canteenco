@@ -1,19 +1,16 @@
 "use client";
 
-import {
-  useActionState,
-} from "react";
+import { useActionState } from "react";
 
 import {
   requestParentPasswordReset,
   type ForgotPasswordState,
 } from "@/app/actions/password-reset";
 
-const initialState:
-  ForgotPasswordState = {
-    ok: false,
-    message: "",
-  };
+const initialState: ForgotPasswordState = {
+  ok: false,
+  message: "",
+};
 
 export default function ForgotPasswordForm() {
   const [state, action, pending] =

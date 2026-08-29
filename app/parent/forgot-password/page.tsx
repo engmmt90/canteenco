@@ -11,10 +11,9 @@ export default function ForgotPasswordPage() {
         </h1>
 
         <p className="subtle">
-          Enter the email address used
-          for your CanteenCo parent
-          account. We will send you a
-          secure password reset link.
+          Enter the email address used for your
+          CanteenCo parent account. We will send
+          you a secure password reset link.
         </p>
 
         <ForgotPasswordForm />
