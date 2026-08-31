@@ -1170,6 +1170,57 @@ export default function CashierClient() {
   }
 
   /* ==========================================================
+   * REPRINT RECENT SALE
+   * ========================================================== */
+
+  function printRecentSale(
+    sale: RecentSale,
+  ) {
+    const lines: PrintLine[] =
+      sale.items.map((item) => ({
+        name: item.productName,
+        quantity: item.quantity,
+        unitPrice: Number(
+          item.unitPrice,
+        ),
+        options: item.options.map(
+          (option) => ({
+            groupName: "Option",
+            optionName:
+              option.optionName,
+            additionalPrice:
+              Number(
+                option.additionalPrice,
+              ),
+          }),
+        ),
+      }));
+
+    setPrintLabel({
+      saleNumber:
+        sale.saleNumber,
+      studentName:
+        `${sale.student.firstName} ${sale.student.lastName}`,
+      studentCode:
+        sale.student.displayCode,
+      total: Number(sale.total),
+      createdAt:
+        new Date(
+          sale.createdAt,
+        ).toLocaleString(),
+      lines,
+    });
+
+    window.setTimeout(() => {
+      window.print();
+
+      window.setTimeout(() => {
+        setPrintLabel(null);
+      }, 100);
+    }, 250);
+  }
+
+  /* ==========================================================
    * BALANCE POPUP
    * ========================================================== */
 
@@ -2582,19 +2633,43 @@ export default function CashierClient() {
               </strong>
             </div>
 
-            <button
-              type="button"
-              className="primary"
-              onClick={() =>
-                setSelectedRecentSale(null)
-              }
+            <div
               style={{
-                width: "100%",
+                display: "flex",
+                gap: 10,
                 marginTop: 18,
               }}
             >
-              Close
-            </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() =>
+                  printRecentSale(
+                    selectedRecentSale,
+                  )
+                }
+                style={{
+                  flex: 1,
+                }}
+              >
+                Print
+              </button>
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() =>
+                  setSelectedRecentSale(
+                    null,
+                  )
+                }
+                style={{
+                  flex: 1,
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
