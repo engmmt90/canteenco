@@ -1,6 +1,6 @@
 "use server";
 
-import { requireParent } from "@/lib/authz";
+import { auth } from "@/auth";
 
 const SUPPORT_EMAIL = "support@canteenco.com.au";
 
@@ -15,57 +15,100 @@ export async function submitContactForm(
   formData: FormData,
 ): Promise<ContactFormState> {
   try {
-    const session = await requireParent();
+    const session = await auth();
 
-    const name = String(formData.get("name") ?? "").trim();
-    const email = String(formData.get("email") ?? "")
+    const name = String(
+      formData.get("name") ?? "",
+    ).trim();
+
+    const email = String(
+      formData.get("email") ?? "",
+    )
       .trim()
       .toLowerCase();
-    const subject = String(formData.get("subject") ?? "").trim();
-    const message = String(formData.get("message") ?? "").trim();
+
+    const subject = String(
+      formData.get("subject") ?? "",
+    ).trim();
+
+    const message = String(
+      formData.get("message") ?? "",
+    ).trim();
 
     if (!name) {
-      return { ok: false, error: "Please enter your name." };
+      return {
+        ok: false,
+        error: "Please enter your name.",
+      };
     }
 
     if (!email) {
       return {
         ok: false,
-        error: "Please enter your email address.",
+        error:
+          "Please enter your email address.",
       };
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email,
+      )
+    ) {
       return {
         ok: false,
-        error: "Please enter a valid email address.",
+        error:
+          "Please enter a valid email address.",
       };
     }
 
     if (!subject) {
-      return { ok: false, error: "Please enter a subject." };
+      return {
+        ok: false,
+        error:
+          "Please enter a subject.",
+      };
     }
 
     if (!message) {
-      return { ok: false, error: "Please enter your message." };
+      return {
+        ok: false,
+        error:
+          "Please enter your message.",
+      };
     }
 
     if (name.length > 120) {
-      return { ok: false, error: "Name is too long." };
+      return {
+        ok: false,
+        error: "Name is too long.",
+      };
     }
 
     if (subject.length > 200) {
-      return { ok: false, error: "Subject is too long." };
+      return {
+        ok: false,
+        error: "Subject is too long.",
+      };
     }
 
     if (message.length > 5000) {
-      return { ok: false, error: "Message is too long." };
+      return {
+        ok: false,
+        error: "Message is too long.",
+      };
     }
 
-    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const apiKey =
+      process.env.RESEND_API_KEY?.trim();
 
-    if (!apiKey) {
-      console.error("RESEND_API_KEY is not configured.");
+    const from =
+      process.env.NOTIFICATION_EMAIL_FROM?.trim();
+
+    if (!apiKey || !from) {
+      console.error(
+        "Contact email provider is not configured.",
+      );
 
       return {
         ok: false,
@@ -74,13 +117,14 @@ export async function submitContactForm(
       };
     }
 
-    const accountEmail = session.user.email ?? email;
+    const accountEmail =
+      session?.user?.email ?? email;
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
         <h2>CanteenCo Contact Form</h2>
 
-        <p>A parent has submitted a new support request.</p>
+        <p>A support request has been submitted.</p>
 
         <hr />
 
@@ -107,15 +151,17 @@ export async function submitContactForm(
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+          Authorization:
+            `Bearer ${apiKey}`,
+          "Content-Type":
+            "application/json",
         },
         body: JSON.stringify({
-          from:
-            "CanteenCo Support <support@canteenco.com.au>",
+          from,
           to: [SUPPORT_EMAIL],
           reply_to: email,
-          subject: `Parent Support: ${subject}`,
+          subject:
+            `CanteenCo Support: ${subject}`,
           html,
         }),
         cache: "no-store",
@@ -123,7 +169,8 @@ export async function submitContactForm(
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText =
+        await response.text();
 
       console.error(
         "Resend email error:",
@@ -144,11 +191,15 @@ export async function submitContactForm(
         "Your message has been sent to CanteenCo Support.",
     };
   } catch (error) {
-    console.error("Contact form error:", error);
+    console.error(
+      "Contact form error:",
+      error,
+    );
 
     return {
       ok: false,
-      error: "Something went wrong. Please try again.",
+      error:
+        "Something went wrong. Please try again.",
     };
   }
 }

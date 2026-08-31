@@ -1,104 +1,184 @@
-import Link from "next/link";
-import { parentLogin } from "@/app/actions/auth";
+"use client";
 
-type PageProps = {
-  searchParams: Promise<{
-    error?: string;
-  }>;
+import Link from "next/link";
+import { useActionState } from "react";
+
+import {
+  submitContactForm,
+  type ContactFormState,
+} from "@/app/actions/contact";
+
+const initialState: ContactFormState = {
+  ok: false,
 };
 
-export default async function ParentLoginPage({
-  searchParams,
-}: PageProps) {
-  const { error } = await searchParams;
+export default function ParentContactPage() {
+  const [state, formAction, pending] =
+    useActionState(
+      submitContactForm,
+      initialState,
+    );
 
   return (
     <main className="shell">
-      <section className="card">
-        <h1 className="brand">
-          CanteenCo
-        </h1>
+      <section className="card registration-card">
+        <div className="page-heading">
+          <div>
+            <h1 className="brand">
+              Contact Us
+            </h1>
 
-        <p className="subtle">
-          Parent Portal — manage your family
-          wallet, children and pre-orders.
-        </p>
-
-        {error ===
-        "invalid_credentials" ? (
-          <p
-            className="alert"
-            role="alert"
-          >
-            Invalid email or password, or
-            your account is not active yet.
-          </p>
-        ) : null}
-
-        <form
-          className="form"
-          action={parentLogin}
-        >
-          <label className="label">
-            Email
-
-            <input
-              className="input"
-              type="email"
-              name="email"
-              autoComplete="email"
-              required
-            />
-          </label>
-
-          <label className="label">
-            Password
-
-            <input
-              className="input"
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              minLength={8}
-              required
-            />
-          </label>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              marginTop: -4,
-            }}
-          >
-            <Link
-              href="/parent/forgot-password"
-              style={{
-                fontSize: 14,
-                textDecoration: "none",
-              }}
-            >
-              Forgot password?
-            </Link>
+            <p className="subtle">
+              Need help with your CanteenCo
+              account, wallet, orders, or
+              children? We are here to help.
+            </p>
           </div>
 
-          <button
-            className="primary"
-            type="submit"
+          <Link
+            className="secondary"
+            href="/"
           >
-            Parent Login
-          </button>
-        </form>
+            Back to Sign In
+          </Link>
+        </div>
 
         <div className="divider" />
 
-        <div className="stack">
-          <Link
-            className="secondary"
-            href="/parent/register"
+        <div
+          className="panel"
+          style={{
+            marginBottom: 16,
+          }}
+        >
+          <h2>WhatsApp Support</h2>
+
+          <p className="subtle">
+            Contact CanteenCo Support directly
+            on WhatsApp.
+          </p>
+
+          <a
+            className="primary"
+            href="https://wa.me/61451825151"
+            target="_blank"
+            rel="noopener noreferrer"
           >
-            Create Parent Account
-          </Link>
+            Chat with us on WhatsApp
+          </a>
+        </div>
+
+        <div className="divider" />
+
+        <div className="panel">
+          <h2>Send us a message</h2>
+
+          <p className="subtle">
+            Complete the form below and our
+            support team will receive your
+            message.
+          </p>
+
+          <form
+            action={formAction}
+            className="form"
+          >
+            <label className="label">
+              Name
+
+              <input
+                className="input"
+                type="text"
+                name="name"
+                maxLength={120}
+                required
+                placeholder="Your name"
+              />
+            </label>
+
+            <label className="label">
+              Email
+
+              <input
+                className="input"
+                type="email"
+                name="email"
+                maxLength={200}
+                required
+                placeholder="you@example.com"
+              />
+            </label>
+
+            <label className="label">
+              Subject
+
+              <input
+                className="input"
+                type="text"
+                name="subject"
+                maxLength={200}
+                required
+                placeholder="How can we help?"
+              />
+            </label>
+
+            <label className="label">
+              Message
+
+              <textarea
+                className="input"
+                name="message"
+                maxLength={5000}
+                required
+                rows={7}
+                placeholder="Please describe how we can help..."
+                style={{
+                  resize: "vertical",
+                  minHeight: 150,
+                }}
+              />
+            </label>
+
+            {state.error ? (
+              <p
+                role="alert"
+                style={{
+                  margin: 0,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: "#fef2f2",
+                  color: "#b91c1c",
+                }}
+              >
+                {state.error}
+              </p>
+            ) : null}
+
+            {state.success ? (
+              <p
+                role="status"
+                style={{
+                  margin: 0,
+                  padding: 12,
+                  borderRadius: 8,
+                  background: "#f0fdf4",
+                  color: "#15803d",
+                }}
+              >
+                {state.success}
+              </p>
+            ) : null}
+
+            <button
+              className="primary"
+              type="submit"
+              disabled={pending}
+            >
+              {pending
+                ? "Sending..."
+                : "Send Message"}
+            </button>
+          </form>
         </div>
       </section>
     </main>
