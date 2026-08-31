@@ -1,46 +1,156 @@
-"use server";
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
 
-import { AuthError } from "next-auth";
-import { redirect } from "next/navigation";
-import { signIn, signOut } from "@/auth";
+import { authConfig } from "@/auth.config";
+import { prisma } from "@/lib/prisma";
 
-function value(formData: FormData, key: string) {
-  const raw = formData.get(key);
-  return typeof raw === "string" ? raw.trim() : "";
-}
+const credentialsSchema = z.object({
+  email: z
+    .string()
+    .email()
+    .transform((value) =>
+      value.toLowerCase(),
+    ),
+  password: z.string().min(8),
+  portal: z.enum([
+    "parent",
+    "staff",
+  ]),
+});
 
-export async function parentLogin(formData: FormData) {
-  try {
-    await signIn("credentials", {
-      email: value(formData, "email"),
-      password: value(formData, "password"),
-      portal: "parent",
-      redirectTo: "/parent",
-    });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      redirect("/?error=invalid_credentials");
-    }
-    throw error;
-  }
-}
+const STAFF_LOGIN_ROLES = [
+  "SUPER_ADMIN",
+  "SCHOOL_ADMIN",
+  "CASHIER",
+] as const;
 
-export async function staffLogin(formData: FormData) {
-  try {
-    await signIn("credentials", {
-      email: value(formData, "email"),
-      password: value(formData, "password"),
-      portal: "staff",
-      redirectTo: "/staff/redirect",
-    });
-  } catch (error) {
-    if (error instanceof AuthError) {
-      redirect("/staff/login?error=invalid_credentials");
-    }
-    throw error;
-  }
-}
+export const {
+  auth,
+  handlers,
+  signIn,
+  signOut,
+} = NextAuth({
+  ...authConfig,
 
-export async function logout() {
-  await signOut({ redirectTo: "/" });
-}
+  session: {
+    strategy: "jwt",
+  },
+
+  providers: [
+    Credentials({
+      credentials: {
+        email: {
+          label: "Email",
+          type: "email",
+        },
+
+        password: {
+          label: "Password",
+          type: "password",
+        },
+
+        portal: {
+          label: "Portal",
+          type: "text",
+        },
+      },
+
+      async authorize(rawCredentials) {
+        const parsed =
+          credentialsSchema.safeParse(
+            rawCredentials,
+          );
+
+        if (!parsed.success) {
+          return null;
+        }
+
+        const user =
+          await prisma.user.findUnique({
+            where: {
+              email:
+                parsed.data.email,
+            },
+
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              passwordHash: true,
+              role: true,
+              status: true,
+              schoolId: true,
+            },
+          });
+
+        if (
+          !user ||
+          user.status !== "ACTIVE"
+        ) {
+          return null;
+        }
+
+        const passwordMatches =
+          await bcrypt.compare(
+            parsed.data.password,
+            user.passwordHash,
+          );
+
+        if (!passwordMatches) {
+          return null;
+        }
+
+        const isParent =
+          user.role === "PARENT";
+
+        if (
+          parsed.data.portal ===
+            "parent" &&
+          !isParent
+        ) {
+          return null;
+        }
+
+        /*
+         * STAFF is attendance-only.
+         * It must not be allowed to log in
+         * to the admin/cashier portal.
+         */
+        if (
+          parsed.data.portal ===
+          "staff"
+        ) {
+          if (
+            !STAFF_LOGIN_ROLES.includes(
+              user.role as
+                (typeof STAFF_LOGIN_ROLES)[number],
+            )
+          ) {
+            return null;
+          }
+        }
+
+        await prisma.user.update({
+          where: {
+            id: user.id,
+          },
+
+          data: {
+            lastLoginAt: new Date(),
+          },
+        });
+
+        return {
+          id: user.id,
+          name: user.fullName,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          schoolId: user.schoolId,
+        };
+      },
+    }),
+  ],
+});

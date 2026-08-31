@@ -123,9 +123,6 @@ export async function saveProduct(f: FormData) {
 
   revalidatePath("/admin/products");
   revalidatePath("/cashier");
-
-  // بعد الحفظ ارجع إلى قائمة المنتجات
-  // وأخرج من وضع Edit.
   redirect("/admin/products");
 }
 
@@ -136,12 +133,19 @@ export async function saveStaff(f: FormData) {
 
   const role = str(f, "role") as
     | "CASHIER"
-    | "SCHOOL_ADMIN";
+    | "SCHOOL_ADMIN"
+    | "STAFF";
 
   const schoolId = str(f, "schoolId");
+  const nfcCardNumber =
+    str(f, "nfcCardNumber") || null;
 
   if (
-    !["CASHIER", "SCHOOL_ADMIN"].includes(role)
+    ![
+      "CASHIER",
+      "SCHOOL_ADMIN",
+      "STAFF",
+    ].includes(role)
   ) {
     throw new Error("Invalid role");
   }
@@ -161,14 +165,106 @@ export async function saveStaff(f: FormData) {
 
   const fullName = str(f, "fullName");
   const email = str(f, "email").toLowerCase();
-  const phone =
-    str(f, "phone") || null;
+  const phone = str(f, "phone") || null;
   const password = str(f, "password");
 
   if (!fullName || !email) {
     throw new Error(
       "Name and email are required",
     );
+  }
+
+  /*
+   * Attendance school access is separate from
+   * cashier login permission.
+   *
+   * SUPER_ADMIN can allow all schools or choose
+   * specific schools.
+   *
+   * SCHOOL_ADMIN can only allow the staff member
+   * to clock in at their own school.
+   */
+  const canWorkAllSchools =
+    session.user.role === "SUPER_ADMIN"
+      ? bool(f, "canWorkAllSchools")
+      : false;
+
+  const requestedSchoolIds =
+    session.user.role === "SUPER_ADMIN"
+      ? f
+          .getAll("allowedSchoolIds")
+          .map((value) =>
+            String(value).trim(),
+          )
+          .filter(Boolean)
+      : [schoolId];
+
+  const allowedSchoolIds = [
+    ...new Set([
+      schoolId,
+      ...requestedSchoolIds,
+    ]),
+  ];
+
+  if (
+    session.user.role === "SUPER_ADMIN" &&
+    !canWorkAllSchools
+  ) {
+    const validSchools =
+      await prisma.school.findMany({
+        where: {
+          id: {
+            in: allowedSchoolIds,
+          },
+          deletedAt: null,
+          isActive: true,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+    if (
+      validSchools.length !==
+      allowedSchoolIds.length
+    ) {
+      throw new Error(
+        "One or more attendance schools are invalid or inactive.",
+      );
+    }
+  }
+
+  if (nfcCardNumber) {
+    const [staffWithCard, studentWithCard] =
+      await Promise.all([
+        prisma.user.findUnique({
+          where: {
+            nfcCardNumber,
+          },
+          select: {
+            id: true,
+          },
+        }),
+
+        prisma.student.findUnique({
+          where: {
+            nfcCardNumber,
+          },
+          select: {
+            id: true,
+          },
+        }),
+      ]);
+
+    if (
+      (staffWithCard &&
+        staffWithCard.id !== id) ||
+      studentWithCard
+    ) {
+      throw new Error(
+        "This NFC card is already assigned to another user.",
+      );
+    }
   }
 
   if (id) {
@@ -182,6 +278,7 @@ export async function saveStaff(f: FormData) {
       ![
         "CASHIER",
         "SCHOOL_ADMIN",
+        "STAFF",
       ].includes(existing.role)
     ) {
       throw new Error(
@@ -197,28 +294,53 @@ export async function saveStaff(f: FormData) {
       throw new Error("Unauthorized");
     }
 
-    await prisma.user.update({
-      where: { id },
-      data: {
-        fullName,
-        email,
-        phone,
-        role,
-        schoolId,
-        status: bool(f, "isActive")
-          ? "ACTIVE"
-          : "DISABLED",
-        ...(password
-          ? {
-              passwordHash:
-                await bcrypt.hash(
-                  password,
-                  12,
-                ),
-            }
-          : {}),
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.user.update({
+          where: { id },
+          data: {
+            fullName,
+            email,
+            phone,
+            nfcCardNumber,
+            canWorkAllSchools,
+            role,
+            schoolId,
+            status: bool(f, "isActive")
+              ? "ACTIVE"
+              : "DISABLED",
+            ...(password
+              ? {
+                  passwordHash:
+                    await bcrypt.hash(
+                      password,
+                      12,
+                    ),
+                }
+              : {}),
+          },
+        });
+
+        await tx.staffSchoolAccess.deleteMany({
+          where: {
+            userId: id,
+          },
+        });
+
+        if (!canWorkAllSchools) {
+          await tx.staffSchoolAccess.createMany({
+            data: allowedSchoolIds.map(
+              (allowedSchoolId) => ({
+                userId: id,
+                schoolId:
+                  allowedSchoolId,
+              }),
+            ),
+            skipDuplicates: true,
+          });
+        }
       },
-    });
+    );
   } else {
     if (password.length < 8) {
       throw new Error(
@@ -226,23 +348,43 @@ export async function saveStaff(f: FormData) {
       );
     }
 
-    await prisma.user.create({
-      data: {
-        fullName,
-        email,
-        phone,
-        role,
-        schoolId,
-        status: bool(f, "isActive")
-          ? "ACTIVE"
-          : "DISABLED",
-        passwordHash:
-          await bcrypt.hash(
-            password,
-            12,
-          ),
+    await prisma.$transaction(
+      async (tx) => {
+        const created =
+          await tx.user.create({
+            data: {
+              fullName,
+              email,
+              phone,
+              nfcCardNumber,
+              canWorkAllSchools,
+              role,
+              schoolId,
+              status: bool(f, "isActive")
+                ? "ACTIVE"
+                : "DISABLED",
+              passwordHash:
+                await bcrypt.hash(
+                  password,
+                  12,
+                ),
+            },
+          });
+
+        if (!canWorkAllSchools) {
+          await tx.staffSchoolAccess.createMany({
+            data: allowedSchoolIds.map(
+              (allowedSchoolId) => ({
+                userId: created.id,
+                schoolId:
+                  allowedSchoolId,
+              }),
+            ),
+            skipDuplicates: true,
+          });
+        }
       },
-    });
+    );
   }
 
   revalidatePath("/admin/staff");

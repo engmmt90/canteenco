@@ -1265,6 +1265,13 @@ export default function CashierClient() {
         >
           <a
             className="secondary"
+            href="/staff/attendance"
+          >
+            Staff Attendance
+          </a>
+
+          <a
+            className="secondary"
             href="/cashier/preorders"
           >
             Pre-Orders

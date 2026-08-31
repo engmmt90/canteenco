@@ -58,6 +58,11 @@ export default async function Page({
 
         include: {
           school: true,
+          staffSchoolAccess: {
+            include: {
+              school: true,
+            },
+          },
         },
 
         orderBy: {
@@ -132,36 +137,133 @@ export default async function Page({
             required
           />
 
-          <select
-            className="input"
-            name="role"
-          >
-            <option value="CASHIER">
-              Cashier
-            </option>
+          <label className="label">
+            NFC Card
 
-            {session.user.role ===
-              "SUPER_ADMIN" && (
-              <option value="SCHOOL_ADMIN">
-                School Admin
+            <input
+              className="input"
+              name="nfcCardNumber"
+              placeholder="Tap or scan staff NFC card"
+              autoComplete="off"
+            />
+          </label>
+
+          <label className="label">
+            Role
+
+            <select
+              className="input"
+              name="role"
+            >
+              <option value="CASHIER">
+                Cashier
               </option>
-            )}
-          </select>
 
-          <select
-            className="input"
-            name="schoolId"
-            required
-          >
-            {schools.map((school) => (
-              <option
-                key={school.id}
-                value={school.id}
+              <option value="STAFF">
+                Staff
+              </option>
+
+              {session.user.role ===
+                "SUPER_ADMIN" && (
+                <option value="SCHOOL_ADMIN">
+                  School Admin
+                </option>
+              )}
+            </select>
+          </label>
+
+          <label className="label">
+            Base School
+
+            <select
+              className="input"
+              name="schoolId"
+              required
+            >
+              {schools.map((school) => (
+                <option
+                  key={school.id}
+                  value={school.id}
+                >
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {session.user.role ===
+          "SUPER_ADMIN" ? (
+            <section
+              style={{
+                padding: 14,
+                border:
+                  "1px solid #e5e7eb",
+                borderRadius: 12,
+              }}
+            >
+              <strong>
+                Attendance School Access
+              </strong>
+
+              <p className="subtle compact">
+                This controls where the staff
+                member can clock in and out. It
+                does not change cashier login
+                permissions.
+              </p>
+
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginTop: 12,
+                }}
               >
-                {school.name}
-              </option>
-            ))}
-          </select>
+                <input
+                  type="checkbox"
+                  name="canWorkAllSchools"
+                />{" "}
+                Can work at all schools
+              </label>
+
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "grid",
+                  gap: 8,
+                }}
+              >
+                <span className="subtle">
+                  Or choose specific schools:
+                </span>
+
+                {schools.map((school) => (
+                  <label
+                    key={school.id}
+                    style={{
+                      display: "flex",
+                      alignItems:
+                        "center",
+                      gap: 8,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      name="allowedSchoolIds"
+                      value={school.id}
+                    />{" "}
+                    {school.name}
+                  </label>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <p className="subtle">
+              Attendance access: this school
+              only.
+            </p>
+          )}
 
           <label>
             <input
@@ -215,6 +317,29 @@ export default async function Page({
                 <div className="subtle compact">
                   {user.email} ·{" "}
                   {user.school?.name}
+                </div>
+
+                <div
+                  className="subtle compact"
+                  style={{
+                    marginTop: 4,
+                  }}
+                >
+                  NFC:{" "}
+                  {user.nfcCardNumber
+                    ? "ASSIGNED"
+                    : "NOT ASSIGNED"}
+                  {" · "}
+                  Attendance:{" "}
+                  {user.canWorkAllSchools
+                    ? "ALL SCHOOLS"
+                    : user.staffSchoolAccess
+                        .map(
+                          (access) =>
+                            access.school.name,
+                        )
+                        .join(", ") ||
+                      "BASE SCHOOL"}
                 </div>
               </div>
 

@@ -29,6 +29,8 @@ model School {
   students              Student[]
   registrationStudents  StudentRegistrationRequest[]
   users                 User[]
+  staffAttendances      StaffAttendance[]
+  staffSchoolAccess     StaffSchoolAccess[]
 
   @@index([isActive])
   @@index([deletedAt])
@@ -84,20 +86,24 @@ model SchoolClass {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  fullName     String
-  email        String     @unique
-  phone        String?
-  passwordHash String
-  role         UserRole
-  status       UserStatus @default(PENDING)
-  schoolId     String?
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  deletedAt    DateTime?
+  id                String     @id @default(cuid())
+  fullName          String
+  email             String     @unique
+  phone             String?
+  passwordHash      String
+  nfcCardNumber     String?    @unique
+  canWorkAllSchools Boolean    @default(false)
+  role              UserRole
+  status            UserStatus @default(PENDING)
+  schoolId          String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
 
   passwordResetTokens   PasswordResetToken[]
+  staffAttendances      StaffAttendance[]           @relation("StaffAttendanceStaff")
+  staffSchoolAccess     StaffSchoolAccess[]
   auditLogs             AuditLog[]
   notifications         Notification[]
   parentProfile         ParentProfile?
@@ -531,6 +537,36 @@ model AuditLog {
   @@index([createdAt])
 }
 
+model StaffSchoolAccess {
+  id        String   @id @default(cuid())
+  userId    String
+  schoolId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schoolId])
+  @@index([schoolId])
+}
+
+model StaffAttendance {
+  id          String    @id @default(cuid())
+  staffUserId String
+  schoolId    String
+  clockInAt   DateTime  @default(now())
+  clockOutAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  staff  User   @relation("StaffAttendanceStaff", fields: [staffUserId], references: [id], onDelete: Restrict)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  @@index([staffUserId, clockInAt])
+  @@index([schoolId, clockInAt])
+  @@index([clockOutAt])
+}
+
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String
@@ -549,6 +585,7 @@ enum UserRole {
   SUPER_ADMIN
   SCHOOL_ADMIN
   CASHIER
+  STAFF
   PARENT
 }
 
