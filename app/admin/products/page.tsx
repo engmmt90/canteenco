@@ -11,6 +11,7 @@ export default async function Page({
   searchParams: Promise<{
     edit?: string;
     add?: string;
+    reorder?: string;
   }>;
 }) {
   await requireAdmin();
@@ -18,6 +19,7 @@ export default async function Page({
   const params = await searchParams;
   const editId = params.edit;
   const showAddForm = params.add === "1";
+  const showReorder = params.reorder === "1";
 
   const products = await prisma.product.findMany({
     where: {
@@ -63,11 +65,14 @@ export default async function Page({
         </Link>
       </div>
 
-      {/* Add Product button */}
+      {/* Product management buttons */}
       {!editingProduct && !showAddForm && (
         <div
           style={{
             marginBottom: 18,
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
           }}
         >
           <Link
@@ -75,6 +80,19 @@ export default async function Page({
             href="/admin/products?add=1"
           >
             + Add Product
+          </Link>
+
+          <Link
+            className="secondary"
+            href={
+              showReorder
+                ? "/admin/products"
+                : "/admin/products?reorder=1"
+            }
+          >
+            {showReorder
+              ? "Close Reorder"
+              : "Reorder Products"}
           </Link>
         </div>
       )}
@@ -290,6 +308,7 @@ export default async function Page({
 
       {!editingProduct &&
         !showAddForm &&
+        showReorder &&
         products.length > 1 && (
           <ProductReorder
             products={products.map(
