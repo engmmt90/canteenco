@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { saveProduct } from "@/app/actions/admin-management";
+import ProductReorder from "./product-reorder";
 
 export default async function Page({
   searchParams,
@@ -86,7 +87,7 @@ export default async function Page({
       >
         <h2>
           {editingProduct
-            ? `Edit Product — ${editingProduct.name}`
+            ? `Edit Product â€” ${editingProduct.name}`
             : "Add Product"}
         </h2>
 
@@ -287,6 +288,21 @@ export default async function Page({
       </form>
       )}
 
+      {!editingProduct &&
+        !showAddForm &&
+        products.length > 1 && (
+          <ProductReorder
+            products={products.map(
+              (product) => ({
+                id: product.id,
+                name: product.name,
+                imageUrl: product.imageUrl,
+                sortOrder: product.sortOrder,
+              }),
+            )}
+          />
+        )}
+
       {/* Products List */}
       <section
         className="panel"
@@ -406,7 +422,7 @@ export default async function Page({
                     </strong>
 
                     <div className="subtle compact">
-                      {product.sku} ·{" "}
+                      {product.sku} Â·{" "}
                       {product.category ||
                         "Uncategorised"}
                     </div>
