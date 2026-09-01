@@ -24,24 +24,15 @@ export default async function StaffLoginPage({
           Admin and cashier access only.
         </p>
 
-        {error ===
-        "invalid_credentials" ? (
-          <p
-            className="alert"
-            role="alert"
-          >
-            Invalid staff credentials or
-            inactive account.
+        {error === "invalid_credentials" ? (
+          <p className="alert" role="alert">
+            Invalid email or password, or your account is not allowed to sign in.
           </p>
         ) : null}
 
-        <form
-          className="form"
-          action={staffLogin}
-        >
+        <form className="form" action={staffLogin}>
           <label className="label">
             Email
-
             <input
               className="input"
               type="email"
@@ -53,7 +44,6 @@ export default async function StaffLoginPage({
 
           <label className="label">
             Password
-
             <input
               className="input"
               type="password"
@@ -64,10 +54,25 @@ export default async function StaffLoginPage({
             />
           </label>
 
-          <button
-            className="primary"
-            type="submit"
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: -4,
+            }}
           >
+            <Link
+              href="/staff/forgot-password"
+              style={{
+                fontSize: 14,
+                textDecoration: "none",
+              }}
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <button className="primary" type="submit">
             Staff Login
           </button>
         </form>
@@ -77,24 +82,19 @@ export default async function StaffLoginPage({
         <Link
           className="secondary"
           href="/staff/attendance"
-          style={{
-            width: "100%",
-            textAlign: "center",
-          }}
         >
           Staff Attendance
         </Link>
 
-        <p
-          className="subtle compact"
-          style={{
-            marginTop: 10,
-            textAlign: "center",
-          }}
-        >
-          No login required. Scan your staff
-          NFC card to clock in or out.
+        <p className="subtle" style={{ marginTop: 10 }}>
+          No login required. Scan your staff NFC card to clock in or out.
         </p>
+
+        <div style={{ marginTop: 12 }}>
+          <Link className="secondary" href="/">
+            Parent Sign In
+          </Link>
+        </div>
       </section>
     </main>
   );
