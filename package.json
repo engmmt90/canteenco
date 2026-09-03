@@ -32,10 +32,11 @@
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.2",
     "next": "16.3.0",
+    "next-auth": "5.0.0-beta.32",
+    "pdf-lib": "^1.17.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "zod": "^4.1.5",
-    "next-auth": "5.0.0-beta.32"
+    "zod": "^4.1.5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

@@ -8,11 +8,15 @@ import {
 import {
   addAdminWalletCredit,
 } from "@/app/actions/admin-wallet";
+import {
+  emailWalletReportToMe,
+} from "@/app/actions/admin-wallet-report";
 
 type SearchParams = {
   q?: string;
   negative?: string;
   credit?: string;
+  reportEmail?: string;
 };
 
 export default async function WalletsPage({
@@ -156,6 +160,77 @@ export default async function WalletsPage({
           Dashboard
         </Link>
       </div>
+
+      {/* REPORT ACTIONS */}
+
+      <section
+        className="panel"
+        style={{
+          marginBottom: 18,
+        }}
+      >
+        <div className="page-heading">
+          <div>
+            <h2>
+              Wallet Balance Report
+            </h2>
+
+            <p className="subtle compact">
+              Print, export or email a report
+              of all wallet balances available
+              to your admin account.
+            </p>
+          </div>
+
+          <div
+            className="actions-row"
+            style={{
+              justifyContent:
+                "flex-end",
+            }}
+          >
+            <Link
+              className="secondary"
+              href="/admin/wallets/print"
+              target="_blank"
+            >
+              Print Report
+            </Link>
+
+            <a
+              className="secondary"
+              href="/api/admin/wallets/report.pdf"
+            >
+              Export PDF
+            </a>
+
+            <form
+              action={
+                emailWalletReportToMe
+              }
+            >
+              <button
+                className="primary"
+                type="submit"
+              >
+                Email PDF to Me
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {p.reportEmail ===
+        "sent" ? (
+          <p
+            className="success"
+            style={{
+              marginTop: 12,
+            }}
+          >
+            Wallet report PDF was sent to your admin email.
+          </p>
+        ) : null}
+      </section>
 
       {/* SEARCH */}
 
