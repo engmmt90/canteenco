@@ -29,14 +29,12 @@ export async function sendEmail(args: {
     "https://api.resend.com/emails",
     {
       method: "POST",
-
       headers: {
         Authorization:
           `Bearer ${apiKey}`,
         "Content-Type":
           "application/json",
       },
-
       body: JSON.stringify({
         from,
         to: [args.to],
@@ -102,19 +100,14 @@ export async function sendSms(args: {
     `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
     {
       method: "POST",
-
       headers: {
         Authorization:
           `Basic ${Buffer.from(
             `${sid}:${token}`,
-          ).toString(
-            "base64",
-          )}`,
-
+          ).toString("base64")}`,
         "Content-Type":
           "application/x-www-form-urlencoded",
       },
-
       body: form,
     },
   );
@@ -137,3 +130,4 @@ export async function sendSms(args: {
     providerMessageId:
       body?.sid,
   };
+}
