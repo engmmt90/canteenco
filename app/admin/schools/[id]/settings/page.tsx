@@ -427,270 +427,299 @@ export default async function SchoolSettingsPage({
 
       <div className="wallet-layout">
         <section className="panel">
-          <h2>
-            School Logo
-          </h2>
-
-          <p className="subtle">
-            Upload the logo used on
-            school reports, invoices,
-            receipts and printable
-            statements.
-          </p>
-
-          {s?.logoData &&
-          s?.logoMimeType ? (
-            <div
+          <details>
+            <summary
               style={{
-                margin:
-                  "18px 0",
-                minHeight: 110,
-                display:
-                  "flex",
-                alignItems:
-                  "center",
-                justifyContent:
-                  "center",
-                border:
-                  "1px solid #e5e7eb",
-                borderRadius:
-                  12,
-                padding: 16,
-                background:
-                  "#fff",
+                cursor: "pointer",
+                fontSize: 20,
+                fontWeight: 700,
+                padding: "6px 0",
               }}
             >
-              <img
-                src={`/api/schools/${school.id}/logo?v=${s.updatedAt.getTime()}`}
-                alt={`${school.name} logo`}
-                style={{
-                  display:
-                    "block",
-                  maxWidth:
-                    "240px",
-                  maxHeight:
-                    "100px",
-                  objectFit:
-                    "contain",
-                }}
-              />
-            </div>
-          ) : (
+              School Logo
+            </summary>
+
             <div
-              className="subtle"
               style={{
-                margin:
-                  "18px 0",
+                marginTop: 18,
               }}
             >
-              No logo uploaded yet.
-            </div>
-          )}
+              <p className="subtle">
+                Upload the logo used on
+                school reports, invoices,
+                receipts and printable
+                statements.
+              </p>
 
-          <form
-            action={
-              saveSchoolLogo
-            }
-            className="form"
-          >
-            <input
-              type="hidden"
-              name="schoolId"
-              value={school.id}
-            />
-
-            <label className="label">
-              Logo file
-
-              <input
-                className="input"
-                name="logo"
-                type="file"
-                accept="image/png,image/jpeg"
-                required
-              />
-            </label>
-
-            <p className="subtle compact">
-              PNG or JPG only. Maximum
-              file size 500 KB. A wide
-              transparent PNG works best
-              on reports.
-            </p>
-
-            <button
-              className="primary"
-              type="submit"
-            >
-              {s?.logoData
-                ? "Replace Logo"
-                : "Upload Logo"}
-            </button>
-          </form>
-
-          {s?.logoData ? (
-            <>
-              <div className="divider" />
+              {s?.logoData &&
+              s?.logoMimeType ? (
+                <div
+                  style={{
+                    margin:
+                      "18px 0",
+                    minHeight: 110,
+                    display:
+                      "flex",
+                    alignItems:
+                      "center",
+                    justifyContent:
+                      "center",
+                    border:
+                      "1px solid #e5e7eb",
+                    borderRadius:
+                      12,
+                    padding: 16,
+                    background:
+                      "#fff",
+                  }}
+                >
+                  <img
+                    src={`/api/schools/${school.id}/logo?v=${s.updatedAt.getTime()}`}
+                    alt={`${school.name} logo`}
+                    style={{
+                      display:
+                        "block",
+                      maxWidth:
+                        "240px",
+                      maxHeight:
+                        "100px",
+                      objectFit:
+                        "contain",
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="subtle"
+                  style={{
+                    margin:
+                      "18px 0",
+                  }}
+                >
+                  No logo uploaded yet.
+                </div>
+              )}
 
               <form
                 action={
-                  removeSchoolLogo
+                  saveSchoolLogo
                 }
+                className="form"
               >
                 <input
                   type="hidden"
                   name="schoolId"
-                  value={
-                    school.id
-                  }
+                  value={school.id}
                 />
 
+                <label className="label">
+                  Logo file
+
+                  <input
+                    className="input"
+                    name="logo"
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    required
+                  />
+                </label>
+
+                <p className="subtle compact">
+                  PNG or JPG only. Maximum
+                  file size 500 KB. A wide
+                  transparent PNG works best
+                  on reports.
+                </p>
+
                 <button
-                  className="danger"
+                  className="primary"
                   type="submit"
                 >
-                  Remove Logo
+                  {s?.logoData
+                    ? "Replace Logo"
+                    : "Upload Logo"}
                 </button>
               </form>
-            </>
-          ) : null}
+
+              {s?.logoData ? (
+                <>
+                  <div className="divider" />
+
+                  <form
+                    action={
+                      removeSchoolLogo
+                    }
+                  >
+                    <input
+                      type="hidden"
+                      name="schoolId"
+                      value={
+                        school.id
+                      }
+                    />
+
+                    <button
+                      className="danger"
+                      type="submit"
+                    >
+                      Remove Logo
+                    </button>
+                  </form>
+                </>
+              ) : null}
+            </div>
+          </details>
         </section>
 
-        <form
-          action={
-            saveSchoolSettings
-          }
-          className="panel form"
-        >
-          <h2>
-            Operational Settings
-          </h2>
+        <section className="panel">
+          <details>
+            <summary
+              style={{
+                cursor: "pointer",
+                fontSize: 20,
+                fontWeight: 700,
+                padding: "6px 0",
+              }}
+            >
+              Operational Settings
+            </summary>
 
-          <input
-            type="hidden"
-            name="schoolId"
-            value={school.id}
-          />
-
-          <label className="label">
-            Timezone
-
-            <input
-              className="input"
-              name="timezone"
-              defaultValue={
-                s?.timezone ??
-                "Australia/Brisbane"
+            <form
+              action={
+                saveSchoolSettings
               }
-            />
-          </label>
+              className="form"
+              style={{
+                marginTop: 18,
+              }}
+            >
+              <input
+                type="hidden"
+                name="schoolId"
+                value={school.id}
+              />
 
-          <label className="label">
-            Currency
+              <label className="label">
+                Timezone
 
-            <input
-              className="input"
-              name="currency"
-              defaultValue={
-                s?.currency ??
-                "AUD"
-              }
-            />
-          </label>
+                <input
+                  className="input"
+                  name="timezone"
+                  defaultValue={
+                    s?.timezone ??
+                    "Australia/Brisbane"
+                  }
+                />
+              </label>
 
-          <label>
-            <input
-              type="checkbox"
-              name="preOrderEnabled"
-              defaultChecked={
-                s?.preOrderEnabled ??
-                true
-              }
-            />{" "}
-            Pre-orders enabled
-          </label>
+              <label className="label">
+                Currency
 
-          <label className="label">
-            Pre-order cutoff time
+                <input
+                  className="input"
+                  name="currency"
+                  defaultValue={
+                    s?.currency ??
+                    "AUD"
+                  }
+                />
+              </label>
 
-            <input
-              className="input"
-              type="time"
-              name="preOrderCutoffTime"
-              defaultValue={
-                s?.preOrderCutoffTime ??
-                "07:00"
-              }
-            />
-          </label>
+              <label>
+                <input
+                  type="checkbox"
+                  name="preOrderEnabled"
+                  defaultChecked={
+                    s?.preOrderEnabled ??
+                    true
+                  }
+                />{" "}
+                Pre-orders enabled
+              </label>
 
-          <label>
-            <input
-              type="checkbox"
-              name="allowNegativeBalance"
-              defaultChecked={
-                s?.allowNegativeBalance ??
-                false
-              }
-            />{" "}
-            Allow negative-balance
-            sales with admin approval
-          </label>
+              <label className="label">
+                Pre-order cutoff time
 
-          <label className="label">
-            Minimum allowed balance
+                <input
+                  className="input"
+                  type="time"
+                  name="preOrderCutoffTime"
+                  defaultValue={
+                    s?.preOrderCutoffTime ??
+                    "07:00"
+                  }
+                />
+              </label>
 
-            <input
-              className="input"
-              type="number"
-              step=".01"
-              min="-1000"
-              max="0"
-              name="minimumAllowedBalance"
-              defaultValue={
-                s
-                  ?.minimumAllowedBalance
-                  ?.toString() ??
-                "0"
-              }
-            />
-          </label>
+              <label>
+                <input
+                  type="checkbox"
+                  name="allowNegativeBalance"
+                  defaultChecked={
+                    s?.allowNegativeBalance ??
+                    false
+                  }
+                />{" "}
+                Allow negative-balance
+                sales with admin approval
+              </label>
 
-          <label>
-            <input
-              type="checkbox"
-              name="emailNotificationsEnabled"
-              defaultChecked={
-                s
-                  ?.emailNotificationsEnabled ??
-                true
-              }
-            />{" "}
-            Email notifications enabled
-            for this school
-          </label>
+              <label className="label">
+                Minimum allowed balance
 
-          <label>
-            <input
-              type="checkbox"
-              name="smsNotificationsEnabled"
-              defaultChecked={
-                s
-                  ?.smsNotificationsEnabled ??
-                false
-              }
-            />{" "}
-            SMS notifications enabled
-            for this school
-          </label>
+                <input
+                  className="input"
+                  type="number"
+                  step=".01"
+                  min="-1000"
+                  max="0"
+                  name="minimumAllowedBalance"
+                  defaultValue={
+                    s
+                      ?.minimumAllowedBalance
+                      ?.toString() ??
+                    "0"
+                  }
+                />
+              </label>
 
-          <button
-            className="primary"
-            type="submit"
-          >
-            Save Settings
-          </button>
-        </form>
+              <label>
+                <input
+                  type="checkbox"
+                  name="emailNotificationsEnabled"
+                  defaultChecked={
+                    s
+                      ?.emailNotificationsEnabled ??
+                    true
+                  }
+                />{" "}
+                Email notifications enabled
+                for this school
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  name="smsNotificationsEnabled"
+                  defaultChecked={
+                    s
+                      ?.smsNotificationsEnabled ??
+                    false
+                  }
+                />{" "}
+                SMS notifications enabled
+                for this school
+              </label>
+
+              <button
+                className="primary"
+                type="submit"
+              >
+                Save Settings
+              </button>
+            </form>
+          </details>
+        </section>
 
         <section className="panel">
           <details>
@@ -1049,149 +1078,164 @@ export default async function SchoolSettingsPage({
         </section>
 
         <section className="panel">
-          <h2>
-            Pickup Slots
-          </h2>
-
-          <form
-            action={
-              addPickupSlot
-            }
-            className="form"
-          >
-            <input
-              type="hidden"
-              name="schoolId"
-              value={school.id}
-            />
-
-            <input
-              className="input"
-              name="label"
-              placeholder="9:00–9:15"
-              required
-            />
-
-            <div className="two-col">
-              <label className="label">
-                Start
-
-                <input
-                  className="input"
-                  type="time"
-                  name="startTime"
-                  required
-                />
-              </label>
-
-              <label className="label">
-                End
-
-                <input
-                  className="input"
-                  type="time"
-                  name="endTime"
-                  required
-                />
-              </label>
-            </div>
-
-            <input
-              className="input"
-              name="sortOrder"
-              type="number"
-              defaultValue="0"
-              placeholder="Sort order"
-            />
-
-            <button
-              className="primary"
-              type="submit"
+          <details>
+            <summary
+              style={{
+                cursor: "pointer",
+                fontSize: 20,
+                fontWeight: 700,
+                padding: "6px 0",
+              }}
             >
-              Add Pickup Slot
-            </button>
-          </form>
+              Pickup Slots
+            </summary>
 
-          <div className="divider" />
+            <div
+              style={{
+                marginTop: 18,
+              }}
+            >
+              <form
+                action={
+                  addPickupSlot
+                }
+                className="form"
+              >
+                <input
+                  type="hidden"
+                  name="schoolId"
+                  value={school.id}
+                />
 
-          <div className="request-list">
-            {school.pickupSlots
-              .length === 0 ? (
-              <p className="subtle compact">
-                No pickup slots
-                configured.
-              </p>
-            ) : (
-              school.pickupSlots.map(
-                (slot) => (
-                  <div
-                    className="list-row"
-                    key={slot.id}
-                  >
-                    <div>
-                      <strong>
-                        {slot.label}
-                      </strong>
+                <input
+                  className="input"
+                  name="label"
+                  placeholder="9:00–9:15"
+                  required
+                />
 
-                      <div className="subtle compact">
-                        {slot.startTime}–
-                        {slot.endTime} ·{" "}
-                        {slot.isActive
-                          ? "ACTIVE"
-                          : "INACTIVE"}
+                <div className="two-col">
+                  <label className="label">
+                    Start
+
+                    <input
+                      className="input"
+                      type="time"
+                      name="startTime"
+                      required
+                    />
+                  </label>
+
+                  <label className="label">
+                    End
+
+                    <input
+                      className="input"
+                      type="time"
+                      name="endTime"
+                      required
+                    />
+                  </label>
+                </div>
+
+                <input
+                  className="input"
+                  name="sortOrder"
+                  type="number"
+                  defaultValue="0"
+                  placeholder="Sort order"
+                />
+
+                <button
+                  className="primary"
+                  type="submit"
+                >
+                  Add Pickup Slot
+                </button>
+              </form>
+
+              <div className="divider" />
+
+              <div className="request-list">
+                {school.pickupSlots
+                  .length === 0 ? (
+                  <p className="subtle compact">
+                    No pickup slots
+                    configured.
+                  </p>
+                ) : (
+                  school.pickupSlots.map(
+                    (slot) => (
+                      <div
+                        className="list-row"
+                        key={slot.id}
+                      >
+                        <div>
+                          <strong>
+                            {slot.label}
+                          </strong>
+
+                          <div className="subtle compact">
+                            {slot.startTime}–
+                            {slot.endTime} ·{" "}
+                            {slot.isActive
+                              ? "ACTIVE"
+                              : "INACTIVE"}
+                          </div>
+                        </div>
+
+                        <div className="actions-row">
+                          <form
+                            action={
+                              togglePickupSlot
+                            }
+                          >
+                            <input
+                              type="hidden"
+                              name="id"
+                              value={
+                                slot.id
+                              }
+                            />
+
+                            <button
+                              className="secondary"
+                              type="submit"
+                            >
+                              {slot.isActive
+                                ? "Disable"
+                                : "Enable"}
+                            </button>
+                          </form>
+
+                          <form
+                            action={
+                              deletePickupSlot
+                            }
+                          >
+                            <input
+                              type="hidden"
+                              name="id"
+                              value={
+                                slot.id
+                              }
+                            />
+
+                            <button
+                              className="danger"
+                              type="submit"
+                            >
+                              Remove
+                            </button>
+                          </form>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="actions-row">
-                      <form
-                        action={
-                          togglePickupSlot
-                        }
-                      >
-                        <input
-                          type="hidden"
-                          name="id"
-                          value={
-                            slot.id
-                          }
-                        />
-
-                        <button
-                          className="secondary"
-                          type="submit"
-                        >
-                          {slot.isActive
-                            ? "Disable"
-                            : "Enable"}
-                        </button>
-                      </form>
-
-                      <form
-                        action={
-                          deletePickupSlot
-                        }
-                      >
-                        <input
-                          type="hidden"
-                          name="id"
-                          value={
-                            slot.id
-                          }
-                        />
-
-                        <button
-                          className="danger"
-                          type="submit"
-                        >
-                          Remove
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                ),
-              )
-            )}
-          </div>
+                    ),
+                  )
+                )}
+              </div>
+            </div>
+          </details>
         </section>
       </div>
     </main>
