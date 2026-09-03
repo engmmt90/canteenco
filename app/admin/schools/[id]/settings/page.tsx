@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import {
   addPickupSlot,
   deletePickupSlot,
+  removeSchoolLogo,
+  saveSchoolLogo,
   saveSchoolSettings,
   togglePickupSlot,
 } from "@/app/actions/school-settings";
@@ -424,6 +426,136 @@ export default async function SchoolSettingsPage({
       </div>
 
       <div className="wallet-layout">
+        <section className="panel">
+          <h2>
+            School Logo
+          </h2>
+
+          <p className="subtle">
+            Upload the logo used on
+            school reports, invoices,
+            receipts and printable
+            statements.
+          </p>
+
+          {s?.logoData &&
+          s?.logoMimeType ? (
+            <div
+              style={{
+                margin:
+                  "18px 0",
+                minHeight: 110,
+                display:
+                  "flex",
+                alignItems:
+                  "center",
+                justifyContent:
+                  "center",
+                border:
+                  "1px solid #e5e7eb",
+                borderRadius:
+                  12,
+                padding: 16,
+                background:
+                  "#fff",
+              }}
+            >
+              <img
+                src={`/api/schools/${school.id}/logo?v=${s.updatedAt.getTime()}`}
+                alt={`${school.name} logo`}
+                style={{
+                  display:
+                    "block",
+                  maxWidth:
+                    "240px",
+                  maxHeight:
+                    "100px",
+                  objectFit:
+                    "contain",
+                }}
+              />
+            </div>
+          ) : (
+            <div
+              className="subtle"
+              style={{
+                margin:
+                  "18px 0",
+              }}
+            >
+              No logo uploaded yet.
+            </div>
+          )}
+
+          <form
+            action={
+              saveSchoolLogo
+            }
+            className="form"
+          >
+            <input
+              type="hidden"
+              name="schoolId"
+              value={school.id}
+            />
+
+            <label className="label">
+              Logo file
+
+              <input
+                className="input"
+                name="logo"
+                type="file"
+                accept="image/png,image/jpeg"
+                required
+              />
+            </label>
+
+            <p className="subtle compact">
+              PNG or JPG only. Maximum
+              file size 500 KB. A wide
+              transparent PNG works best
+              on reports.
+            </p>
+
+            <button
+              className="primary"
+              type="submit"
+            >
+              {s?.logoData
+                ? "Replace Logo"
+                : "Upload Logo"}
+            </button>
+          </form>
+
+          {s?.logoData ? (
+            <>
+              <div className="divider" />
+
+              <form
+                action={
+                  removeSchoolLogo
+                }
+              >
+                <input
+                  type="hidden"
+                  name="schoolId"
+                  value={
+                    school.id
+                  }
+                />
+
+                <button
+                  className="danger"
+                  type="submit"
+                >
+                  Remove Logo
+                </button>
+              </form>
+            </>
+          ) : null}
+        </section>
+
         <form
           action={
             saveSchoolSettings

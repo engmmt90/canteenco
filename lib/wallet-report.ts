@@ -21,6 +21,9 @@ export type WalletReportRow = {
 export type WalletReportData = {
   generatedAt: Date;
   schoolId: string | null;
+  schoolName: string | null;
+  logoData: Uint8Array | null;
+  logoMimeType: string | null;
   rows: WalletReportRow[];
   totalBalance: number;
 };
@@ -40,6 +43,26 @@ export function formatBrisbaneDateTime(
 export async function getWalletReportData(): Promise<WalletReportData> {
   const { schoolId } =
     await adminSchoolScope();
+
+  const branding =
+    schoolId
+      ? await prisma.school.findUnique({
+          where: {
+            id: schoolId,
+          },
+
+          select: {
+            name: true,
+
+            settings: {
+              select: {
+                logoData: true,
+                logoMimeType: true,
+              },
+            },
+          },
+        })
+      : null;
 
   const wallets =
     await prisma.wallet.findMany({
@@ -118,6 +141,20 @@ export async function getWalletReportData(): Promise<WalletReportData> {
   return {
     generatedAt: new Date(),
     schoolId: schoolId ?? null,
+    schoolName:
+      branding?.name ?? null,
+    logoData:
+      branding?.settings
+        ?.logoData
+        ? new Uint8Array(
+            branding.settings
+              .logoData,
+          )
+        : null,
+    logoMimeType:
+      branding?.settings
+        ?.logoMimeType ??
+      null,
     rows,
     totalBalance: rows.reduce(
       (sum, row) =>
@@ -193,6 +230,37 @@ export async function buildWalletReportPdf(
       StandardFonts.HelveticaBold,
     );
 
+  let logoImage:
+    | Awaited<
+        ReturnType<
+          typeof pdf.embedPng
+        >
+      >
+    | null = null;
+
+  if (
+    report.logoData &&
+    report.logoMimeType
+  ) {
+    if (
+      report.logoMimeType ===
+      "image/png"
+    ) {
+      logoImage =
+        await pdf.embedPng(
+          report.logoData,
+        );
+    } else if (
+      report.logoMimeType ===
+      "image/jpeg"
+    ) {
+      logoImage =
+        await pdf.embedJpg(
+          report.logoData,
+        );
+    }
+  }
+
   const pageWidth = 841.89;
   const pageHeight = 595.28;
   const margin = 28;
@@ -231,10 +299,57 @@ export async function buildWalletReportPdf(
         pageHeight,
       ]);
 
+    let titleX =
+      margin;
+
+    if (logoImage) {
+      const maxLogoWidth =
+        105;
+      const maxLogoHeight =
+        42;
+
+      const scale =
+        Math.min(
+          maxLogoWidth /
+            logoImage.width,
+          maxLogoHeight /
+            logoImage.height,
+        );
+
+      const logoWidth =
+        logoImage.width *
+        scale;
+
+      const logoHeight =
+        logoImage.height *
+        scale;
+
+      page.drawImage(
+        logoImage,
+        {
+          x: margin,
+          y:
+            pageHeight -
+            margin -
+            logoHeight +
+            3,
+          width:
+            logoWidth,
+          height:
+            logoHeight,
+        },
+      );
+
+      titleX =
+        margin +
+        logoWidth +
+        14;
+    }
+
     page.drawText(
-      "CanteenCo Wallet Balance Report",
+      "Wallet Balance Report",
       {
-        x: margin,
+        x: titleX,
         y:
           pageHeight -
           margin -
@@ -249,14 +364,36 @@ export async function buildWalletReportPdf(
       },
     );
 
+    if (
+      report.schoolName
+    ) {
+      page.drawText(
+        report.schoolName,
+        {
+          x: titleX,
+          y:
+            pageHeight -
+            margin -
+            18,
+          size: 9,
+          font: regular,
+          color: rgb(
+            0.35,
+            0.35,
+            0.35,
+          ),
+        },
+      );
+    }
+
     page.drawText(
       `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
       {
-        x: margin,
+        x: titleX,
         y:
           pageHeight -
           margin -
-          24,
+          31,
         size: 8,
         font: regular,
         color: rgb(
@@ -286,7 +423,7 @@ export async function buildWalletReportPdf(
     let y =
       pageHeight -
       margin -
-      52;
+      62;
 
     const headers = [
       ["#", columns.no],

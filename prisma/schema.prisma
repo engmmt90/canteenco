@@ -61,6 +61,9 @@ model SchoolSettings {
   minimumAllowedBalance     Decimal  @default(0) @db.Decimal(12, 2)
   emailNotificationsEnabled Boolean  @default(true)
   smsNotificationsEnabled   Boolean  @default(false)
+
+  logoData                  Bytes?
+  logoMimeType              String?
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 
@@ -667,3 +670,4 @@ enum NotificationEvent {
   REFUND_COMPLETED
   LOW_BALANCE
 }
+

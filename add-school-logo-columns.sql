@@ -1,0 +1,3 @@
+ALTER TABLE "SchoolSettings"
+ADD COLUMN IF NOT EXISTS "logoData" BYTEA,
+ADD COLUMN IF NOT EXISTS "logoMimeType" TEXT;
