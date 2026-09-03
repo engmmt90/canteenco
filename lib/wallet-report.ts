@@ -25,6 +25,18 @@ export type WalletReportData = {
   totalBalance: number;
 };
 
+export function formatBrisbaneDateTime(
+  date: Date,
+) {
+  return date.toLocaleString(
+    "en-AU",
+    {
+      timeZone:
+        "Australia/Brisbane",
+    },
+  );
+}
+
 export async function getWalletReportData(): Promise<WalletReportData> {
   const { schoolId } =
     await adminSchoolScope();
@@ -238,7 +250,7 @@ export async function buildWalletReportPdf(
     );
 
     page.drawText(
-      `Generated: ${report.generatedAt.toLocaleString("en-AU")}`,
+      `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
       {
         x: margin,
         y:

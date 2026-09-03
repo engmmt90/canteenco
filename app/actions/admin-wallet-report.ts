@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import {
   buildWalletReportPdf,
+  formatBrisbaneDateTime,
   getWalletReportData,
 } from "@/lib/wallet-report";
 import { sendEmail } from "@/lib/notification-providers";
@@ -53,7 +54,7 @@ export async function emailWalletReportToMe() {
       `Attached is the CanteenCo wallet balance report.\n\n` +
       `Wallets: ${report.rows.length}\n` +
       `Total balance: $${report.totalBalance.toFixed(2)}\n\n` +
-      `Generated: ${report.generatedAt.toLocaleString("en-AU")}`,
+      `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
     attachments: [
       {
         filename:

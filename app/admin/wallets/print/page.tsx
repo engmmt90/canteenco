@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import {
+  formatBrisbaneDateTime,
   getWalletReportData,
 } from "@/lib/wallet-report";
 import { requireAdmin } from "@/lib/authz";
@@ -53,8 +54,8 @@ export default async function WalletPrintPage() {
 
         <p>
           Generated:{" "}
-          {report.generatedAt.toLocaleString(
-            "en-AU",
+          {formatBrisbaneDateTime(
+            report.generatedAt,
           )}
         </p>
 
