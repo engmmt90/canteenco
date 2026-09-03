@@ -69,3 +69,4 @@ export async function emailWalletReportToMe() {
   redirect(
     "/admin/wallets?reportEmail=sent",
   );
+}
