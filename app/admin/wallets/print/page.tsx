@@ -48,9 +48,61 @@ export default async function WalletPrintPage() {
           marginTop: 18,
         }}
       >
-        <h1>
-          CanteenCo Wallet Balance Report
-        </h1>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+            marginBottom: 16,
+          }}
+        >
+          {report.schoolId &&
+          report.logoData &&
+          report.logoMimeType ? (
+            <img
+              src={`/api/schools/${report.schoolId}/logo`}
+              alt={`${report.schoolName ?? "School"} logo`}
+              style={{
+                display: "block",
+                maxWidth: 180,
+                maxHeight: 80,
+                objectFit: "contain",
+              }}
+            />
+          ) : null}
+
+          <div>
+            <h1
+              style={{
+                margin: 0,
+              }}
+            >
+              Wallet Balance Report
+            </h1>
+
+            {report.schoolName ? (
+              <p
+                style={{
+                  margin:
+                    "4px 0 0",
+                  fontWeight: 700,
+                }}
+              >
+                {report.schoolName}
+              </p>
+            ) : (
+              <p
+                style={{
+                  margin:
+                    "4px 0 0",
+                  fontWeight: 700,
+                }}
+              >
+                CanteenCo
+              </p>
+            )}
+          </div>
+        </div>
 
         <p>
           Generated:{" "}
