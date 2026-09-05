@@ -1269,6 +1269,14 @@ export default function CashierClient() {
             margin: 0;
           }
 
+          html,
+          body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+
           body * {
             visibility: hidden !important;
           }
@@ -1280,16 +1288,19 @@ export default function CashierClient() {
 
           .print-label {
             display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 72mm;
-            padding: 4mm;
-            background: white;
-            color: black;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.3;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 3mm 4mm !important;
+            background: white !important;
+            color: black !important;
+            font-family: Arial, sans-serif !important;
+            font-size: 12px !important;
+            line-height: 1.25 !important;
           }
         }
       `}</style>
