@@ -1170,57 +1170,6 @@ export default function CashierClient() {
   }
 
   /* ==========================================================
-   * REPRINT RECENT SALE
-   * ========================================================== */
-
-  function printRecentSale(
-    sale: RecentSale,
-  ) {
-    const lines: PrintLine[] =
-      sale.items.map((item) => ({
-        name: item.productName,
-        quantity: item.quantity,
-        unitPrice: Number(
-          item.unitPrice,
-        ),
-        options: item.options.map(
-          (option) => ({
-            groupName: "Option",
-            optionName:
-              option.optionName,
-            additionalPrice:
-              Number(
-                option.additionalPrice,
-              ),
-          }),
-        ),
-      }));
-
-    setPrintLabel({
-      saleNumber:
-        sale.saleNumber,
-      studentName:
-        `${sale.student.firstName} ${sale.student.lastName}`,
-      studentCode:
-        sale.student.displayCode,
-      total: Number(sale.total),
-      createdAt:
-        new Date(
-          sale.createdAt,
-        ).toLocaleString(),
-      lines,
-    });
-
-    window.setTimeout(() => {
-      window.print();
-
-      window.setTimeout(() => {
-        setPrintLabel(null);
-      }, 100);
-    }, 250);
-  }
-
-  /* ==========================================================
    * BALANCE POPUP
    * ========================================================== */
 
@@ -1266,7 +1215,16 @@ export default function CashierClient() {
 
         @media print {
           @page {
+            size: 80mm auto;
             margin: 0;
+          }
+
+          html,
+          body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
           }
 
           body * {
@@ -1280,16 +1238,17 @@ export default function CashierClient() {
 
           .print-label {
             display: block !important;
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 72mm;
-            padding: 4mm;
-            background: white;
-            color: black;
-            font-family: Arial, sans-serif;
-            font-size: 12px;
-            line-height: 1.3;
+            position: static !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            box-sizing: border-box !important;
+            margin: 0 !important;
+            padding: 4mm !important;
+            background: white !important;
+            color: black !important;
+            font-family: Arial, sans-serif !important;
+            font-size: 12px !important;
+            line-height: 1.3 !important;
           }
         }
       `}</style>
@@ -1314,13 +1273,6 @@ export default function CashierClient() {
               "center",
           }}
         >
-          <a
-            className="secondary"
-            href="/staff/attendance"
-          >
-            Staff Attendance
-          </a>
-
           <a
             className="secondary"
             href="/cashier/preorders"
@@ -2633,43 +2585,19 @@ export default function CashierClient() {
               </strong>
             </div>
 
-            <div
+            <button
+              type="button"
+              className="primary"
+              onClick={() =>
+                setSelectedRecentSale(null)
+              }
               style={{
-                display: "flex",
-                gap: 10,
+                width: "100%",
                 marginTop: 18,
               }}
             >
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  printRecentSale(
-                    selectedRecentSale,
-                  )
-                }
-                style={{
-                  flex: 1,
-                }}
-              >
-                Print
-              </button>
-
-              <button
-                type="button"
-                className="primary"
-                onClick={() =>
-                  setSelectedRecentSale(
-                    null,
-                  )
-                }
-                style={{
-                  flex: 1,
-                }}
-              >
-                Close
-              </button>
-            </div>
+              Close
+            </button>
           </div>
         </div>
       )}
