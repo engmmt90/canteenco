@@ -1,94 +1,24 @@
 import Link from "next/link";
+
 import { prisma } from "@/lib/prisma";
-import { adminSchoolScope } from "@/lib/admin-scope";
+import {
+  adminSchoolScope,
+} from "@/lib/admin-scope";
 
-type SearchParams = {
-  q?: string;
-  status?: string;
-  school?: string;
-  range?: string;
-  from?: string;
-  to?: string;
-};
+import {
+  emailSalesReportToMe,
+} from "@/app/actions/admin-sales-report";
 
-function startOfDay(date: Date) {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
+import {
+  getSalesReportData,
+  salesParamsToQuery,
+  type SalesReportParams,
+} from "@/lib/sales-report";
 
-function endOfDay(date: Date) {
-  const result = new Date(date);
-  result.setHours(23, 59, 59, 999);
-  return result;
-}
-
-function startOfWeek(date: Date) {
-  const result = startOfDay(date);
-
-  const day = result.getDay();
-
-  const difference =
-    day === 0 ? -6 : 1 - day;
-
-  result.setDate(
-    result.getDate() + difference,
-  );
-
-  return result;
-}
-
-function startOfMonth(date: Date) {
-  return new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    1,
-    0,
-    0,
-    0,
-    0,
-  );
-}
-
-function parseDateInput(
-  value?: string,
-  end = false,
-) {
-  if (!value) {
-    return undefined;
-  }
-
-  const [year, month, day] =
-    value.split("-").map(Number);
-
-  if (
-    !year ||
-    !month ||
-    !day
-  ) {
-    return undefined;
-  }
-
-  return end
-    ? new Date(
-        year,
-        month - 1,
-        day,
-        23,
-        59,
-        59,
-        999,
-      )
-    : new Date(
-        year,
-        month - 1,
-        day,
-        0,
-        0,
-        0,
-        0,
-      );
-}
+type SearchParams =
+  SalesReportParams & {
+    reportEmail?: string;
+  };
 
 export default async function Page({
   searchParams,
@@ -104,6 +34,10 @@ export default async function Page({
   const params =
     await searchParams;
 
+  const range =
+    params.range ||
+    "today";
+
   const schoolId =
     forced ||
     params.school ||
@@ -112,155 +46,36 @@ export default async function Page({
   const q =
     (params.q || "").trim();
 
-  const range =
-    params.range || "today";
+  const report =
+    await getSalesReportData({
+      ...params,
+      school:
+        schoolId,
+      range,
+    });
 
-  const now = new Date();
-
-  let dateFrom: Date | undefined;
-  let dateTo: Date | undefined;
-
-  if (range === "today") {
-    dateFrom = startOfDay(now);
-    dateTo = endOfDay(now);
-  }
-
-  if (range === "week") {
-    dateFrom = startOfWeek(now);
-    dateTo = endOfDay(now);
-  }
-
-  if (range === "month") {
-    dateFrom =
-      startOfMonth(now);
-
-    dateTo =
-      endOfDay(now);
-  }
-
-  if (range === "custom") {
-    dateFrom =
-      parseDateInput(
-        params.from,
-      );
-
-    dateTo =
-      parseDateInput(
-        params.to,
-        true,
-      );
-  }
-
-  const where: any = {
-    ...(schoolId
-      ? { schoolId }
-      : {}),
-
-    ...(params.status
-      ? {
-          status:
-            params.status,
-        }
-      : {}),
-
-    ...(dateFrom || dateTo
-      ? {
-          createdAt: {
-            ...(dateFrom
-              ? {
-                  gte: dateFrom,
-                }
-              : {}),
-
-            ...(dateTo
-              ? {
-                  lte: dateTo,
-                }
-              : {}),
+  const schools =
+    session.user.role ===
+    "SUPER_ADMIN"
+      ? await prisma.school.findMany({
+          where: {
+            isActive: true,
+            deletedAt: null,
           },
-        }
-      : {}),
 
-    ...(q
-      ? {
-          OR: [
-            {
-              saleNumber: {
-                contains: q,
-                mode: "insensitive",
-              },
-            },
+          orderBy: {
+            name: "asc",
+          },
+        })
+      : [];
 
-            {
-              student: {
-                OR: [
-                  {
-                    displayCode: {
-                      contains: q,
-                      mode: "insensitive",
-                    },
-                  },
-
-                  {
-                    firstName: {
-                      contains: q,
-                      mode: "insensitive",
-                    },
-                  },
-
-                  {
-                    lastName: {
-                      contains: q,
-                      mode: "insensitive",
-                    },
-                  },
-                ],
-              },
-            },
-          ],
-        }
-      : {}),
-  };
-
-  const [
-    rows,
-    schools,
-  ] =
-    await Promise.all([
-      prisma.sale.findMany({
-        where,
-
-        include: {
-          student: true,
-          school: true,
-          cashier: true,
-        },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-
-        take: 200,
-      }),
-
-      prisma.school.findMany({
-        where: {
-          isActive: true,
-          deletedAt: null,
-        },
-
-        orderBy: {
-          name: "asc",
-        },
-      }),
-    ]);
-
-  const totalSales =
-    rows.reduce(
-      (sum, sale) =>
-        sum + Number(sale.total),
-      0,
-    );
+  const query =
+    salesParamsToQuery({
+      ...params,
+      school:
+        schoolId,
+      range,
+    });
 
   return (
     <main className="content">
@@ -271,8 +86,7 @@ export default async function Page({
           </h1>
 
           <p className="subtle">
-            View sales and revenue
-            for a selected period.
+            View sales and revenue for a selected period.
           </p>
         </div>
 
@@ -295,23 +109,23 @@ export default async function Page({
           className="form"
           method="GET"
         >
-          {schoolId && (
+          {schoolId ? (
             <input
               type="hidden"
               name="school"
               value={schoolId}
             />
-          )}
+          ) : null}
 
-          {q && (
+          {q ? (
             <input
               type="hidden"
               name="q"
               value={q}
             />
-          )}
+          ) : null}
 
-          {params.status && (
+          {params.status ? (
             <input
               type="hidden"
               name="status"
@@ -319,7 +133,7 @@ export default async function Page({
                 params.status
               }
             />
-          )}
+          ) : null}
 
           <div className="actions-row">
             <button
@@ -372,7 +186,7 @@ export default async function Page({
           </div>
 
           {range ===
-            "custom" && (
+          "custom" ? (
             <div className="two-col">
               <label className="label">
                 From
@@ -409,7 +223,7 @@ export default async function Page({
                 Apply Date Range
               </button>
             </div>
-          )}
+          ) : null}
         </form>
       </section>
 
@@ -428,7 +242,7 @@ export default async function Page({
 
           <h2>
             $
-            {totalSales.toFixed(
+            {report.totalSales.toFixed(
               2,
             )}
           </h2>
@@ -440,10 +254,127 @@ export default async function Page({
           </p>
 
           <h2>
-            {rows.length}
+            {report.rows.length}
           </h2>
         </section>
       </div>
+
+      {/* REPORT ACTIONS */}
+
+      <section
+        className="panel"
+        style={{
+          marginTop: 18,
+        }}
+      >
+        <div className="page-heading">
+          <div>
+            <h2>
+              Sales Report
+            </h2>
+
+            <p className="subtle compact">
+              Uses the currently selected period and filters.
+            </p>
+          </div>
+
+          <div
+            className="actions-row"
+            style={{
+              justifyContent:
+                "flex-end",
+            }}
+          >
+            <Link
+              className="secondary"
+              href={`/admin/sales/print?${query}`}
+              target="_blank"
+            >
+              Print Report
+            </Link>
+
+            <a
+              className="secondary"
+              href={`/api/admin/sales/report.pdf?${query}`}
+            >
+              Export Report
+            </a>
+
+            <form
+              action={
+                emailSalesReportToMe
+              }
+            >
+              <input
+                type="hidden"
+                name="range"
+                value={range}
+              />
+
+              <input
+                type="hidden"
+                name="from"
+                value={
+                  params.from ||
+                  ""
+                }
+              />
+
+              <input
+                type="hidden"
+                name="to"
+                value={
+                  params.to ||
+                  ""
+                }
+              />
+
+              <input
+                type="hidden"
+                name="school"
+                value={
+                  schoolId ||
+                  ""
+                }
+              />
+
+              <input
+                type="hidden"
+                name="status"
+                value={
+                  params.status ||
+                  ""
+                }
+              />
+
+              <input
+                type="hidden"
+                name="q"
+                value={q}
+              />
+
+              <button
+                className="primary"
+                type="submit"
+              >
+                Email PDF to Me
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {params.reportEmail ===
+        "sent" ? (
+          <p
+            className="success"
+            style={{
+              marginTop: 12,
+            }}
+          >
+            Sales report PDF was sent to your admin email.
+          </p>
+        ) : null}
+      </section>
 
       {/* SEARCH / FILTER */}
 
@@ -460,7 +391,7 @@ export default async function Page({
           value={range}
         />
 
-        {params.from && (
+        {params.from ? (
           <input
             type="hidden"
             name="from"
@@ -468,23 +399,24 @@ export default async function Page({
               params.from
             }
           />
-        )}
+        ) : null}
 
-        {params.to && (
+        {params.to ? (
           <input
             type="hidden"
             name="to"
             value={params.to}
           />
-        )}
+        ) : null}
 
         {session.user.role ===
-          "SUPER_ADMIN" ? (
+        "SUPER_ADMIN" ? (
           <select
             className="input"
             name="school"
             defaultValue={
-              schoolId || ""
+              schoolId ||
+              ""
             }
           >
             <option value="">
@@ -550,80 +482,59 @@ export default async function Page({
         }}
       >
         <div className="request-list">
-          {rows.map((sale) => (
-            <Link
-              className="list-row"
-              href={`/admin/sales/${sale.id}`}
-              key={sale.id}
-            >
-              <div>
-                <strong>
-                  {sale.saleNumber}
-                </strong>
+          {report.rows.map(
+            (sale) => (
+              <Link
+                className="list-row"
+                href={`/admin/sales/${sale.id}`}
+                key={sale.id}
+              >
+                <div>
+                  <strong>
+                    {sale.saleNumber}
+                  </strong>
 
-                <div className="subtle compact">
-                  {
-                    sale.student
-                      .firstName
-                  }{" "}
-                  {
-                    sale.student
-                      .lastName
-                  }
-
-                  {" · "}
-
-                  {
-                    sale.student
-                      .displayCode
-                  }
-
-                  {" · "}
-
-                  {
-                    sale.school
-                      .name
-                  }
-
-                  {" · "}
-
-                  {
-                    sale.cashier
-                      .fullName
-                  }
+                  <div className="subtle compact">
+                    {sale.studentName}
+                    {" · "}
+                    {sale.studentCode}
+                    {" · "}
+                    {sale.schoolName}
+                    {" · "}
+                    {sale.cashierName}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <strong>
-                  $
-                  {Number(
-                    sale.total,
-                  ).toFixed(2)}
-                </strong>
+                <div>
+                  <strong>
+                    $
+                    {sale.total.toFixed(
+                      2,
+                    )}
+                  </strong>
 
-                <div className="subtle compact">
-                  {
-                    sale.status
-                  }
-
-                  {" · "}
-
-                  {sale.createdAt.toLocaleString(
-                    "en-AU",
-                  )}
+                  <div className="subtle compact">
+                    {sale.status}
+                    {" · "}
+                    {sale.createdAt.toLocaleString(
+                      "en-AU",
+                      {
+                        timeZone:
+                          "Australia/Brisbane",
+                      },
+                    )}
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
-
-          {rows.length ===
-            0 && (
-            <p className="subtle">
-              No sales found for
-              the selected period.
-            </p>
+              </Link>
+            ),
           )}
+
+          {report.rows.length ===
+          0 ? (
+            <p className="subtle">
+              No sales found for the selected period.
+            </p>
+          ) : null}
         </div>
       </section>
     </main>
