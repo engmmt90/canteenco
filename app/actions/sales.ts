@@ -1255,9 +1255,11 @@ export async function createCashierSale(
       },
 
       {
-        isolationLevel:
-          Prisma.TransactionIsolationLevel.Serializable,
-      },
+  isolationLevel:
+    Prisma.TransactionIsolationLevel.Serializable,
+  maxWait: 5000,
+  timeout: 20000,
+},
     );
   } catch (error) {
     return {
