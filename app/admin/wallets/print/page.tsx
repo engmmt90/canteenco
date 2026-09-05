@@ -140,6 +140,19 @@ export default async function WalletPrintPage() {
             fontSize: 12,
           }}
         >
+          <colgroup>
+            <col
+              style={{
+                width: "32px",
+              }}
+            />
+            <col />
+            <col />
+            <col />
+            <col />
+            <col />
+          </colgroup>
+
           <thead>
             <tr>
               {[
@@ -312,6 +325,14 @@ export default async function WalletPrintPage() {
             line-height: 1.15 !important;
             vertical-align: top !important;
             overflow-wrap: anywhere !important;
+          }
+
+          .wallet-report-sheet th:first-child,
+          .wallet-report-sheet td:first-child {
+            width: 32px !important;
+            min-width: 32px !important;
+            max-width: 32px !important;
+            text-align: center !important;
           }
 
           .wallet-report-sheet thead {
