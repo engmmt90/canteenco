@@ -608,12 +608,49 @@ export async function getSalesReportData(
   };
 }
 
+function safePdfText(
+  value: unknown,
+) {
+  return String(
+    value ?? "",
+  )
+    .normalize("NFKD")
+    .replace(
+      /[\u0300-\u036f]/g,
+      "",
+    )
+    .replace(
+      /[\u2010-\u2015]/g,
+      "-",
+    )
+    .replace(
+      /[\u2018\u2019]/g,
+      "'",
+    )
+    .replace(
+      /[\u201C\u201D]/g,
+      '"',
+    )
+    .replace(
+      /\u2022/g,
+      "-",
+    )
+    .replace(
+      /\u00A0/g,
+      " ",
+    )
+    .replace(
+      /[^\x20-\x7E]/g,
+      "?",
+    );
+}
+
 function wrapText(
   text: string,
   maxChars: number,
 ) {
   const clean =
-    text
+    safePdfText(text)
       .replace(
         /\s+/g,
         " ",
@@ -690,25 +727,50 @@ export async function buildSalesReportPdf(
     | null = null;
 
   if (
-    report.logoData &&
-    report.logoMimeType
+    report.logoData
   ) {
-    if (
-      report.logoMimeType ===
-      "image/png"
-    ) {
-      logoImage =
-        await pdf.embedPng(
-          report.logoData,
-        );
-    } else if (
-      report.logoMimeType ===
-      "image/jpeg"
-    ) {
-      logoImage =
-        await pdf.embedJpg(
-          report.logoData,
-        );
+    try {
+      const bytes =
+        report.logoData;
+
+      const isPng =
+        bytes.length >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47;
+
+      const isJpeg =
+        bytes.length >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff;
+
+      if (
+        isPng ||
+        report.logoMimeType ===
+          "image/png"
+      ) {
+        logoImage =
+          await pdf.embedPng(
+            bytes,
+          );
+      } else if (
+        isJpeg ||
+        report.logoMimeType ===
+          "image/jpeg"
+      ) {
+        logoImage =
+          await pdf.embedJpg(
+            bytes,
+          );
+      }
+    } catch {
+      /*
+       * A bad/unsupported logo must never stop
+       * the sales PDF or email from being created.
+       */
+      logoImage = null;
     }
   }
 
@@ -835,8 +897,10 @@ export async function buildSalesReportPdf(
     );
 
     page.drawText(
-      report.schoolName ||
-        "CanteenCo",
+      safePdfText(
+        report.schoolName ||
+          "CanteenCo",
+      ),
       {
         x: titleX,
         y:
@@ -849,7 +913,9 @@ export async function buildSalesReportPdf(
     );
 
     page.drawText(
-      `Period: ${periodLabel()}`,
+      safePdfText(
+        `Period: ${periodLabel()}`,
+      ),
       {
         x: titleX,
         y:
@@ -862,7 +928,11 @@ export async function buildSalesReportPdf(
     );
 
     page.drawText(
-      `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
+      safePdfText(
+        `Generated: ${formatBrisbaneDateTime(
+          report.generatedAt,
+        )}`,
+      ),
       {
         x: titleX,
         y:
@@ -875,7 +945,9 @@ export async function buildSalesReportPdf(
     );
 
     page.drawText(
-      `Transactions: ${report.rows.length}    Total sales: $${report.totalSales.toFixed(2)}`,
+      safePdfText(
+        `Transactions: ${report.rows.length}    Total sales: $${report.totalSales.toFixed(2)}`,
+      ),
       {
         x:
           pageWidth -
@@ -931,7 +1003,9 @@ export async function buildSalesReportPdf(
       });
 
       page.drawText(
-        label,
+        safePdfText(
+          label,
+        ),
         {
           x: x + 3,
           y: y - 12,
@@ -1068,7 +1142,9 @@ export async function buildSalesReportPdf(
             lineIndex,
           ) => {
             page.drawText(
-              line,
+              safePdfText(
+                line,
+              ),
               {
                 x: x + 3,
                 y:
