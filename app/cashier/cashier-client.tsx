@@ -1511,7 +1511,7 @@ export default function CashierClient() {
                   {
                     result.lastName
                   }{" "}
-                  ÔÇö{" "}
+                  Ã”Ã‡Ã¶{" "}
                   {
                     result.displayCode
                   }
@@ -1560,7 +1560,7 @@ export default function CashierClient() {
                 {
                   student.displayCode
                 }{" "}
-                ┬À Class{" "}
+                â”¬Ã€ Class{" "}
                 {
                   student.classCode
                 }
@@ -1975,7 +1975,7 @@ export default function CashierClient() {
                             />
                           ) : (
                             <span className="subtle">
-                              ÔÇö
+                              Ã”Ã‡Ã¶
                             </span>
                           )}
                         </div>
@@ -1999,7 +1999,7 @@ export default function CashierClient() {
                             {unitPrice.toFixed(
                               2,
                             )}{" "}
-                            ├ù{" "}
+                            â”œÃ¹{" "}
                             {
                               line.quantity
                             }
@@ -2097,7 +2097,7 @@ export default function CashierClient() {
                             padding: 0,
                           }}
                         >
-                          ÔêÆ
+                          Ã”ÃªÃ†
                         </button>
 
                         <strong>
@@ -2226,7 +2226,7 @@ export default function CashierClient() {
             }}
             onClick={() => void confirm(true)}
           >
-            {busy ? "ProcessingÔÇª" : "Confirm & Print"}
+            {busy ? "ProcessingÃ”Ã‡Âª" : "Confirm & Print"}
           </button>
 
           <button
@@ -2310,7 +2310,7 @@ export default function CashierClient() {
                 }}
               >
                 {loadingRecentSales
-                  ? "LoadingÔÇª"
+                  ? "LoadingÃ”Ã‡Âª"
                   : "Refresh"}
               </button>
             </div>
@@ -2318,7 +2318,7 @@ export default function CashierClient() {
             {loadingRecentSales &&
             recentSales.length === 0 ? (
               <p className="subtle compact">
-                Loading last salesÔÇª
+                Loading last salesÃ”Ã‡Âª
               </p>
             ) : recentSales.length ===
               0 ? (
@@ -2389,7 +2389,7 @@ export default function CashierClient() {
                         {sale.saleNumber.slice(
                           -6,
                         )}{" "}
-                        ┬À{" "}
+                        â”¬Ã€{" "}
                         {new Date(
                           sale.createdAt,
                         ).toLocaleTimeString(
@@ -2504,7 +2504,7 @@ export default function CashierClient() {
                   fontSize: 20,
                 }}
               >
-                ├ù
+                â”œÃ¹
               </button>
             </div>
 
@@ -2579,7 +2579,7 @@ export default function CashierClient() {
                           {Number(
                             item.unitPrice,
                           ).toFixed(2)}{" "}
-                          ├ù{" "}
+                          â”œÃ¹{" "}
                           {item.quantity}
                         </div>
                       </div>
@@ -2802,7 +2802,7 @@ export default function CashierClient() {
                   fontSize: 20,
                 }}
               >
-                ├ù
+                â”œÃ¹
               </button>
             </div>
 
@@ -3130,7 +3130,7 @@ export default function CashierClient() {
                   }}
                 >
                   <span>
-                    {line.quantity} ├ù {line.name}
+                    {line.quantity} â”œÃ¹ {line.name}
                   </span>
                   <span>
                     ${(line.unitPrice * line.quantity).toFixed(2)}
@@ -3397,7 +3397,7 @@ export default function CashierClient() {
                     }
                   >
                     {busy
-                      ? "ProcessingÔÇª"
+                      ? "ProcessingÃ”Ã‡Âª"
                       : "Approve & Complete Sale"}
                   </button>
                 </div>
