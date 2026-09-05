@@ -113,12 +113,13 @@ export default async function AdminDashboardPage() {
     }),
 
     prisma.notification.count({
-      where: {
-        failedAt: {
-          not: null,
-        },
-      },
-    }),
+  where: {
+    failedAt: {
+      not: null,
+    },
+    adminClearedAt: null,
+  },
+}),
   ]);
 
   return (
