@@ -105,116 +105,177 @@ export default async function Page({
           Sales Period
         </h2>
 
-        <form
-          className="form"
-          method="GET"
-        >
-          {schoolId ? (
-            <input
-              type="hidden"
-              name="school"
-              value={schoolId}
-            />
-          ) : null}
-
-          {q ? (
-            <input
-              type="hidden"
-              name="q"
-              value={q}
-            />
-          ) : null}
-
-          {params.status ? (
-            <input
-              type="hidden"
-              name="status"
-              value={
-                params.status
-              }
-            />
-          ) : null}
-
+        <div className="form">
           <div className="actions-row">
-            <button
+            <Link
               className={
                 range === "today"
                   ? "primary"
                   : "secondary"
               }
-              name="range"
-              value="today"
+              href={`/admin/sales?${new URLSearchParams({
+                range: "today",
+                ...(schoolId
+                  ? { school: schoolId }
+                  : {}),
+                ...(q
+                  ? { q }
+                  : {}),
+                ...(params.status
+                  ? {
+                      status:
+                        params.status,
+                    }
+                  : {}),
+              }).toString()}`}
             >
               Today
-            </button>
+            </Link>
 
-            <button
+            <Link
               className={
                 range === "week"
                   ? "primary"
                   : "secondary"
               }
-              name="range"
-              value="week"
+              href={`/admin/sales?${new URLSearchParams({
+                range: "week",
+                ...(schoolId
+                  ? { school: schoolId }
+                  : {}),
+                ...(q
+                  ? { q }
+                  : {}),
+                ...(params.status
+                  ? {
+                      status:
+                        params.status,
+                    }
+                  : {}),
+              }).toString()}`}
             >
               This Week
-            </button>
+            </Link>
 
-            <button
+            <Link
               className={
                 range === "month"
                   ? "primary"
                   : "secondary"
               }
-              name="range"
-              value="month"
+              href={`/admin/sales?${new URLSearchParams({
+                range: "month",
+                ...(schoolId
+                  ? { school: schoolId }
+                  : {}),
+                ...(q
+                  ? { q }
+                  : {}),
+                ...(params.status
+                  ? {
+                      status:
+                        params.status,
+                    }
+                  : {}),
+              }).toString()}`}
             >
               This Month
-            </button>
+            </Link>
 
-            <button
+            <Link
               className={
                 range === "custom"
                   ? "primary"
                   : "secondary"
               }
-              name="range"
-              value="custom"
+              href={`/admin/sales?${new URLSearchParams({
+                range: "custom",
+                ...(schoolId
+                  ? { school: schoolId }
+                  : {}),
+                ...(q
+                  ? { q }
+                  : {}),
+                ...(params.status
+                  ? {
+                      status:
+                        params.status,
+                    }
+                  : {}),
+              }).toString()}`}
             >
               Custom
-            </button>
+            </Link>
           </div>
 
-          {range ===
-          "custom" ? (
-            <div className="two-col">
-              <label className="label">
-                From
+          {range === "custom" ? (
+            <form
+              method="GET"
+              className="form"
+            >
+              <input
+                type="hidden"
+                name="range"
+                value="custom"
+              />
 
+              {schoolId ? (
                 <input
-                  className="input"
-                  type="date"
-                  name="from"
-                  defaultValue={
-                    params.from ||
-                    ""
+                  type="hidden"
+                  name="school"
+                  value={schoolId}
+                />
+              ) : null}
+
+              {q ? (
+                <input
+                  type="hidden"
+                  name="q"
+                  value={q}
+                />
+              ) : null}
+
+              {params.status ? (
+                <input
+                  type="hidden"
+                  name="status"
+                  value={
+                    params.status
                   }
                 />
-              </label>
+              ) : null}
 
-              <label className="label">
-                To
+              <div className="two-col">
+                <label className="label">
+                  From
 
-                <input
-                  className="input"
-                  type="date"
-                  name="to"
-                  defaultValue={
-                    params.to ||
-                    ""
-                  }
-                />
-              </label>
+                  <input
+                    className="input"
+                    type="date"
+                    name="from"
+                    defaultValue={
+                      params.from ||
+                      ""
+                    }
+                    required
+                  />
+                </label>
+
+                <label className="label">
+                  To
+
+                  <input
+                    className="input"
+                    type="date"
+                    name="to"
+                    defaultValue={
+                      params.to ||
+                      ""
+                    }
+                    required
+                  />
+                </label>
+              </div>
 
               <button
                 className="primary"
@@ -222,9 +283,9 @@ export default async function Page({
               >
                 Apply Date Range
               </button>
-            </div>
+            </form>
           ) : null}
-        </form>
+        </div>
       </section>
 
       {/* SUMMARY */}
