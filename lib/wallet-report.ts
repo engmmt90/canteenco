@@ -22,6 +22,7 @@ export type WalletReportData = {
   generatedAt: Date;
   schoolId: string | null;
   schoolName: string | null;
+  logoSchoolId: string | null;
   logoData: Uint8Array | null;
   logoMimeType: string | null;
   rows: WalletReportRow[];
@@ -44,25 +45,120 @@ export async function getWalletReportData(): Promise<WalletReportData> {
   const { schoolId } =
     await adminSchoolScope();
 
-  const branding =
-    schoolId
-      ? await prisma.school.findUnique({
-          where: {
-            id: schoolId,
-          },
+  let schoolName:
+    | string
+    | null = null;
 
-          select: {
-            name: true,
+  let logoSchoolId:
+    | string
+    | null = null;
 
-            settings: {
-              select: {
-                logoData: true,
-                logoMimeType: true,
-              },
+  let logoData:
+    | Uint8Array
+    | null = null;
+
+  let logoMimeType:
+    | string
+    | null = null;
+
+  if (schoolId) {
+    const branding =
+      await prisma.school.findUnique({
+        where: {
+          id: schoolId,
+        },
+
+        select: {
+          id: true,
+          name: true,
+
+          settings: {
+            select: {
+              logoData: true,
+              logoMimeType: true,
             },
           },
-        })
-      : null;
+        },
+      });
+
+    schoolName =
+      branding?.name ?? null;
+
+    if (
+      branding?.settings
+        ?.logoData &&
+      branding.settings
+        .logoMimeType
+    ) {
+      logoSchoolId =
+        branding.id;
+
+      logoData =
+        new Uint8Array(
+          branding.settings
+            .logoData,
+        );
+
+      logoMimeType =
+        branding.settings
+          .logoMimeType;
+    }
+  }
+
+  /*
+   * Super Admin reports can include more than one school.
+   * In that case there is no schoolId, so use the most
+   * recently updated uploaded logo as the CanteenCo brand
+   * logo instead of leaving the report unbranded.
+   *
+   * This is also a fallback if a school does not yet have
+   * its own logo.
+   */
+  if (!logoData) {
+    const fallbackLogo =
+      await prisma.schoolSettings.findFirst({
+        where: {
+          logoData: {
+            not: null,
+          },
+
+          logoMimeType: {
+            not: null,
+          },
+        },
+
+        orderBy: {
+          updatedAt: "desc",
+        },
+
+        select: {
+          schoolId: true,
+          logoData: true,
+          logoMimeType: true,
+        },
+      });
+
+    if (
+      fallbackLogo?.logoData &&
+      fallbackLogo.logoMimeType
+    ) {
+      logoSchoolId =
+        fallbackLogo.schoolId;
+
+      logoData =
+        new Uint8Array(
+          fallbackLogo.logoData,
+        );
+
+      logoMimeType =
+        fallbackLogo.logoMimeType;
+    }
+  }
+
+  if (!schoolId) {
+    schoolName =
+      "CanteenCo";
+  }
 
   const wallets =
     await prisma.wallet.findMany({
@@ -140,21 +236,12 @@ export async function getWalletReportData(): Promise<WalletReportData> {
 
   return {
     generatedAt: new Date(),
-    schoolId: schoolId ?? null,
-    schoolName:
-      branding?.name ?? null,
-    logoData:
-      branding?.settings
-        ?.logoData
-        ? new Uint8Array(
-            branding.settings
-              .logoData,
-          )
-        : null,
-    logoMimeType:
-      branding?.settings
-        ?.logoMimeType ??
-      null,
+    schoolId:
+      schoolId ?? null,
+    schoolName,
+    logoSchoolId,
+    logoData,
+    logoMimeType,
     rows,
     totalBalance: rows.reduce(
       (sum, row) =>

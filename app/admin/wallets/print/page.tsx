@@ -44,8 +44,9 @@ export default async function WalletPrintPage() {
       </div>
 
       <section
+        className="wallet-report-sheet"
         style={{
-          marginTop: 18,
+          marginTop: 12,
         }}
       >
         <div
@@ -56,11 +57,11 @@ export default async function WalletPrintPage() {
             marginBottom: 16,
           }}
         >
-          {report.schoolId &&
+          {report.logoSchoolId &&
           report.logoData &&
           report.logoMimeType ? (
             <img
-              src={`/api/schools/${report.schoolId}/logo`}
+              src={`/api/schools/${report.logoSchoolId}/logo`}
               alt={`${report.schoolName ?? "School"} logo`}
               style={{
                 display: "block",
@@ -255,22 +256,78 @@ export default async function WalletPrintPage() {
 
       <style>{`
         @media print {
+          html,
+          body {
+            width: 297mm !important;
+            min-width: 297mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+
           .no-print {
             display: none !important;
           }
 
-          body {
-            background: white !important;
+          .wallet-report-print {
+            width: 100% !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
-          .wallet-report-print {
-            max-width: none !important;
+          .wallet-report-sheet {
+            width: 100% !important;
+            margin: 0 !important;
             padding: 0 !important;
+          }
+
+          .wallet-report-sheet h1 {
+            font-size: 20px !important;
+            line-height: 1.1 !important;
+            margin: 0 !important;
+          }
+
+          .wallet-report-sheet p {
+            font-size: 9px !important;
+            line-height: 1.2 !important;
+            margin: 4px 0 !important;
+          }
+
+          .wallet-report-sheet table {
+            width: 100% !important;
+            table-layout: fixed !important;
+            margin-top: 8px !important;
+            font-size: 8px !important;
+          }
+
+          .wallet-report-sheet th,
+          .wallet-report-sheet td {
+            padding: 3px 4px !important;
+            line-height: 1.15 !important;
+            vertical-align: top !important;
+            overflow-wrap: anywhere !important;
+          }
+
+          .wallet-report-sheet thead {
+            display: table-header-group !important;
+          }
+
+          .wallet-report-sheet tr {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+
+          .wallet-report-sheet img {
+            max-width: 150px !important;
+            max-height: 55px !important;
+            object-fit: contain !important;
           }
 
           @page {
             size: A4 landscape;
-            margin: 12mm;
+            margin: 7mm;
           }
         }
       `}</style>
