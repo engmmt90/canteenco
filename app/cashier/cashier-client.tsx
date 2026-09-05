@@ -1266,17 +1266,7 @@ export default function CashierClient() {
 
         @media print {
           @page {
-            size: 80mm auto;
             margin: 0;
-          }
-
-          html,
-          body {
-            width: 80mm !important;
-            min-width: 80mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
           }
 
           body * {
@@ -1290,18 +1280,16 @@ export default function CashierClient() {
 
           .print-label {
             display: block !important;
-            position: static !important;
-            width: 80mm !important;
-            max-width: 80mm !important;
-            min-width: 80mm !important;
-            box-sizing: border-box !important;
-            margin: 0 !important;
-            padding: 3mm 4mm !important;
-            background: white !important;
-            color: black !important;
-            font-family: Arial, sans-serif !important;
-            font-size: 12px !important;
-            line-height: 1.25 !important;
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 72mm;
+            padding: 4mm;
+            background: white;
+            color: black;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.3;
           }
         }
       `}</style>
@@ -1511,7 +1499,7 @@ export default function CashierClient() {
                   {
                     result.lastName
                   }{" "}
-                  Ã”Ã‡Ã¶{" "}
+                  —{" "}
                   {
                     result.displayCode
                   }
@@ -1560,7 +1548,7 @@ export default function CashierClient() {
                 {
                   student.displayCode
                 }{" "}
-                â”¬Ã€ Class{" "}
+                · Class{" "}
                 {
                   student.classCode
                 }
@@ -1975,7 +1963,7 @@ export default function CashierClient() {
                             />
                           ) : (
                             <span className="subtle">
-                              Ã”Ã‡Ã¶
+                              —
                             </span>
                           )}
                         </div>
@@ -1999,7 +1987,7 @@ export default function CashierClient() {
                             {unitPrice.toFixed(
                               2,
                             )}{" "}
-                            â”œÃ¹{" "}
+                            ×{" "}
                             {
                               line.quantity
                             }
@@ -2097,7 +2085,7 @@ export default function CashierClient() {
                             padding: 0,
                           }}
                         >
-                          Ã”ÃªÃ†
+                          −
                         </button>
 
                         <strong>
@@ -2226,7 +2214,7 @@ export default function CashierClient() {
             }}
             onClick={() => void confirm(true)}
           >
-            {busy ? "ProcessingÃ”Ã‡Âª" : "Confirm & Print"}
+            {busy ? "Processing…" : "Confirm & Print"}
           </button>
 
           <button
@@ -2310,7 +2298,7 @@ export default function CashierClient() {
                 }}
               >
                 {loadingRecentSales
-                  ? "LoadingÃ”Ã‡Âª"
+                  ? "Loading…"
                   : "Refresh"}
               </button>
             </div>
@@ -2318,7 +2306,7 @@ export default function CashierClient() {
             {loadingRecentSales &&
             recentSales.length === 0 ? (
               <p className="subtle compact">
-                Loading last salesÃ”Ã‡Âª
+                Loading last sales…
               </p>
             ) : recentSales.length ===
               0 ? (
@@ -2389,7 +2377,7 @@ export default function CashierClient() {
                         {sale.saleNumber.slice(
                           -6,
                         )}{" "}
-                        â”¬Ã€{" "}
+                        ·{" "}
                         {new Date(
                           sale.createdAt,
                         ).toLocaleTimeString(
@@ -2504,7 +2492,7 @@ export default function CashierClient() {
                   fontSize: 20,
                 }}
               >
-                â”œÃ¹
+                ×
               </button>
             </div>
 
@@ -2579,7 +2567,7 @@ export default function CashierClient() {
                           {Number(
                             item.unitPrice,
                           ).toFixed(2)}{" "}
-                          â”œÃ¹{" "}
+                          ×{" "}
                           {item.quantity}
                         </div>
                       </div>
@@ -2802,7 +2790,7 @@ export default function CashierClient() {
                   fontSize: 20,
                 }}
               >
-                â”œÃ¹
+                ×
               </button>
             </div>
 
@@ -3130,7 +3118,7 @@ export default function CashierClient() {
                   }}
                 >
                   <span>
-                    {line.quantity} â”œÃ¹ {line.name}
+                    {line.quantity} × {line.name}
                   </span>
                   <span>
                     ${(line.unitPrice * line.quantity).toFixed(2)}
@@ -3397,7 +3385,7 @@ export default function CashierClient() {
                     }
                   >
                     {busy
-                      ? "ProcessingÃ”Ã‡Âª"
+                      ? "Processing…"
                       : "Approve & Complete Sale"}
                   </button>
                 </div>
