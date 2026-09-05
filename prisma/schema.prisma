@@ -516,6 +516,8 @@ model Notification {
   processingAt      DateTime?
   providerMessageId String?
   createdAt         DateTime            @default(now())
+  adminReadAt    DateTime?
+  adminClearedAt DateTime?
 
   user User @relation(fields: [userId], references: [id])
 
