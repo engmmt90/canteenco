@@ -51,28 +51,41 @@ export default async function WalletPrintPage() {
       >
         <div
           style={{
-            display: "flex",
+            display: "grid",
+            gridTemplateColumns:
+              "1fr auto 1fr",
             alignItems: "center",
             gap: 18,
             marginBottom: 16,
           }}
         >
-          {report.logoSchoolId &&
-          report.logoData &&
-          report.logoMimeType ? (
-            <img
-              src={`/api/schools/${report.logoSchoolId}/logo`}
-              alt={`${report.schoolName ?? "School"} logo`}
-              style={{
-                display: "block",
-                maxWidth: 180,
-                maxHeight: 80,
-                objectFit: "contain",
-              }}
-            />
-          ) : null}
+          <div
+            style={{
+              justifySelf: "start",
+            }}
+          >
+            {report.logoSchoolId &&
+            report.logoData &&
+            report.logoMimeType ? (
+              <img
+                src={`/api/schools/${report.logoSchoolId}/logo`}
+                alt={`${report.schoolName ?? "School"} logo`}
+                style={{
+                  display: "block",
+                  maxWidth: 180,
+                  maxHeight: 80,
+                  objectFit: "contain",
+                }}
+              />
+            ) : null}
+          </div>
 
-          <div>
+          <div
+            style={{
+              textAlign: "center",
+              justifySelf: "center",
+            }}
+          >
             <h1
               style={{
                 margin: 0,
@@ -81,28 +94,19 @@ export default async function WalletPrintPage() {
               Wallet Balance Report
             </h1>
 
-            {report.schoolName ? (
-              <p
-                style={{
-                  margin:
-                    "4px 0 0",
-                  fontWeight: 700,
-                }}
-              >
-                {report.schoolName}
-              </p>
-            ) : (
-              <p
-                style={{
-                  margin:
-                    "4px 0 0",
-                  fontWeight: 700,
-                }}
-              >
-                CanteenCo
-              </p>
-            )}
+            <p
+              style={{
+                margin:
+                  "4px 0 0",
+                fontWeight: 700,
+              }}
+            >
+              {report.schoolName ??
+                "CanteenCo"}
+            </p>
           </div>
+
+          <div />
         </div>
 
         <p>
