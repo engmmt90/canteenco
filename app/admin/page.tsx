@@ -1,4 +1,5 @@
 import Link from "next/link";
+
 import { logout } from "@/app/actions/auth";
 import { prisma } from "@/lib/prisma";
 import AdminMobileNav from "./admin-mobile-nav";
@@ -25,17 +26,19 @@ export default async function AdminDashboardPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const salesToday = await prisma.sale.aggregate({
-    where: {
-      status: "COMPLETED",
-      createdAt: {
-        gte: today,
+  const salesToday =
+    await prisma.sale.aggregate({
+      where: {
+        status: "COMPLETED",
+        createdAt: {
+          gte: today,
+        },
       },
-    },
-    _sum: {
-      total: true,
-    },
-  });
+
+      _sum: {
+        total: true,
+      },
+    });
 
   const [
     pendingRegistrations,
@@ -54,7 +57,8 @@ export default async function AdminDashboardPage() {
 
     prisma.student.count({
       where: {
-        status: "PENDING_APPROVAL",
+        status:
+          "PENDING_APPROVAL",
         deletedAt: null,
       },
     }),
@@ -113,13 +117,14 @@ export default async function AdminDashboardPage() {
     }),
 
     prisma.notification.count({
-  where: {
-    failedAt: {
-      not: null,
-    },
-    adminClearedAt: null,
-  },
-}),
+      where: {
+        failedAt: {
+          not: null,
+        },
+
+        adminClearedAt: null,
+      },
+    }),
   ]);
 
   return (
@@ -132,14 +137,16 @@ export default async function AdminDashboardPage() {
         <h1>CanteenCo</h1>
 
         <nav className="nav">
-          {links.map(([label, href]) => (
-            <Link
-              href={href}
-              key={label}
-            >
-              {label}
-            </Link>
-          ))}
+          {links.map(
+            ([label, href]) => (
+              <Link
+                href={href}
+                key={label}
+              >
+                {label}
+              </Link>
+            ),
+          )}
         </nav>
 
         <div className="divider" />
@@ -176,7 +183,8 @@ export default async function AdminDashboardPage() {
             <strong>
               $
               {Number(
-                salesToday._sum.total ?? 0,
+                salesToday._sum
+                  .total ?? 0,
               ).toFixed(2)}
             </strong>
           </Link>
@@ -199,11 +207,14 @@ export default async function AdminDashboardPage() {
             href="/admin/students?status=PENDING_APPROVAL"
             style={{
               border:
-                pendingStudentApprovals > 0
+                pendingStudentApprovals >
+                0
                   ? "2px solid #f59e0b"
                   : undefined,
+
               background:
-                pendingStudentApprovals > 0
+                pendingStudentApprovals >
+                0
                   ? "#fffbeb"
                   : undefined,
             }}
@@ -213,12 +224,15 @@ export default async function AdminDashboardPage() {
             <strong
               style={{
                 color:
-                  pendingStudentApprovals > 0
+                  pendingStudentApprovals >
+                  0
                     ? "#b45309"
                     : undefined,
               }}
             >
-              {pendingStudentApprovals}
+              {
+                pendingStudentApprovals
+              }
             </strong>
           </Link>
 
@@ -269,7 +283,7 @@ export default async function AdminDashboardPage() {
             className="stat"
             href="/admin/notifications?state=failed"
           >
-            Failed notifications
+            Active failed notifications
 
             <strong>
               {failedNotifications}

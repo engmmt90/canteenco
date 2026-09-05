@@ -8,10 +8,16 @@ import {
   markAllAdminNotificationsRead,
 } from "@/app/actions/admin-notifications";
 
-function formatBrisbaneDateTime(date: Date) {
-  return date.toLocaleString("en-AU", {
-    timeZone: "Australia/Brisbane",
-  });
+function formatBrisbaneDateTime(
+  date: Date,
+) {
+  return date.toLocaleString(
+    "en-AU",
+    {
+      timeZone:
+        "Australia/Brisbane",
+    },
+  );
 }
 
 export default async function AdminNotificationsPage({
@@ -26,13 +32,22 @@ export default async function AdminNotificationsPage({
   await requireAdmin();
 
   const p = await searchParams;
-  const channel = p.channel || "";
-  const state = p.state || "";
-  const q = (p.q || "").trim();
 
-  const filtersActive = Boolean(
-    q || channel || state,
-  );
+  const channel =
+    p.channel || "";
+
+  const state =
+    p.state || "";
+
+  const q =
+    (p.q || "").trim();
+
+  const filtersActive =
+    Boolean(
+      q ||
+        channel ||
+        state,
+    );
 
   const where: any = {
     adminClearedAt: null,
@@ -63,8 +78,12 @@ export default async function AdminNotificationsPage({
       ? {
           sentAt: null,
           failedAt: null,
+
           channel: {
-            in: ["EMAIL", "SMS"],
+            in: [
+              "EMAIL",
+              "SMS",
+            ],
           },
         }
       : {}),
@@ -75,28 +94,35 @@ export default async function AdminNotificationsPage({
             {
               subject: {
                 contains: q,
-                mode: "insensitive",
+                mode:
+                  "insensitive",
               },
             },
+
             {
               message: {
                 contains: q,
-                mode: "insensitive",
+                mode:
+                  "insensitive",
               },
             },
+
             {
               user: {
                 email: {
                   contains: q,
-                  mode: "insensitive",
+                  mode:
+                    "insensitive",
                 },
               },
             },
+
             {
               user: {
                 fullName: {
                   contains: q,
-                  mode: "insensitive",
+                  mode:
+                    "insensitive",
                 },
               },
             },
@@ -114,28 +140,40 @@ export default async function AdminNotificationsPage({
   ] = await Promise.all([
     prisma.notification.findMany({
       where,
+
       include: {
         user: true,
       },
+
       orderBy: {
         createdAt: "desc",
       },
+
       take: 300,
     }),
 
     prisma.notification.count({
       where: {
-        adminClearedAt: null,
-        adminReadAt: null,
+        adminClearedAt:
+          null,
+
+        adminReadAt:
+          null,
       },
     }),
 
     prisma.notification.count({
       where: {
-        adminClearedAt: null,
+        adminClearedAt:
+          null,
+
         channel: {
-          in: ["EMAIL", "SMS"],
+          in: [
+            "EMAIL",
+            "SMS",
+          ],
         },
+
         sentAt: null,
         failedAt: null,
       },
@@ -143,7 +181,9 @@ export default async function AdminNotificationsPage({
 
     prisma.notification.count({
       where: {
-        adminClearedAt: null,
+        adminClearedAt:
+          null,
+
         failedAt: {
           not: null,
         },
@@ -152,7 +192,9 @@ export default async function AdminNotificationsPage({
 
     prisma.notification.count({
       where: {
-        adminClearedAt: null,
+        adminClearedAt:
+          null,
+
         sentAt: {
           gte: new Date(
             new Date().setHours(
@@ -176,7 +218,8 @@ export default async function AdminNotificationsPage({
           </h1>
 
           <p className="subtle">
-            Monitor queued, sent and failed notifications.
+            Monitor queued, sent and
+            failed notifications.
           </p>
         </div>
 
@@ -191,22 +234,30 @@ export default async function AdminNotificationsPage({
       <div className="grid">
         <div className="stat">
           Unread
-          <strong>{unread}</strong>
+          <strong>
+            {unread}
+          </strong>
         </div>
 
         <div className="stat">
           Pending delivery
-          <strong>{pending}</strong>
+          <strong>
+            {pending}
+          </strong>
         </div>
 
         <div className="stat">
           Failed
-          <strong>{failed}</strong>
+          <strong>
+            {failed}
+          </strong>
         </div>
 
         <div className="stat">
           Sent today
-          <strong>{sentToday}</strong>
+          <strong>
+            {sentToday}
+          </strong>
         </div>
       </div>
 
@@ -221,9 +272,11 @@ export default async function AdminNotificationsPage({
           style={{
             justifyContent:
               "space-between",
-            alignItems: "center",
+            alignItems:
+              "center",
             gap: 12,
-            flexWrap: "wrap",
+            flexWrap:
+              "wrap",
           }}
         >
           <strong>
@@ -239,7 +292,9 @@ export default async function AdminNotificationsPage({
               <button
                 className="secondary"
                 type="submit"
-                disabled={unread === 0}
+                disabled={
+                  unread === 0
+                }
               >
                 Mark All as Read
               </button>
@@ -253,10 +308,6 @@ export default async function AdminNotificationsPage({
               <button
                 className="danger"
                 type="submit"
-                disabled={
-                  rows.length === 0 &&
-                  !filtersActive
-                }
               >
                 Clear Notifications
               </button>
@@ -270,9 +321,11 @@ export default async function AdminNotificationsPage({
             marginTop: 10,
           }}
         >
-          Clear hides notifications from this admin page.
-          It does not delete delivery records or stop pending
-          email/SMS delivery.
+          Clear hides notifications
+          from this admin page. It does
+          not delete delivery records
+          or stop pending email/SMS
+          delivery.
         </p>
       </section>
 
@@ -282,10 +335,11 @@ export default async function AdminNotificationsPage({
           marginTop: 18,
         }}
       >
-        <details open={filtersActive}>
+        <details>
           <summary
             style={{
-              cursor: "pointer",
+              cursor:
+                "pointer",
               fontSize: 18,
               fontWeight: 700,
               padding: "6px 0",
@@ -314,20 +368,26 @@ export default async function AdminNotificationsPage({
             <select
               className="input"
               name="channel"
-              defaultValue={channel}
+              defaultValue={
+                channel
+              }
             >
               <option value="">
                 All channels
               </option>
+
               <option value="IN_APP">
                 IN_APP
               </option>
+
               <option value="EMAIL">
                 EMAIL
               </option>
+
               <option value="SMS">
                 SMS
               </option>
+
               <option value="PUSH">
                 PUSH
               </option>
@@ -336,17 +396,22 @@ export default async function AdminNotificationsPage({
             <select
               className="input"
               name="state"
-              defaultValue={state}
+              defaultValue={
+                state
+              }
             >
               <option value="">
                 All states
               </option>
+
               <option value="pending">
                 Pending
               </option>
+
               <option value="sent">
                 Sent
               </option>
+
               <option value="failed">
                 Failed
               </option>
@@ -401,9 +466,15 @@ export default async function AdminNotificationsPage({
                   </strong>
 
                   <div className="subtle compact">
-                    {n.user.fullName}
+                    {
+                      n.user
+                        .fullName
+                    }
                     {" · "}
-                    {n.user.email}
+                    {
+                      n.user
+                        .email
+                    }
                   </div>
                 </div>
 
@@ -446,7 +517,8 @@ export default async function AdminNotificationsPage({
             </article>
           ))}
 
-          {rows.length === 0 ? (
+          {rows.length ===
+          0 ? (
             <p className="subtle">
               No notifications found.
             </p>
