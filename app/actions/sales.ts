@@ -967,6 +967,8 @@ export async function createCashierSale(
         const sale =
           await tx.sale.create({
             data: {
+              id: randomUUID(),
+
               saleNumber:
                 `SALE-${Date.now()}-${randomUUID()
                   .slice(0, 6)
@@ -998,49 +1000,76 @@ export async function createCashierSale(
 
               overrideApprovedById:
                 approverId,
-
-              items: {
-                create:
-                  normalizedItems.map(
-                    (line) => ({
-                      productId:
-                        line.product.id,
-
-                      productNameSnapshot:
-                        line.product
-                          .name,
-
-                      quantity:
-                        line.quantity,
-
-                      unitPrice:
-                        line.unitPrice,
-
-                      lineTotal:
-                        line.lineTotal,
-
-                      options: {
-                        create:
-                          line.selectedOptions.map(
-                            (option) => ({
-                              productOptionId:
-                                option.id,
-
-                              optionName:
-                                option.name,
-
-                              additionalPrice:
-                                option.additionalPrice,
-
-                              quantity: 1,
-                            }),
-                          ),
-                      },
-                    }),
-                  ),
-              },
             },
           });
+
+        /*
+         * ------------------------------------------------------------
+         * CREATE SALE ITEMS
+         * ------------------------------------------------------------
+         */
+
+        for (const line of
+          normalizedItems) {
+          const saleItem =
+            await tx.saleItem.create({
+              data: {
+                id: randomUUID(),
+
+                saleId:
+                  sale.id,
+
+                productId:
+                  line.product.id,
+
+                productNameSnapshot:
+                  line.product.name,
+
+                quantity:
+                  line.quantity,
+
+                unitPrice:
+                  line.unitPrice,
+
+                lineTotal:
+                  line.lineTotal,
+              },
+            });
+
+          /*
+           * ----------------------------------------------------------
+           * CREATE SALE ITEM OPTIONS
+           * ----------------------------------------------------------
+           */
+
+          if (
+            line.selectedOptions.length >
+            0
+          ) {
+            await tx.saleItemOption.createMany({
+              data:
+                line.selectedOptions.map(
+                  (option) => ({
+                    id: randomUUID(),
+
+                    saleItemId:
+                      saleItem.id,
+
+                    productOptionId:
+                      option.id,
+
+                    optionName:
+                      option.name,
+
+                    additionalPrice:
+                      option.additionalPrice,
+
+                    quantity: 1,
+                  }),
+                ),
+            });
+          }
+        }
 
         /*
          * ------------------------------------------------------------
