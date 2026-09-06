@@ -25,14 +25,23 @@ export default async function StaffLoginPage({
         </p>
 
         {error === "invalid_credentials" ? (
-          <p className="alert" role="alert">
-            Invalid email or password, or your account is not allowed to sign in.
+          <p
+            className="alert"
+            role="alert"
+          >
+            Invalid email or password, or
+            your account is not allowed to
+            sign in.
           </p>
         ) : null}
 
-        <form className="form" action={staffLogin}>
+        <form
+          className="form"
+          action={staffLogin}
+        >
           <label className="label">
             Email
+
             <input
               className="input"
               type="email"
@@ -44,6 +53,7 @@ export default async function StaffLoginPage({
 
           <label className="label">
             Password
+
             <input
               className="input"
               type="password"
@@ -57,10 +67,31 @@ export default async function StaffLoginPage({
           <div
             style={{
               display: "flex",
-              justifyContent: "flex-end",
+              justifyContent:
+                "space-between",
+              alignItems: "center",
+              gap: 12,
               marginTop: -4,
             }}
           >
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                name="rememberMe"
+                value="1"
+              />
+
+              Keep me logged in
+            </label>
+
             <Link
               href="/staff/forgot-password"
               style={{
@@ -72,7 +103,10 @@ export default async function StaffLoginPage({
             </Link>
           </div>
 
-          <button className="primary" type="submit">
+          <button
+            className="primary"
+            type="submit"
+          >
             Staff Login
           </button>
         </form>
@@ -86,12 +120,25 @@ export default async function StaffLoginPage({
           Staff Attendance
         </Link>
 
-        <p className="subtle" style={{ marginTop: 10 }}>
-          No login required. Scan your staff NFC card to clock in or out.
+        <p
+          className="subtle"
+          style={{
+            marginTop: 10,
+          }}
+        >
+          No login required. Scan your staff
+          NFC card to clock in or out.
         </p>
 
-        <div style={{ marginTop: 12 }}>
-          <Link className="secondary" href="/">
+        <div
+          style={{
+            marginTop: 12,
+          }}
+        >
+          <Link
+            className="secondary"
+            href="/"
+          >
             Parent Sign In
           </Link>
         </div>

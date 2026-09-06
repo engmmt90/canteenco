@@ -3,22 +3,41 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-import { authConfig } from "@/auth.config";
-import { prisma } from "@/lib/prisma";
+import {
+  authConfig,
+} from "@/auth.config";
 
-const credentialsSchema = z.object({
-  email: z
-    .string()
-    .email()
-    .transform((value) =>
-      value.toLowerCase(),
-    ),
-  password: z.string().min(8),
-  portal: z.enum([
-    "parent",
-    "staff",
-  ]),
-});
+import {
+  prisma,
+} from "@/lib/prisma";
+
+const THIRTY_DAYS =
+  60 * 60 * 24 * 30;
+
+const credentialsSchema =
+  z.object({
+    email: z
+      .string()
+      .email()
+      .transform(
+        (value) =>
+          value.toLowerCase(),
+      ),
+
+    password:
+      z.string().min(8),
+
+    portal:
+      z.enum([
+        "parent",
+        "staff",
+      ]),
+
+    rememberMe:
+      z
+        .string()
+        .optional(),
+  });
 
 const STAFF_LOGIN_ROLES = [
   "SUPER_ADMIN",
@@ -34,8 +53,22 @@ export const {
 } = NextAuth({
   ...authConfig,
 
+  /*
+   * Cookie can survive up to
+   * 30 days.
+   *
+   * auth.config.ts controls
+   * whether a normal staff
+   * login expires earlier
+   * after 12 hours.
+   */
   session: {
     strategy: "jwt",
+    maxAge: THIRTY_DAYS,
+  },
+
+  jwt: {
+    maxAge: THIRTY_DAYS,
   },
 
   providers: [
@@ -53,6 +86,12 @@ export const {
 
         portal: {
           label: "Portal",
+          type: "text",
+        },
+
+        rememberMe: {
+          label:
+            "Keep me logged in",
           type: "text",
         },
       },
@@ -89,7 +128,8 @@ export const {
 
         if (
           !user ||
-          user.status !== "ACTIVE"
+          user.status !==
+            "ACTIVE"
         ) {
           return null;
         }
@@ -100,12 +140,15 @@ export const {
             user.passwordHash,
           );
 
-        if (!passwordMatches) {
+        if (
+          !passwordMatches
+        ) {
           return null;
         }
 
         const isParent =
-          user.role === "PARENT";
+          user.role ===
+          "PARENT";
 
         if (
           parsed.data.portal ===
@@ -141,13 +184,37 @@ export const {
         });
 
         return {
-          id: user.id,
-          name: user.fullName,
-          email: user.email,
-          role: user.role,
-          status: user.status,
+          id:
+            user.id,
+
+          name:
+            user.fullName,
+
+          email:
+            user.email,
+
+          role:
+            user.role,
+
+          status:
+            user.status,
+
           schoolId:
             user.schoolId,
+
+          /*
+           * Passed to the JWT
+           * callback in auth.config.
+           */
+          portal:
+            parsed.data.portal,
+
+          rememberMe:
+            parsed.data.portal ===
+              "staff" &&
+            parsed.data
+              .rememberMe ===
+              "1",
         };
       },
     }),
