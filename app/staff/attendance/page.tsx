@@ -1,5 +1,4 @@
-import Link from "next/link";
-
+import BackButton from "./back-button";
 import StaffAttendanceClient from "./staff-attendance-client";
 
 export default function StaffAttendancePage() {
@@ -7,9 +6,11 @@ export default function StaffAttendancePage() {
     <main className="shell">
       <section className="card">
         <div
-          className="page-heading"
           style={{
-            alignItems: "center",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
           }}
         >
           <div>
@@ -18,18 +19,15 @@ export default function StaffAttendancePage() {
             </h1>
 
             <p className="subtle">
-              Scan your staff NFC card to
-              clock in or clock out.
+              Scan your staff NFC card to clock in or
+              clock out.
             </p>
           </div>
 
-          <Link
-            className="secondary"
-            href="/staff/login"
-          >
-            Staff Login
-          </Link>
+          <BackButton />
         </div>
+
+        <div className="divider" />
 
         <StaffAttendanceClient />
       </section>
