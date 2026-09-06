@@ -105,7 +105,7 @@ export default async function Page({
       >
         <h2>
           {editingProduct
-            ? `Edit Product â€” ${editingProduct.name}`
+            ? `Edit Product \u2014 ${editingProduct.name}`
             : "Add Product"}
         </h2>
 
@@ -441,7 +441,7 @@ export default async function Page({
                     </strong>
 
                     <div className="subtle compact">
-                      {product.sku} Â·{" "}
+                      {product.sku}{"\u00B7"}{" "}
                       {product.category ||
                         "Uncategorised"}
                     </div>
