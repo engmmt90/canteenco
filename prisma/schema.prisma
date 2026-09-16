@@ -51,21 +51,21 @@ model ClassStudentSequence {
 }
 
 model SchoolSettings {
-  id                        String   @id @default(cuid())
-  schoolId                  String   @unique
-  timezone                  String   @default("Australia/Brisbane")
-  currency                  String   @default("AUD")
-  preOrderEnabled           Boolean  @default(true)
-  preOrderCutoffTime        String   @default("07:00")
-  allowNegativeBalance      Boolean  @default(false)
-  minimumAllowedBalance     Decimal  @default(0) @db.Decimal(12, 2)
-  emailNotificationsEnabled Boolean  @default(true)
-  smsNotificationsEnabled   Boolean  @default(false)
+  id                        String  @id @default(cuid())
+  schoolId                  String  @unique
+  timezone                  String  @default("Australia/Brisbane")
+  currency                  String  @default("AUD")
+  preOrderEnabled           Boolean @default(true)
+  preOrderCutoffTime        String  @default("07:00")
+  allowNegativeBalance      Boolean @default(false)
+  minimumAllowedBalance     Decimal @default(0) @db.Decimal(12, 2)
+  emailNotificationsEnabled Boolean @default(true)
+  smsNotificationsEnabled   Boolean @default(false)
 
-  logoData                  Bytes?
-  logoMimeType              String?
-  createdAt                 DateTime @default(now())
-  updatedAt                 DateTime @updatedAt
+  logoData     Bytes?
+  logoMimeType String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   school School @relation(fields: [schoolId], references: [id])
 }
@@ -99,9 +99,9 @@ model User {
   role              UserRole
   status            UserStatus @default(PENDING)
   schoolId          String?
- lastLoginAt       DateTime?
-sessionVersion    Int        @default(0)
-createdAt         DateTime   @default(now())
+  lastLoginAt       DateTime?
+  sessionVersion    Int        @default(0)
+  createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   deletedAt         DateTime?
 
@@ -339,26 +339,28 @@ model ProductOption {
 }
 
 model Sale {
-  id                   String     @id @default(cuid())
-  saleNumber           String     @unique
-  idempotencyKey       String     @unique
+  id                   String            @id @default(cuid())
+  saleNumber           String            @unique
+  idempotencyKey       String            @unique
   schoolId             String
-  studentId            String
-  walletId             String
+  studentId            String?
+  walletId             String?
   cashierUserId        String
-  status               SaleStatus @default(COMPLETED)
-  subtotal             Decimal    @db.Decimal(12, 2)
-  total                Decimal    @db.Decimal(12, 2)
-  isOverdraftOverride  Boolean    @default(false)
+  customerType         SaleCustomerType  @default(STUDENT)
+  paymentMethod        SalePaymentMethod @default(WALLET)
+  status               SaleStatus        @default(COMPLETED)
+  subtotal             Decimal           @db.Decimal(12, 2)
+  total                Decimal           @db.Decimal(12, 2)
+  isOverdraftOverride  Boolean           @default(false)
   overrideApprovedById String?
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   cashier            User                @relation("CashierSales", fields: [cashierUserId], references: [id])
   overrideApprovedBy User?               @relation("OverrideApprover", fields: [overrideApprovedById], references: [id], onDelete: Restrict)
   school             School              @relation(fields: [schoolId], references: [id])
-  student            Student             @relation(fields: [studentId], references: [id])
-  wallet             Wallet              @relation(fields: [walletId], references: [id])
+  student            Student?            @relation(fields: [studentId], references: [id])
+  wallet             Wallet?             @relation(fields: [walletId], references: [id])
   items              SaleItem[]
   refundTransactions WalletTransaction[] @relation("SaleRefundTransactions")
   walletTransaction  WalletTransaction?  @relation("SaleDebitTransaction")
@@ -366,6 +368,8 @@ model Sale {
   @@index([schoolId, createdAt])
   @@index([studentId, createdAt])
   @@index([cashierUserId, createdAt])
+  @@index([customerType, createdAt])
+  @@index([paymentMethod, createdAt])
 }
 
 model SaleItem {
@@ -517,8 +521,8 @@ model Notification {
   processingAt      DateTime?
   providerMessageId String?
   createdAt         DateTime            @default(now())
-  adminReadAt    DateTime?
-  adminClearedAt DateTime?
+  adminReadAt       DateTime?
+  adminClearedAt    DateTime?
 
   user User @relation(fields: [userId], references: [id])
 
@@ -588,12 +592,12 @@ model PasswordResetToken {
 }
 
 model LoginThrottle {
-  identifierHash  String   @id
-  failedCount     Int      @default(0)
+  identifierHash  String    @id
+  failedCount     Int       @default(0)
   windowStartedAt DateTime?
   blockedUntil    DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([blockedUntil])
 }
@@ -648,6 +652,17 @@ enum WalletTransactionType {
   OVERDRAFT_SALE
 }
 
+enum SaleCustomerType {
+  STUDENT
+  GUEST
+}
+
+enum SalePaymentMethod {
+  WALLET
+  CASH
+  CARD
+}
+
 enum SaleStatus {
   COMPLETED
   REFUNDED
@@ -684,4 +699,3 @@ enum NotificationEvent {
   REFUND_COMPLETED
   LOW_BALANCE
 }
-

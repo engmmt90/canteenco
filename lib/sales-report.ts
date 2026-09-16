@@ -14,6 +14,8 @@ export type SalesReportParams = {
   range?: string;
   from?: string;
   to?: string;
+  paymentMethod?: string;
+  customerType?: string;
 };
 
 export type SalesReportRow = {
@@ -21,6 +23,8 @@ export type SalesReportRow = {
   saleNumber: string;
   studentName: string;
   studentCode: string;
+  customerType: string;
+  paymentMethod: string;
   schoolName: string;
   cashierName: string;
   status: string;
@@ -35,6 +39,8 @@ export type SalesReportData = {
   to?: string;
   q: string;
   status: string;
+  paymentMethod: string;
+  customerType: string;
   schoolId: string | null;
   schoolName: string | null;
   logoSchoolId: string | null;
@@ -42,6 +48,9 @@ export type SalesReportData = {
   logoMimeType: string | null;
   rows: SalesReportRow[];
   totalSales: number;
+  walletSales: number;
+  cashSales: number;
+  cardSales: number;
 };
 
 export function formatBrisbaneDateTime(
@@ -302,6 +311,14 @@ export function salesParamsToQuery(
     ["to", params.to],
     ["school", params.school],
     ["status", params.status],
+    [
+      "paymentMethod",
+      params.paymentMethod,
+    ],
+    [
+      "customerType",
+      params.customerType,
+    ],
     ["q", params.q],
   ] as const;
 
@@ -339,6 +356,12 @@ export async function getSalesReportData(
   const status =
     params.status || "";
 
+  const paymentMethod =
+    params.paymentMethod || "";
+
+  const customerType =
+    params.customerType || "";
+
   const {
     range,
     dateFrom,
@@ -356,6 +379,18 @@ export async function getSalesReportData(
     ...(status
       ? {
           status,
+        }
+      : {}),
+
+    ...(paymentMethod
+      ? {
+          paymentMethod,
+        }
+      : {}),
+
+    ...(customerType
+      ? {
+          customerType,
         }
       : {}),
 
@@ -393,34 +428,36 @@ export async function getSalesReportData(
 
             {
               student: {
-                OR: [
-                  {
-                    displayCode: {
-                      contains:
-                        q,
-                      mode:
-                        "insensitive",
+                is: {
+                  OR: [
+                    {
+                      displayCode: {
+                        contains:
+                          q,
+                        mode:
+                          "insensitive",
+                      },
                     },
-                  },
 
-                  {
-                    firstName: {
-                      contains:
-                        q,
-                      mode:
-                        "insensitive",
+                    {
+                      firstName: {
+                        contains:
+                          q,
+                        mode:
+                          "insensitive",
+                      },
                     },
-                  },
 
-                  {
-                    lastName: {
-                      contains:
-                        q,
-                      mode:
-                        "insensitive",
+                    {
+                      lastName: {
+                        contains:
+                          q,
+                        mode:
+                          "insensitive",
+                      },
                     },
-                  },
-                ],
+                  ],
+                },
               },
             },
           ],
@@ -558,10 +595,17 @@ export async function getSalesReportData(
         saleNumber:
           sale.saleNumber,
         studentName:
-          `${sale.student.firstName} ${sale.student.lastName}`,
+          sale.student
+            ? `${sale.student.firstName} ${sale.student.lastName}`
+            : "Guest / Walk-in",
         studentCode:
           sale.student
-            .displayCode,
+            ?.displayCode ??
+          "GUEST",
+        customerType:
+          sale.customerType,
+        paymentMethod:
+          sale.paymentMethod,
         schoolName:
           sale.school.name,
         cashierName:
@@ -578,6 +622,52 @@ export async function getSalesReportData(
       }),
     );
 
+  const totalSales =
+    rows.reduce(
+      (sum, row) =>
+        sum + row.total,
+      0,
+    );
+
+  const walletSales =
+    rows
+      .filter(
+        (row) =>
+          row.paymentMethod ===
+          "WALLET",
+      )
+      .reduce(
+        (sum, row) =>
+          sum + row.total,
+        0,
+      );
+
+  const cashSales =
+    rows
+      .filter(
+        (row) =>
+          row.paymentMethod ===
+          "CASH",
+      )
+      .reduce(
+        (sum, row) =>
+          sum + row.total,
+        0,
+      );
+
+  const cardSales =
+    rows
+      .filter(
+        (row) =>
+          row.paymentMethod ===
+          "CARD",
+      )
+      .reduce(
+        (sum, row) =>
+          sum + row.total,
+        0,
+      );
+
   return {
     generatedAt:
       new Date(),
@@ -588,6 +678,8 @@ export async function getSalesReportData(
       params.to,
     q,
     status,
+    paymentMethod,
+    customerType,
     schoolId:
       schoolId ?? null,
     schoolName,
@@ -595,16 +687,10 @@ export async function getSalesReportData(
     logoData,
     logoMimeType,
     rows,
-    totalSales:
-      rows.reduce(
-        (
-          sum,
-          row,
-        ) =>
-          sum +
-          row.total,
-        0,
-      ),
+    totalSales,
+    walletSales,
+    cashSales,
+    cardSales,
   };
 }
 
@@ -970,10 +1056,10 @@ export async function buildSalesReportPdf(
     const headers = [
       ["#", columns.no],
       ["Sale", columns.sale],
-      ["Student", columns.student],
+      ["Customer", columns.student],
       ["School", columns.school],
       ["Cashier", columns.cashier],
-      ["Status", columns.status],
+      ["Status / Pay", columns.status],
       ["Date", columns.date],
       ["Total", columns.total],
     ] as const;
@@ -1050,7 +1136,10 @@ export async function buildSalesReportPdf(
       ],
       [row.schoolName, 20],
       [row.cashierName, 18],
-      [row.status, 12],
+      [
+        `${row.status} / ${row.paymentMethod}`,
+        14,
+      ],
       [
         formatBrisbaneDateTime(
           row.createdAt,

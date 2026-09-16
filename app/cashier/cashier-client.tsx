@@ -67,12 +67,24 @@ type PrintLine = {
 
 type PrintLabel = {
   saleNumber: string;
-  studentName: string;
-  studentCode: string;
+  customerName: string;
+  customerCode: string;
+  paymentMethod:
+    | "WALLET"
+    | "CASH"
+    | "CARD";
   total: number;
   createdAt: string;
   lines: PrintLine[];
 };
+
+type SaleMode =
+  | "STUDENT"
+  | "GUEST";
+
+type GuestPaymentMethod =
+  | "CASH"
+  | "CARD";
 
 type RecentSale =
   Awaited<
@@ -98,6 +110,34 @@ export default function CashierClient() {
 
   const [student, setStudent] =
     useState<Student | null>(null);
+
+  const [saleMode, setSaleMode] =
+    useState<SaleMode>(
+      "STUDENT",
+    );
+
+  const [
+    guestPaymentMethod,
+    setGuestPaymentMethod,
+  ] = useState<GuestPaymentMethod | null>(
+    null,
+  );
+
+  const [
+    cashReceived,
+    setCashReceived,
+  ] = useState("");
+
+  const cashReceivedInputRef =
+    useRef<HTMLInputElement | null>(
+      null,
+    );
+
+  const isGuestMode =
+    saleMode === "GUEST";
+
+  const saleReady =
+    isGuestMode || Boolean(student);
 
   /* ==========================================================
    * NFC
@@ -230,10 +270,49 @@ export default function CashierClient() {
    * ========================================================== */
 
   function focusNfcInput() {
+    if (saleMode !== "STUDENT") {
+      return;
+    }
+
     window.setTimeout(() => {
       nfcInputRef.current?.focus();
       nfcInputRef.current?.select();
     }, 50);
+  }
+
+  function switchSaleMode(
+    mode: SaleMode,
+  ) {
+    if (busy) {
+      return;
+    }
+
+    setSaleMode(mode);
+    setStudent(null);
+    setDailySpending(null);
+    setQ("");
+    setResults([]);
+    setNfc("");
+    setNfcMessage("");
+    setCart([]);
+    setSelectedProduct(null);
+    setSelectedOptions({});
+    setMessage("");
+    setNeedsOverride(false);
+    setAdminPassword("");
+    setPendingPrint(false);
+    setShowBalancePopup(false);
+    setShowAdminApproval(false);
+    setGuestPaymentMethod(null);
+    setCashReceived("");
+    setKey(crypto.randomUUID());
+
+    if (mode === "STUDENT") {
+      window.setTimeout(() => {
+        nfcInputRef.current?.focus();
+        nfcInputRef.current?.select();
+      }, 80);
+    }
   }
 
   /* ==========================================================
@@ -427,6 +506,7 @@ export default function CashierClient() {
   function selectStudent(
     selected: Student,
   ) {
+    setSaleMode("STUDENT");
     setStudent(selected);
 
     setResults([]);
@@ -473,7 +553,7 @@ export default function CashierClient() {
      * cannot be added.
      */
 
-    if (!student) {
+    if (!saleReady) {
       return;
     }
 
@@ -524,7 +604,7 @@ export default function CashierClient() {
   function addSimpleProduct(
     product: Product,
   ) {
-    if (!student) {
+    if (!saleReady) {
       return;
     }
 
@@ -715,7 +795,7 @@ export default function CashierClient() {
 
   function addConfiguredProduct() {
     if (
-      !student ||
+      !saleReady ||
       !selectedProduct
     ) {
       return;
@@ -815,7 +895,7 @@ export default function CashierClient() {
   function increaseLine(
     lineId: string,
   ) {
-    if (!student) {
+    if (!saleReady) {
       return;
     }
 
@@ -962,6 +1042,45 @@ export default function CashierClient() {
       products,
     ]);
 
+  const parsedCashReceived =
+    Number.parseFloat(
+      cashReceived,
+    );
+
+  const cashReceivedAmount =
+    Number.isFinite(
+      parsedCashReceived,
+    )
+      ? Math.max(
+          0,
+          parsedCashReceived,
+        )
+      : 0;
+
+  const cashRemaining =
+    Math.max(
+      0,
+      total -
+        cashReceivedAmount,
+    );
+
+  const cashChange =
+    Math.max(
+      0,
+      cashReceivedAmount -
+        total,
+    );
+
+  const guestPaymentReady =
+    !isGuestMode ||
+    guestPaymentMethod ===
+      "CARD" ||
+    (guestPaymentMethod ===
+      "CASH" &&
+      cashReceivedAmount +
+        0.0001 >=
+        total);
+
   /* ==========================================================
    * BALANCE
    * ========================================================== */
@@ -1024,6 +1143,9 @@ export default function CashierClient() {
    * ========================================================== */
 
   function resetForNextStudent() {
+    setSaleMode("STUDENT");
+    setGuestPaymentMethod(null);
+    setCashReceived("");
     setStudent(null);
     setDailySpending(null);
     setQ("");
@@ -1081,8 +1203,20 @@ export default function CashierClient() {
   }
 
   async function confirm(printAfterSale = false) {
+    const guestSale =
+      isGuestMode;
+
+    const activeStudent =
+      guestSale ? null : student;
+
+    const paymentMethod =
+      guestSale
+        ? guestPaymentMethod
+        : "WALLET";
+
     if (
-      !student ||
+      !saleReady ||
+      (!guestSale && !activeStudent) ||
       total <= 0 ||
       cart.length === 0 ||
       busy
@@ -1090,57 +1224,135 @@ export default function CashierClient() {
       return;
     }
 
+    if (!paymentMethod) {
+      setMessage(
+        "Select Cash or Card before completing the sale.",
+      );
+      return;
+    }
+
+    if (
+      guestSale &&
+      paymentMethod ===
+        "CASH" &&
+      cashReceivedAmount +
+        0.0001 <
+        total
+    ) {
+      setMessage(
+        `Cash received is $${cashRemaining.toFixed(2)} short.`,
+      );
+      return;
+    }
+
     setPendingPrint(printAfterSale);
     setBusy(true);
     setMessage("");
 
-    const printLines = buildPrintLines();
+    const printLines =
+      buildPrintLines();
 
     try {
-      const items = cart.map((line) => ({
-        productId: line.productId,
-        quantity: line.quantity,
-        optionIds: line.optionIds,
-      }));
+      const items = cart.map(
+        (line) => ({
+          productId:
+            line.productId,
+          quantity:
+            line.quantity,
+          optionIds:
+            line.optionIds,
+        }),
+      );
 
-      const result = await createCashierSale({
-        studentId: student.id,
-        items,
-        idempotencyKey: key,
-        adminPassword: adminPassword || undefined,
-      });
+      const result =
+        await createCashierSale({
+          studentId:
+            activeStudent?.id,
+          customerType:
+            guestSale
+              ? "GUEST"
+              : "STUDENT",
+          paymentMethod,
+          items,
+          idempotencyKey: key,
+          adminPassword:
+            guestSale
+              ? undefined
+              : adminPassword ||
+                undefined,
+        });
 
       if (!result.ok) {
-        if (result.needsAdminOverride === true) {
+        if (
+          !guestSale &&
+          result.needsAdminOverride ===
+            true
+        ) {
           setNeedsOverride(true);
-          setPendingPrint(printAfterSale);
+          setPendingPrint(
+            printAfterSale,
+          );
           setShowBalancePopup(true);
           setShowAdminApproval(false);
           return;
         }
 
-        setMessage(result.error || "Sale failed");
-        void loadDailySpending(student.id);
+        setMessage(
+          result.error ||
+            "Sale failed",
+        );
+
+        if (activeStudent) {
+          void loadDailySpending(
+            activeStudent.id,
+          );
+        }
+
         return;
       }
 
       setShowBalancePopup(false);
       setShowAdminApproval(false);
       setNeedsOverride(false);
+
       setMessage(
-        `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`,
+        guestSale
+          ? paymentMethod ===
+              "CASH"
+            ? `Sale ${result.saleNumber} completed. Cash received: $${cashReceivedAmount.toFixed(2)}. Change: $${cashChange.toFixed(2)}.`
+            : `Sale ${result.saleNumber} completed. Payment: CARD.`
+          : `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`,
       );
+
       setKey(crypto.randomUUID());
-      void loadDailySpending(student.id);
+
+      if (activeStudent) {
+        void loadDailySpending(
+          activeStudent.id,
+        );
+      }
+
       void loadRecentSales();
 
       if (printAfterSale) {
         setPrintLabel({
-          saleNumber: String(result.saleNumber),
-          studentName: `${student.firstName} ${student.lastName}`,
-          studentCode: student.displayCode,
+          saleNumber:
+            String(
+              result.saleNumber,
+            ),
+          customerName:
+            guestSale
+              ? "Guest / Walk-in"
+              : `${activeStudent!.firstName} ${activeStudent!.lastName}`,
+          customerCode:
+            guestSale
+              ? "GUEST"
+              : activeStudent!
+                  .displayCode,
+          paymentMethod,
           total,
-          createdAt: new Date().toLocaleString(),
+          createdAt:
+            new Date().toLocaleString(),
           lines: printLines,
         });
 
@@ -1199,10 +1411,16 @@ export default function CashierClient() {
     setPrintLabel({
       saleNumber:
         sale.saleNumber,
-      studentName:
-        `${sale.student.firstName} ${sale.student.lastName}`,
-      studentCode:
-        sale.student.displayCode,
+      customerName:
+        sale.student
+          ? `${sale.student.firstName} ${sale.student.lastName}`
+          : "Guest / Walk-in",
+      customerCode:
+        sale.student
+          ?.displayCode ??
+        "GUEST",
+      paymentMethod:
+        sale.paymentMethod,
       total: Number(sale.total),
       createdAt:
         new Date(
@@ -1364,6 +1582,70 @@ export default function CashierClient() {
           marginBottom: 18,
         }}
       >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent:
+              "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <strong>
+              Sale Customer
+            </strong>
+            <div className="subtle compact">
+              Choose a student or a guest walk-in sale.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              className={
+                !isGuestMode
+                  ? "primary"
+                  : "secondary"
+              }
+              disabled={busy}
+              onClick={() =>
+                switchSaleMode(
+                  "STUDENT",
+                )
+              }
+            >
+              Student
+            </button>
+
+            <button
+              type="button"
+              className={
+                isGuestMode
+                  ? "primary"
+                  : "secondary"
+              }
+              disabled={busy}
+              onClick={() =>
+                switchSaleMode(
+                  "GUEST",
+                )
+              }
+            >
+              Guest / Walk-in
+            </button>
+          </div>
+        </div>
+
+        {!isGuestMode ? (
+          <>
         {/* NORMAL SEARCH */}
 
         <label className="label">
@@ -1519,13 +1801,39 @@ export default function CashierClient() {
             )}
           </div>
         )}
+          </>
+        ) : (
+          <div
+            style={{
+              border:
+                "1px solid #f59e0b",
+              background:
+                "#fffbeb",
+              borderRadius: 14,
+              padding: 16,
+            }}
+          >
+            <strong>
+              Guest / Walk-in Sale
+            </strong>
+
+            <p
+              className="subtle compact"
+              style={{
+                marginTop: 6,
+              }}
+            >
+              No student account or family wallet is used. Add the items first, then choose Cash or Card in Current Sale.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ======================================================
           SELECTED STUDENT
       ====================================================== */}
 
-      {student && (
+      {!isGuestMode && student && (
         <div
           className="panel"
           style={{
@@ -1703,7 +2011,7 @@ export default function CashierClient() {
         <div className="panel">
           <h2>Products</h2>
 
-          {!student && (
+          {!saleReady && (
             <p
               className="subtle"
               style={{
@@ -1733,7 +2041,7 @@ export default function CashierClient() {
                     product.id
                   }
                   disabled={
-                    !student
+                    !saleReady
                   }
                   onClick={() =>
                     openProduct(
@@ -1769,12 +2077,12 @@ export default function CashierClient() {
                      * disabled until student.
                      */
                     opacity:
-                      student
+                      saleReady
                         ? 1
                         : 0.48,
 
                     cursor:
-                      student
+                      saleReady
                         ? "pointer"
                         : "not-allowed",
                   }}
@@ -1887,10 +2195,30 @@ export default function CashierClient() {
             Current Sale
           </h2>
 
-          {!student ? (
+          {isGuestMode && (
+            <div
+              style={{
+                background:
+                  "#fffbeb",
+                border:
+                  "1px solid #f59e0b",
+                borderRadius: 10,
+                padding: 10,
+                marginBottom: 12,
+              }}
+            >
+              <strong>
+                Guest / Walk-in
+              </strong>
+              <div className="subtle compact">
+                Add the items, then choose the payment method below.
+              </div>
+            </div>
+          )}
+
+          {!saleReady ? (
             <p className="subtle">
-              Select a student to start
-              a sale.
+              Select a student or choose Guest / Walk-in to start a sale.
             </p>
           ) : cart.length ===
             0 ? (
@@ -2156,7 +2484,7 @@ export default function CashierClient() {
             {total.toFixed(2)}
           </strong>
 
-          {student && (
+          {!isGuestMode && student && (
             <>
               <br />
 
@@ -2203,6 +2531,236 @@ export default function CashierClient() {
             </>
           )}
 
+          {isGuestMode &&
+            cart.length > 0 && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 14,
+                  border:
+                    "1px solid #d1d5db",
+                  borderRadius: 12,
+                  background:
+                    "#f9fafb",
+                }}
+              >
+                <strong>
+                  Payment Method
+                </strong>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "1fr 1fr",
+                    gap: 8,
+                    marginTop: 10,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className={
+                      guestPaymentMethod ===
+                      "CASH"
+                        ? "primary"
+                        : "secondary"
+                    }
+                    disabled={busy}
+                    onClick={() => {
+                      setGuestPaymentMethod(
+                        "CASH",
+                      );
+                      setCashReceived(
+                        "",
+                      );
+
+                      window.setTimeout(
+                        () => {
+                          cashReceivedInputRef.current?.focus();
+                          cashReceivedInputRef.current?.select();
+                        },
+                        50,
+                      );
+                    }}
+                  >
+                    Cash
+                  </button>
+
+                  <button
+                    type="button"
+                    className={
+                      guestPaymentMethod ===
+                      "CARD"
+                        ? "primary"
+                        : "secondary"
+                    }
+                    disabled={busy}
+                    onClick={() => {
+                      setGuestPaymentMethod(
+                        "CARD",
+                      );
+                      setCashReceived(
+                        "",
+                      );
+                    }}
+                  >
+                    Card
+                  </button>
+                </div>
+
+                {!guestPaymentMethod && (
+                  <p
+                    className="subtle compact"
+                    style={{
+                      marginTop: 10,
+                    }}
+                  >
+                    Ask the customer how they would like to pay.
+                  </p>
+                )}
+
+                {guestPaymentMethod ===
+                  "CARD" && (
+                  <p
+                    className="success"
+                    style={{
+                      marginTop: 10,
+                    }}
+                  >
+                    Card payment selected.
+                  </p>
+                )}
+
+                {guestPaymentMethod ===
+                  "CASH" && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                    }}
+                  >
+                    <label className="label">
+                      Cash received
+
+                      <input
+                        ref={
+                          cashReceivedInputRef
+                        }
+                        className="input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputMode="decimal"
+                        value={
+                          cashReceived
+                        }
+                        onChange={(
+                          event,
+                        ) =>
+                          setCashReceived(
+                            event.target.value,
+                          )
+                        }
+                        placeholder={
+                          total.toFixed(
+                            2,
+                          )
+                        }
+                      />
+                    </label>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(4, minmax(0, 1fr))",
+                        gap: 6,
+                        marginTop: 8,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          setCashReceived(
+                            total.toFixed(
+                              2,
+                            ),
+                          )
+                        }
+                        style={{
+                          width: "100%",
+                          minHeight: 42,
+                        }}
+                      >
+                        Exact
+                      </button>
+
+                      {[5, 10, 15, 20, 50, 100].map(
+                        (amount) => (
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={busy}
+                            key={amount}
+                            onClick={() =>
+                              setCashReceived(
+                                amount.toFixed(
+                                  2,
+                                ),
+                              )
+                            }
+                            style={{
+                              width: "100%",
+                              minHeight: 42,
+                            }}
+                          >
+                            ${amount}
+                          </button>
+                        ),
+                      )}
+                    </div>
+
+                    {cashReceived &&
+                      cashRemaining >
+                        0.0001 && (
+                        <p
+                          className="alert"
+                          style={{
+                            marginTop: 10,
+                            marginBottom: 0,
+                          }}
+                        >
+                          Remaining: $
+                          {cashRemaining.toFixed(
+                            2,
+                          )}
+                        </p>
+                      )}
+
+                    {cashReceived &&
+                      cashRemaining <=
+                        0.0001 && (
+                        <p
+                          className="success"
+                          style={{
+                            marginTop: 10,
+                            marginBottom: 0,
+                            fontSize: 18,
+                            fontWeight: 700,
+                          }}
+                        >
+                          Change: $
+                          {cashChange.toFixed(
+                            2,
+                          )}
+                        </p>
+                      )}
+                  </div>
+                )}
+              </div>
+            )}
+
           <div
             style={{
               height: 14,
@@ -2212,10 +2770,12 @@ export default function CashierClient() {
           <button
             type="button"
             disabled={
-              !student ||
+              !saleReady ||
               busy ||
               total <= 0 ||
-              cart.length === 0
+              cart.length === 0 ||
+              (isGuestMode &&
+                !guestPaymentReady)
             }
             className="primary"
             style={{
@@ -2225,16 +2785,18 @@ export default function CashierClient() {
             }}
             onClick={() => void confirm(true)}
           >
-            {busy ? "Processing…" : "Confirm & Print"}
+            {busy ? "Processing…" : isGuestMode ? "Place & Print" : "Confirm & Print"}
           </button>
 
           <button
             type="button"
             disabled={
-              !student ||
+              !saleReady ||
               busy ||
               total <= 0 ||
-              cart.length === 0
+              cart.length === 0 ||
+              (isGuestMode &&
+                !guestPaymentReady)
             }
             className="secondary"
             style={{
@@ -2245,7 +2807,7 @@ export default function CashierClient() {
             }}
             onClick={() => void confirm(false)}
           >
-            Confirm Sale
+            {isGuestMode ? "Complete Sale" : "Confirm Sale"}
           </button>
 
           {message &&
@@ -2366,14 +2928,9 @@ export default function CashierClient() {
                             "nowrap",
                         }}
                       >
-                        {
-                          sale.student
-                            .firstName
-                        }{" "}
-                        {
-                          sale.student
-                            .lastName
-                        }
+                        {sale.student
+                          ? `${sale.student.firstName} ${sale.student.lastName}`
+                          : "Guest / Walk-in"}
                       </strong>
 
                       <strong>
@@ -2399,7 +2956,8 @@ export default function CashierClient() {
                             minute:
                               "2-digit",
                           },
-                        )}
+                        )}{" "}
+                        · {sale.paymentMethod}
                       </span>
 
                       <span className="subtle compact">
@@ -2516,21 +3074,17 @@ export default function CashierClient() {
               }}
             >
               <strong>
-                {
-                  selectedRecentSale
-                    .student.firstName
-                }{" "}
-                {
-                  selectedRecentSale
-                    .student.lastName
-                }
+                {selectedRecentSale.student
+                  ? `${selectedRecentSale.student.firstName} ${selectedRecentSale.student.lastName}`
+                  : "Guest / Walk-in"}
               </strong>
 
               <div className="subtle compact">
-                {
-                  selectedRecentSale
-                    .student.displayCode
-                }
+                {selectedRecentSale.student
+                  ?.displayCode ??
+                  "GUEST"}
+                {" · "}
+                {selectedRecentSale.paymentMethod}
               </div>
 
               <div
@@ -3095,13 +3649,18 @@ export default function CashierClient() {
           </div>
 
           <div>
-            <strong>Student:</strong>{" "}
-            {printLabel.studentName}
+            <strong>Customer:</strong>{" "}
+            {printLabel.customerName}
           </div>
 
           <div>
             <strong>Code:</strong>{" "}
-            {printLabel.studentCode}
+            {printLabel.customerCode}
+          </div>
+
+          <div>
+            <strong>Payment:</strong>{" "}
+            {printLabel.paymentMethod}
           </div>
 
           <div style={{ marginBottom: 10 }}>

@@ -222,22 +222,30 @@ export default async function PurchaseHistoryPage({
     ]);
 
   const purchases = [
-    ...sales.map((sale) => ({
-      id: sale.id,
-      number: sale.saleNumber,
-      type: "Purchase",
-      date: sale.createdAt,
-      student: sale.student,
-      total: Number(sale.total),
+    ...sales.flatMap((sale) => {
+      if (!sale.student) {
+        return [];
+      }
 
-      items: sale.items.map((item) => ({
-        name: item.productNameSnapshot,
-        quantity: item.quantity,
-        options: item.options.map(
-          (option) => option.optionName,
-        ),
-      })),
-    })),
+      return [
+        {
+          id: sale.id,
+          number: sale.saleNumber,
+          type: "Purchase",
+          date: sale.createdAt,
+          student: sale.student,
+          total: Number(sale.total),
+
+          items: sale.items.map((item) => ({
+            name: item.productNameSnapshot,
+            quantity: item.quantity,
+            options: item.options.map(
+              (option) => option.optionName,
+            ),
+          })),
+        },
+      ];
+    }),
 
     ...preOrders.map((order) => ({
       id: order.id,

@@ -10,6 +10,8 @@ import { queueParentNotification } from "@/lib/notifications";
 import {
   NotificationEvent,
   Prisma,
+  SaleCustomerType,
+  SalePaymentMethod,
   StudentStatus,
   UserRole,
   UserStatus,
@@ -224,6 +226,249 @@ export async function getCashierProducts() {
 }
 
 
+async function buildValidatedSaleLines(
+  tx: Prisma.TransactionClient,
+  cleanItems: CartLine[],
+) {
+  const uniqueProductIds = [
+    ...new Set(
+      cleanItems.map(
+        (item) => item.productId,
+      ),
+    ),
+  ];
+
+  const products =
+    await tx.product.findMany({
+      where: {
+        id: {
+          in: uniqueProductIds,
+        },
+        isActive: true,
+        deletedAt: null,
+      },
+      include: {
+        optionGroups: {
+          where: {
+            isActive: true,
+          },
+          orderBy: [
+            { sortOrder: "asc" },
+            { name: "asc" },
+          ],
+          include: {
+            options: {
+              where: {
+                isActive: true,
+              },
+              orderBy: [
+                { sortOrder: "asc" },
+                { name: "asc" },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+  if (
+    products.length !==
+    uniqueProductIds.length
+  ) {
+    throw new Error(
+      "A product is unavailable",
+    );
+  }
+
+  const productMap = new Map(
+    products.map((product) => [
+      product.id,
+      product,
+    ]),
+  );
+
+  const normalizedItems =
+    cleanItems.map((line) => {
+      const product =
+        productMap.get(
+          line.productId,
+        );
+
+      if (!product) {
+        throw new Error(
+          "A product is unavailable",
+        );
+      }
+
+      const requestedOptionIds = [
+        ...new Set(
+          (line.optionIds ?? []).filter(
+            Boolean,
+          ),
+        ),
+      ];
+
+      const allOptions =
+        product.optionGroups.flatMap(
+          (group) =>
+            group.options,
+        );
+
+      const selectedOptions =
+        allOptions.filter((option) =>
+          requestedOptionIds.includes(
+            option.id,
+          ),
+        );
+
+      if (
+        selectedOptions.length !==
+        requestedOptionIds.length
+      ) {
+        throw new Error(
+          `Invalid options selected for ${product.name}`,
+        );
+      }
+
+      for (const group of
+        product.optionGroups) {
+        const groupOptionIds =
+          group.options.map(
+            (option) => option.id,
+          );
+
+        const selectedInGroup =
+          selectedOptions.filter(
+            (option) =>
+              groupOptionIds.includes(
+                option.id,
+              ),
+          );
+
+        const count =
+          selectedInGroup.length;
+
+        const minimum = Math.max(
+          group.minSelections,
+          group.isRequired ? 1 : 0,
+        );
+
+        if (count < minimum) {
+          throw new Error(
+            `${group.name} requires at least ${minimum} selection${
+              minimum === 1 ? "" : "s"
+            } for ${product.name}`,
+          );
+        }
+
+        if (
+          group.maxSelections > 0 &&
+          count > group.maxSelections
+        ) {
+          throw new Error(
+            `${group.name} allows a maximum of ${group.maxSelections} selections for ${product.name}`,
+          );
+        }
+      }
+
+      const optionsTotal =
+        selectedOptions.reduce(
+          (sum, option) =>
+            sum.add(
+              option.additionalPrice,
+            ),
+          new Prisma.Decimal(0),
+        );
+
+      const unitPrice =
+        product.price.add(
+          optionsTotal,
+        );
+
+      const lineTotal =
+        unitPrice.mul(
+          line.quantity,
+        );
+
+      return {
+        product,
+        quantity: line.quantity,
+        selectedOptions,
+        unitPrice,
+        lineTotal,
+      };
+    });
+
+  let total =
+    new Prisma.Decimal(0);
+
+  for (const line of
+    normalizedItems) {
+    total = total.add(
+      line.lineTotal,
+    );
+  }
+
+  return {
+    normalizedItems,
+    total,
+  };
+}
+
+async function createSaleItems(
+  tx: Prisma.TransactionClient,
+  saleId: string,
+  normalizedItems: Awaited<
+    ReturnType<
+      typeof buildValidatedSaleLines
+    >
+  >["normalizedItems"],
+) {
+  for (const line of
+    normalizedItems) {
+    const saleItem =
+      await tx.saleItem.create({
+        data: {
+          id: randomUUID(),
+          saleId,
+          productId:
+            line.product.id,
+          productNameSnapshot:
+            line.product.name,
+          quantity:
+            line.quantity,
+          unitPrice:
+            line.unitPrice,
+          lineTotal:
+            line.lineTotal,
+        },
+      });
+
+    if (
+      line.selectedOptions.length > 0
+    ) {
+      await tx.saleItemOption.createMany({
+        data:
+          line.selectedOptions.map(
+            (option) => ({
+              id: randomUUID(),
+              saleItemId:
+                saleItem.id,
+              productOptionId:
+                option.id,
+              optionName:
+                option.name,
+              additionalPrice:
+                option.additionalPrice,
+              quantity: 1,
+            }),
+          ),
+      });
+    }
+  }
+}
+
+
 export async function getRecentCashierSales(
   limit = 5,
 ) {
@@ -308,16 +553,22 @@ export async function getRecentCashierSales(
     total: sale.total.toFixed(2),
     createdAt:
       sale.createdAt.toISOString(),
+    customerType:
+      sale.customerType,
+    paymentMethod:
+      sale.paymentMethod,
 
-    student: {
-      id: sale.student.id,
-      firstName:
-        sale.student.firstName,
-      lastName:
-        sale.student.lastName,
-      displayCode:
-        sale.student.displayCode,
-    },
+    student: sale.student
+      ? {
+          id: sale.student.id,
+          firstName:
+            sale.student.firstName,
+          lastName:
+            sale.student.lastName,
+          displayCode:
+            sale.student.displayCode,
+        }
+      : null,
 
     items: sale.items.map(
       (item) => ({
@@ -348,7 +599,14 @@ export async function getRecentCashierSales(
 
 export async function createCashierSale(
   input: {
-    studentId: string;
+    studentId?: string;
+    customerType?:
+      | "STUDENT"
+      | "GUEST";
+    paymentMethod?:
+      | "WALLET"
+      | "CASH"
+      | "CARD";
     items: CartLine[];
     idempotencyKey: string;
     adminPassword?: string;
@@ -383,6 +641,45 @@ export async function createCashierSale(
     return {
       ok: false,
       error: "Unauthorized",
+    };
+  }
+
+  const customerType =
+    input.customerType === "GUEST"
+      ? SaleCustomerType.GUEST
+      : SaleCustomerType.STUDENT;
+
+  const paymentMethod =
+    input.paymentMethod === "CASH"
+      ? SalePaymentMethod.CASH
+      : input.paymentMethod === "CARD"
+        ? SalePaymentMethod.CARD
+        : SalePaymentMethod.WALLET;
+
+  if (
+    customerType ===
+      SaleCustomerType.STUDENT &&
+    (!input.studentId ||
+      paymentMethod !==
+        SalePaymentMethod.WALLET)
+  ) {
+    return {
+      ok: false,
+      error:
+        "Student sales require a student and WALLET payment",
+    };
+  }
+
+  if (
+    customerType ===
+      SaleCustomerType.GUEST &&
+    paymentMethod ===
+      SalePaymentMethod.WALLET
+  ) {
+    return {
+      ok: false,
+      error:
+        "Guest sales must be paid by CASH or CARD",
     };
   }
 
@@ -453,6 +750,96 @@ export async function createCashierSale(
           };
         }
 
+        if (
+          customerType ===
+          SaleCustomerType.GUEST
+        ) {
+          const guestSchoolId =
+            session.user.schoolId;
+
+          if (!guestSchoolId) {
+            return {
+              ok: false,
+              error:
+                "Guest sales require a staff account assigned to a school",
+            };
+          }
+
+          const school =
+            await tx.school.findFirst({
+              where: {
+                id: guestSchoolId,
+                isActive: true,
+                deletedAt: null,
+              },
+              select: {
+                id: true,
+              },
+            });
+
+          if (!school) {
+            return {
+              ok: false,
+              error:
+                "School is not active or unavailable",
+            };
+          }
+
+          const {
+            normalizedItems,
+            total,
+          } =
+            await buildValidatedSaleLines(
+              tx,
+              cleanItems,
+            );
+
+          const sale =
+            await tx.sale.create({
+              data: {
+                id: randomUUID(),
+                saleNumber:
+                  `SALE-${Date.now()}-${randomUUID()
+                    .slice(0, 6)
+                    .toUpperCase()}`,
+                idempotencyKey:
+                  input.idempotencyKey,
+                schoolId:
+                  school.id,
+                studentId: null,
+                walletId: null,
+                cashierUserId:
+                  session.user.id,
+                customerType:
+                  SaleCustomerType.GUEST,
+                paymentMethod,
+                subtotal: total,
+                total,
+                isOverdraftOverride:
+                  false,
+                overrideApprovedById:
+                  null,
+              },
+            });
+
+          await createSaleItems(
+            tx,
+            sale.id,
+            normalizedItems,
+          );
+
+          return {
+            ok: true,
+            saleId: sale.id,
+            saleNumber:
+              sale.saleNumber,
+            total:
+              total.toFixed(2),
+            balanceAfter: "",
+            overdraft: false,
+          };
+        }
+
         /*
          * ------------------------------------------------------------
          * STUDENT
@@ -462,7 +849,7 @@ export async function createCashierSale(
         const student =
           await tx.student.findFirst({
             where: {
-              id: input.studentId,
+              id: input.studentId!,
 
               ...(schoolId
                 ? {
@@ -519,258 +906,14 @@ export async function createCashierSale(
           );
         }
 
-        /*
-         * ------------------------------------------------------------
-         * PRODUCTS + OPTIONS
-         * ------------------------------------------------------------
-         */
-
-        const uniqueProductIds = [
-          ...new Set(
-            cleanItems.map(
-              (item) => item.productId,
-            ),
-          ),
-        ];
-
-        const products =
-          await tx.product.findMany({
-            where: {
-              id: {
-                in: uniqueProductIds,
-              },
-
-              isActive: true,
-              deletedAt: null,
-            },
-
-            include: {
-              optionGroups: {
-                where: {
-                  isActive: true,
-                },
-
-                orderBy: [
-                  {
-                    sortOrder: "asc",
-                  },
-
-                  {
-                    name: "asc",
-                  },
-                ],
-
-                include: {
-                  options: {
-                    where: {
-                      isActive: true,
-                    },
-
-                    orderBy: [
-                      {
-                        sortOrder: "asc",
-                      },
-
-                      {
-                        name: "asc",
-                      },
-                    ],
-                  },
-                },
-              },
-            },
-          });
-
-        if (
-          products.length !==
-          uniqueProductIds.length
-        ) {
-          throw new Error(
-            "A product is unavailable",
+        const {
+          normalizedItems,
+          total,
+        } =
+          await buildValidatedSaleLines(
+            tx,
+            cleanItems,
           );
-        }
-
-        const productMap =
-          new Map(
-            products.map(
-              (product) => [
-                product.id,
-                product,
-              ],
-            ),
-          );
-
-        /*
-         * ------------------------------------------------------------
-         * VALIDATE OPTIONS
-         * ------------------------------------------------------------
-         */
-
-        const normalizedItems =
-          cleanItems.map(
-            (line) => {
-              const product =
-                productMap.get(
-                  line.productId,
-                );
-
-              if (!product) {
-                throw new Error(
-                  "A product is unavailable",
-                );
-              }
-
-              const requestedOptionIds =
-                [
-                  ...new Set(
-                    (
-                      line.optionIds ??
-                      []
-                    ).filter(
-                      Boolean,
-                    ),
-                  ),
-                ];
-
-              const allOptions =
-                product.optionGroups.flatMap(
-                  (group) =>
-                    group.options,
-                );
-
-              const selectedOptions =
-                allOptions.filter(
-                  (option) =>
-                    requestedOptionIds.includes(
-                      option.id,
-                    ),
-                );
-
-              /*
-               * Prevent selecting an option
-               * belonging to another product.
-               */
-
-              if (
-                selectedOptions.length !==
-                requestedOptionIds.length
-              ) {
-                throw new Error(
-                  `Invalid options selected for ${product.name}`,
-                );
-              }
-
-              /*
-               * Validate every group.
-               */
-
-              for (const group of
-                product.optionGroups) {
-                const groupOptionIds =
-                  group.options.map(
-                    (option) =>
-                      option.id,
-                  );
-
-                const selectedInGroup =
-                  selectedOptions.filter(
-                    (option) =>
-                      groupOptionIds.includes(
-                        option.id,
-                      ),
-                  );
-
-                const count =
-                  selectedInGroup.length;
-
-                const minimum =
-                  Math.max(
-                    group.minSelections,
-                    group.isRequired
-                      ? 1
-                      : 0,
-                  );
-
-                if (
-                  count < minimum
-                ) {
-                  throw new Error(
-                    `${group.name} requires at least ${minimum} selection${
-                      minimum === 1
-                        ? ""
-                        : "s"
-                    } for ${product.name}`,
-                  );
-                }
-
-                if (
-                  group.maxSelections >
-                    0 &&
-                  count >
-                    group.maxSelections
-                ) {
-                  throw new Error(
-                    `${group.name} allows a maximum of ${group.maxSelections} selections for ${product.name}`,
-                  );
-                }
-              }
-
-              /*
-               * Calculate option surcharge
-               * from the database.
-               */
-
-              const optionsTotal =
-                selectedOptions.reduce(
-                  (
-                    sum,
-                    option,
-                  ) =>
-                    sum.add(
-                      option.additionalPrice,
-                    ),
-
-                  new Prisma.Decimal(
-                    0,
-                  ),
-                );
-
-              const unitPrice =
-                product.price.add(
-                  optionsTotal,
-                );
-
-              const lineTotal =
-                unitPrice.mul(
-                  line.quantity,
-                );
-
-              return {
-                product,
-                quantity:
-                  line.quantity,
-                selectedOptions,
-                unitPrice,
-                lineTotal,
-              };
-            },
-          );
-
-        /*
-         * ------------------------------------------------------------
-         * TOTAL
-         * ------------------------------------------------------------
-         */
-
-        let total =
-          new Prisma.Decimal(0);
-
-        for (const line of
-          normalizedItems) {
-          total = total.add(
-            line.lineTotal,
-          );
-        }
 
         /*
          * ------------------------------------------------------------
@@ -1068,6 +1211,12 @@ export async function createCashierSale(
               cashierUserId:
                 session.user.id,
 
+              customerType:
+                SaleCustomerType.STUDENT,
+
+              paymentMethod:
+                SalePaymentMethod.WALLET,
+
               subtotal: total,
 
               total,
@@ -1082,73 +1231,11 @@ export async function createCashierSale(
             },
           });
 
-        /*
-         * ------------------------------------------------------------
-         * CREATE SALE ITEMS
-         * ------------------------------------------------------------
-         */
-
-        for (const line of
-          normalizedItems) {
-          const saleItem =
-            await tx.saleItem.create({
-              data: {
-                id: randomUUID(),
-
-                saleId:
-                  sale.id,
-
-                productId:
-                  line.product.id,
-
-                productNameSnapshot:
-                  line.product.name,
-
-                quantity:
-                  line.quantity,
-
-                unitPrice:
-                  line.unitPrice,
-
-                lineTotal:
-                  line.lineTotal,
-              },
-            });
-
-          /*
-           * ----------------------------------------------------------
-           * CREATE SALE ITEM OPTIONS
-           * ----------------------------------------------------------
-           */
-
-          if (
-            line.selectedOptions.length >
-            0
-          ) {
-            await tx.saleItemOption.createMany({
-              data:
-                line.selectedOptions.map(
-                  (option) => ({
-                    id: randomUUID(),
-
-                    saleItemId:
-                      saleItem.id,
-
-                    productOptionId:
-                      option.id,
-
-                    optionName:
-                      option.name,
-
-                    additionalPrice:
-                      option.additionalPrice,
-
-                    quantity: 1,
-                  }),
-                ),
-            });
-          }
-        }
+        await createSaleItems(
+          tx,
+          sale.id,
+          normalizedItems,
+        );
 
         /*
          * ------------------------------------------------------------
