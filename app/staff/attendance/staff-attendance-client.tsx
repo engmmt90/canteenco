@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   clockInStaff,
@@ -9,23 +13,53 @@ import {
 } from "@/app/actions/staff-attendance";
 
 type LookupSuccess = Extract<
-  Awaited<ReturnType<typeof lookupStaffByNfc>>,
+  Awaited<
+    ReturnType<
+      typeof lookupStaffByNfc
+    >
+  >,
   { ok: true }
 >;
 
 export default function StaffAttendanceClient() {
-  const [nfc, setNfc] = useState("");
+  const [nfc, setNfc] =
+    useState("");
+
+  /*
+   * Keep the NFC value after a
+   * successful lookup.
+   *
+   * This is what will be sent back
+   * to the server for Clock In /
+   * Clock Out instead of staff.id.
+   */
+  const [
+    verifiedNfc,
+    setVerifiedNfc,
+  ] = useState("");
+
   const [lookup, setLookup] =
-    useState<LookupSuccess | null>(null);
+    useState<LookupSuccess | null>(
+      null,
+    );
+
   const [
     selectedSchoolId,
     setSelectedSchoolId,
   ] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
+
+  const [
+    message,
+    setMessage,
+  ] = useState("");
+
+  const [busy, setBusy] =
+    useState(false);
 
   const nfcRef =
-    useRef<HTMLInputElement | null>(null);
+    useRef<HTMLInputElement | null>(
+      null,
+    );
 
   function focusNfc() {
     window.setTimeout(() => {
@@ -36,6 +70,7 @@ export default function StaffAttendanceClient() {
 
   function resetForNextCard() {
     setNfc("");
+    setVerifiedNfc("");
     setLookup(null);
     setSelectedSchoolId("");
     focusNfc();
@@ -46,9 +81,13 @@ export default function StaffAttendanceClient() {
   }, []);
 
   async function scanCard() {
-    const card = nfc.trim();
+    const card =
+      nfc.trim();
 
-    if (!card || busy) {
+    if (
+      !card ||
+      busy
+    ) {
       focusNfc();
       return;
     }
@@ -58,28 +97,55 @@ export default function StaffAttendanceClient() {
 
     try {
       const result =
-        await lookupStaffByNfc(card);
+        await lookupStaffByNfc(
+          card,
+        );
 
       if (!result.ok) {
         setLookup(null);
-        setMessage(result.error);
+        setVerifiedNfc("");
+        setMessage(
+          result.error,
+        );
         setNfc("");
         focusNfc();
+
         return;
       }
 
-      setLookup(result);
+      /*
+       * Keep the exact NFC value
+       * that was successfully
+       * verified by the server.
+       */
+      setVerifiedNfc(
+        card,
+      );
 
-      if (result.openAttendance) {
+      setLookup(
+        result,
+      );
+
+      if (
+        result.openAttendance
+      ) {
         setSelectedSchoolId(
-          result.openAttendance.schoolId,
+          result
+            .openAttendance
+            .schoolId,
         );
       } else {
         setSelectedSchoolId(
-          result.schools[0]?.id ?? "",
+          result.schools[0]
+            ?.id ?? "",
         );
       }
 
+      /*
+       * Clear the visible NFC field.
+       * The verified value remains in
+       * verifiedNfc until the action.
+       */
       setNfc("");
     } finally {
       setBusy(false);
@@ -90,6 +156,7 @@ export default function StaffAttendanceClient() {
     if (
       !lookup ||
       !selectedSchoolId ||
+      !verifiedNfc ||
       busy
     ) {
       return;
@@ -98,27 +165,53 @@ export default function StaffAttendanceClient() {
     setBusy(true);
     setMessage("");
 
+    /*
+     * Copy the verified card before
+     * clearing it.
+     *
+     * We treat each verified NFC scan
+     * as single-use.
+     */
+    const card =
+      verifiedNfc;
+
+    setVerifiedNfc("");
+
     try {
       const result =
         await clockInStaff({
-          staffUserId:
-            lookup.staff.id,
+          nfcCardNumber:
+            card,
+
           schoolId:
             selectedSchoolId,
         });
 
       if (!result.ok) {
-        setMessage(result.error);
+        setMessage(
+          result.error,
+        );
+
+        window.setTimeout(
+          resetForNextCard,
+          1800,
+        );
+
         return;
       }
 
       setMessage(
         `✓ ${result.fullName} clocked in at ${result.schoolName} at ${new Date(
           result.timestamp,
-        ).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}.`,
+        ).toLocaleTimeString(
+          [],
+          {
+            hour:
+              "2-digit",
+            minute:
+              "2-digit",
+          },
+        )}.`,
       );
 
       window.setTimeout(
@@ -131,31 +224,58 @@ export default function StaffAttendanceClient() {
   }
 
   async function clockOut() {
-    if (!lookup || busy) {
+    if (
+      !lookup ||
+      !verifiedNfc ||
+      busy
+    ) {
       return;
     }
 
     setBusy(true);
     setMessage("");
 
+    /*
+     * Again, the server receives the
+     * NFC value and derives staff.id
+     * itself.
+     */
+    const card =
+      verifiedNfc;
+
+    setVerifiedNfc("");
+
     try {
       const result =
         await clockOutStaff(
-          lookup.staff.id,
+          card,
         );
 
       if (!result.ok) {
-        setMessage(result.error);
+        setMessage(
+          result.error,
+        );
+
+        window.setTimeout(
+          resetForNextCard,
+          1800,
+        );
+
         return;
       }
 
       setMessage(
         `✓ ${result.fullName} clocked out from ${result.schoolName} at ${new Date(
           result.timestamp,
-        ).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        })}.`,
+        ).toLocaleTimeString(
+          [],
+          {
+            hour:
+              "2-digit",
+            minute:
+              "2-digit",
+          },
+        )}.`,
       );
 
       window.setTimeout(
@@ -182,17 +302,27 @@ export default function StaffAttendanceClient() {
             ref={nfcRef}
             className="input"
             value={nfc}
-            onChange={(event) => {
+            onChange={(
+              event,
+            ) => {
               setNfc(
-                event.target.value,
+                event.target
+                  .value,
               );
-              setMessage("");
+
+              setMessage(
+                "",
+              );
             }}
-            onKeyDown={(event) => {
+            onKeyDown={(
+              event,
+            ) => {
               if (
-                event.key === "Enter"
+                event.key ===
+                "Enter"
               ) {
                 event.preventDefault();
+
                 void scanCard();
               }
             }}
@@ -208,7 +338,8 @@ export default function StaffAttendanceClient() {
             void scanCard()
           }
           disabled={
-            busy || !nfc.trim()
+            busy ||
+            !nfc.trim()
           }
         >
           {busy
@@ -221,25 +352,42 @@ export default function StaffAttendanceClient() {
         <section className="panel">
           <div
             style={{
-              display: "flex",
+              display:
+                "flex",
+
               justifyContent:
                 "space-between",
+
               gap: 12,
-              flexWrap: "wrap",
+
+              flexWrap:
+                "wrap",
             }}
           >
             <div>
               <h2
                 style={{
-                  marginTop: 0,
-                  marginBottom: 4,
+                  marginTop:
+                    0,
+
+                  marginBottom:
+                    4,
                 }}
               >
-                {lookup.staff.fullName}
+                {
+                  lookup
+                    .staff
+                    .fullName
+                }
               </h2>
 
               <p className="subtle compact">
-                {lookup.staff.role}
+                {
+                  lookup
+                    .staff
+                    .role
+                }
+
                 {lookup.staff
                   .baseSchoolName
                   ? ` · Base: ${lookup.staff.baseSchoolName}`
@@ -277,7 +425,8 @@ export default function StaffAttendanceClient() {
               <p className="subtle compact">
                 Since{" "}
                 {new Date(
-                  lookup.openAttendance
+                  lookup
+                    .openAttendance
                     .clockInAt,
                 ).toLocaleString()}
               </p>
@@ -286,9 +435,13 @@ export default function StaffAttendanceClient() {
                 type="button"
                 className="primary"
                 style={{
-                  width: "100%",
+                  width:
+                    "100%",
                 }}
-                disabled={busy}
+                disabled={
+                  busy ||
+                  !verifiedNfc
+                }
                 onClick={() =>
                   void clockOut()
                 }
@@ -310,19 +463,31 @@ export default function StaffAttendanceClient() {
                   value={
                     selectedSchoolId
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     setSelectedSchoolId(
-                      event.target.value,
+                      event
+                        .target
+                        .value,
                     )
                   }
                 >
                   {lookup.schools.map(
-                    (school) => (
+                    (
+                      school,
+                    ) => (
                       <option
-                        key={school.id}
-                        value={school.id}
+                        key={
+                          school.id
+                        }
+                        value={
+                          school.id
+                        }
                       >
-                        {school.name}
+                        {
+                          school.name
+                        }
                       </option>
                     ),
                   )}
@@ -333,11 +498,13 @@ export default function StaffAttendanceClient() {
                 type="button"
                 className="primary"
                 style={{
-                  width: "100%",
+                  width:
+                    "100%",
                 }}
                 disabled={
                   busy ||
-                  !selectedSchoolId
+                  !selectedSchoolId ||
+                  !verifiedNfc
                 }
                 onClick={() =>
                   void clockIn()
@@ -355,7 +522,9 @@ export default function StaffAttendanceClient() {
       {message && (
         <p
           className={
-            message.startsWith("✓")
+            message.startsWith(
+              "✓",
+            )
               ? "success"
               : "alert"
           }

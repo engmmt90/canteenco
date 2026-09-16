@@ -2,7 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 
-const STAFF_ROLES = ["CASHIER", "SCHOOL_ADMIN", "STAFF"] as const;
+const STAFF_ROLES = [
+  "CASHIER",
+  "SCHOOL_ADMIN",
+  "STAFF",
+] as const;
 
 function isStaffRole(role: string) {
   return STAFF_ROLES.includes(
@@ -13,35 +17,45 @@ function isStaffRole(role: string) {
 export async function lookupStaffByNfc(
   nfcCardNumber: string,
 ) {
-  const card = nfcCardNumber.trim();
+  const card =
+    nfcCardNumber.trim();
 
   if (!card) {
     return {
       ok: false as const,
-      error: "Please scan an NFC card.",
+      error:
+        "Please scan an NFC card.",
     };
   }
 
-  const staff = await prisma.user.findUnique({
-    where: { nfcCardNumber: card },
-    include: {
-      school: {
-        select: { id: true, name: true },
+  const staff =
+    await prisma.user.findUnique({
+      where: {
+        nfcCardNumber: card,
       },
-      staffSchoolAccess: {
-        include: {
-          school: {
-            select: {
-              id: true,
-              name: true,
-              isActive: true,
-              deletedAt: true,
+
+      include: {
+        school: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+
+        staffSchoolAccess: {
+          include: {
+            school: {
+              select: {
+                id: true,
+                name: true,
+                isActive: true,
+                deletedAt: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
   if (
     !staff ||
@@ -62,55 +76,92 @@ export async function lookupStaffByNfc(
         staffUserId: staff.id,
         clockOutAt: null,
       },
+
       include: {
         school: {
-          select: { name: true },
+          select: {
+            name: true,
+          },
         },
       },
-      orderBy: { clockInAt: "desc" },
-    });
 
-  let schools: { id: string; name: string }[] = [];
-
-  if (staff.canWorkAllSchools) {
-    schools = await prisma.school.findMany({
-      where: {
-        isActive: true,
-        deletedAt: null,
+      orderBy: {
+        clockInAt: "desc",
       },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
     });
+
+  let schools: {
+    id: string;
+    name: string;
+  }[] = [];
+
+  if (
+    staff.canWorkAllSchools
+  ) {
+    schools =
+      await prisma.school.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+        },
+
+        select: {
+          id: true,
+          name: true,
+        },
+
+        orderBy: {
+          name: "asc",
+        },
+      });
   } else {
-    schools = staff.staffSchoolAccess
-      .filter(
-        (access) =>
-          access.school.isActive &&
-          !access.school.deletedAt,
-      )
-      .map((access) => ({
-        id: access.school.id,
-        name: access.school.name,
-      }))
-      .sort((a, b) =>
-        a.name.localeCompare(b.name),
-      );
+    schools =
+      staff.staffSchoolAccess
+        .filter(
+          (access) =>
+            access.school
+              .isActive &&
+            !access.school
+              .deletedAt,
+        )
+        .map((access) => ({
+          id:
+            access.school.id,
+
+          name:
+            access.school.name,
+        }))
+        .sort((a, b) =>
+          a.name.localeCompare(
+            b.name,
+          ),
+        );
   }
 
+  /*
+   * Make sure the staff member's
+   * base school is available too.
+   */
   if (
     staff.school &&
     !schools.some(
       (school) =>
-        school.id === staff.school?.id,
+        school.id ===
+        staff.school?.id,
     )
   ) {
     schools.unshift({
-      id: staff.school.id,
-      name: staff.school.name,
+      id:
+        staff.school.id,
+
+      name:
+        staff.school.name,
     });
   }
 
-  if (schools.length === 0) {
+  if (
+    schools.length === 0
+  ) {
     return {
       ok: false as const,
       error:
@@ -120,40 +171,95 @@ export async function lookupStaffByNfc(
 
   return {
     ok: true as const,
+
+    /*
+     * Do not expose staff.id as
+     * authentication proof.
+     *
+     * Clock In / Clock Out will
+     * identify the staff member
+     * again from the NFC card.
+     */
     staff: {
-      id: staff.id,
-      fullName: staff.fullName,
-      role: staff.role,
+      fullName:
+        staff.fullName,
+
+      role:
+        staff.role,
+
       baseSchoolName:
-        staff.school?.name ?? null,
+        staff.school?.name ??
+        null,
     },
-    openAttendance: openAttendance
-      ? {
-          id: openAttendance.id,
-          schoolId: openAttendance.schoolId,
-          schoolName:
-            openAttendance.school.name,
-          clockInAt:
-            openAttendance.clockInAt.toISOString(),
-        }
-      : null,
+
+    openAttendance:
+      openAttendance
+        ? {
+            schoolId:
+              openAttendance.schoolId,
+
+            schoolName:
+              openAttendance
+                .school.name,
+
+            clockInAt:
+              openAttendance
+                .clockInAt
+                .toISOString(),
+          }
+        : null,
+
     schools,
   };
 }
 
-export async function clockInStaff(input: {
-  staffUserId: string;
-  schoolId: string;
-}) {
-  const staff = await prisma.user.findUnique({
-    where: { id: input.staffUserId },
-    include: {
-      school: { select: { id: true } },
-      staffSchoolAccess: {
-        select: { schoolId: true },
+export async function clockInStaff(
+  input: {
+    nfcCardNumber: string;
+    schoolId: string;
+  },
+) {
+  const card =
+    input.nfcCardNumber.trim();
+
+  if (!card) {
+    return {
+      ok: false as const,
+      error:
+        "Please scan your NFC card again.",
+    };
+  }
+
+  /*
+   * SECURITY:
+   *
+   * Never trust a staff ID
+   * supplied by the browser.
+   *
+   * Resolve the staff member
+   * again from the NFC card
+   * on the trusted server.
+   */
+  const staff =
+    await prisma.user.findUnique({
+      where: {
+        nfcCardNumber: card,
       },
-    },
-  });
+
+      include: {
+        school: {
+          select: {
+            id: true,
+          },
+        },
+
+        staffSchoolAccess: {
+          select: {
+            schoolId: true,
+          },
+        },
+      },
+    });
 
   if (
     !staff ||
@@ -163,18 +269,29 @@ export async function clockInStaff(input: {
   ) {
     return {
       ok: false as const,
-      error: "Staff member is not active.",
+      error:
+        "No active staff member is linked to this NFC card.",
     };
   }
 
-  const school = await prisma.school.findFirst({
-    where: {
-      id: input.schoolId,
-      isActive: true,
-      deletedAt: null,
-    },
-    select: { id: true, name: true },
-  });
+  const school =
+    await prisma.school.findFirst({
+      where: {
+        id:
+          input.schoolId,
+
+        isActive:
+          true,
+
+        deletedAt:
+          null,
+      },
+
+      select: {
+        id: true,
+        name: true,
+      },
+    });
 
   if (!school) {
     return {
@@ -184,12 +301,18 @@ export async function clockInStaff(input: {
     };
   }
 
+  /*
+   * Re-check attendance school
+   * permission on the server.
+   */
   const hasAccess =
     staff.canWorkAllSchools ||
-    staff.school?.id === school.id ||
+    staff.school?.id ===
+      school.id ||
     staff.staffSchoolAccess.some(
       (access) =>
-        access.schoolId === school.id,
+        access.schoolId ===
+        school.id,
     );
 
   if (!hasAccess) {
@@ -200,63 +323,144 @@ export async function clockInStaff(input: {
     };
   }
 
+  /*
+   * Do not allow a second
+   * open attendance record.
+   */
   const existing =
     await prisma.staffAttendance.findFirst({
       where: {
-        staffUserId: staff.id,
-        clockOutAt: null,
+        staffUserId:
+          staff.id,
+
+        clockOutAt:
+          null,
       },
+
       include: {
         school: {
-          select: { name: true },
+          select: {
+            name: true,
+          },
         },
       },
-      orderBy: { clockInAt: "desc" },
+
+      orderBy: {
+        clockInAt: "desc",
+      },
     });
 
   if (existing) {
     return {
       ok: false as const,
-      error: `Already clocked in at ${existing.school.name}.`,
+
+      error:
+        `Already clocked in at ${existing.school.name}.`,
     };
   }
 
   const attendance =
     await prisma.staffAttendance.create({
       data: {
-        staffUserId: staff.id,
-        schoolId: school.id,
+        /*
+         * staff.id is derived
+         * on the server from NFC.
+         */
+        staffUserId:
+          staff.id,
+
+        schoolId:
+          school.id,
       },
     });
 
   return {
     ok: true as const,
-    type: "CLOCK_IN" as const,
-    fullName: staff.fullName,
-    schoolName: school.name,
+
+    type:
+      "CLOCK_IN" as const,
+
+    fullName:
+      staff.fullName,
+
+    schoolName:
+      school.name,
+
     timestamp:
-      attendance.clockInAt.toISOString(),
+      attendance.clockInAt
+        .toISOString(),
   };
 }
 
 export async function clockOutStaff(
-  staffUserId: string,
+  nfcCardNumber: string,
 ) {
+  const card =
+    nfcCardNumber.trim();
+
+  if (!card) {
+    return {
+      ok: false as const,
+      error:
+        "Please scan your NFC card again.",
+    };
+  }
+
+  /*
+   * SECURITY:
+   *
+   * Resolve the staff identity
+   * from the NFC card again.
+   *
+   * Never accept staffUserId
+   * from the browser as proof
+   * of identity.
+   */
+  const staff =
+    await prisma.user.findUnique({
+      where: {
+        nfcCardNumber: card,
+      },
+    });
+
+  if (
+    !staff ||
+    !isStaffRole(staff.role) ||
+    staff.status !== "ACTIVE" ||
+    staff.deletedAt
+  ) {
+    return {
+      ok: false as const,
+      error:
+        "No active staff member is linked to this NFC card.",
+    };
+  }
+
   const openAttendance =
     await prisma.staffAttendance.findFirst({
       where: {
-        staffUserId,
-        clockOutAt: null,
+        /*
+         * staff.id came from the
+         * NFC lookup on the server.
+         */
+        staffUserId:
+          staff.id,
+
+        clockOutAt:
+          null,
       },
+
       include: {
-        staff: {
-          select: { fullName: true },
-        },
         school: {
-          select: { name: true },
+          select: {
+            name: true,
+          },
         },
       },
-      orderBy: { clockInAt: "desc" },
+
+      orderBy: {
+        clockInAt: "desc",
+      },
     });
 
   if (!openAttendance) {
@@ -267,18 +471,36 @@ export async function clockOutStaff(
     };
   }
 
-  const clockOutAt = new Date();
+  const clockOutAt =
+    new Date();
 
+  /*
+   * The extra staffUserId condition
+   * ensures this attendance still
+   * belongs to the NFC-verified
+   * employee.
+   */
   const updated =
     await prisma.staffAttendance.updateMany({
       where: {
-        id: openAttendance.id,
-        clockOutAt: null,
+        id:
+          openAttendance.id,
+
+        staffUserId:
+          staff.id,
+
+        clockOutAt:
+          null,
       },
-      data: { clockOutAt },
+
+      data: {
+        clockOutAt,
+      },
     });
 
-  if (updated.count !== 1) {
+  if (
+    updated.count !== 1
+  ) {
     return {
       ok: false as const,
       error:
@@ -288,12 +510,19 @@ export async function clockOutStaff(
 
   return {
     ok: true as const,
-    type: "CLOCK_OUT" as const,
+
+    type:
+      "CLOCK_OUT" as const,
+
     fullName:
-      openAttendance.staff.fullName,
+      staff.fullName,
+
     schoolName:
-      openAttendance.school.name,
+      openAttendance
+        .school.name,
+
     timestamp:
-      clockOutAt.toISOString(),
+      clockOutAt
+        .toISOString(),
   };
 }
