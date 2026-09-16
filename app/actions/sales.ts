@@ -59,6 +59,28 @@ export async function findCashierStudents(
     throw new Error("Unauthorized");
   }
 
+  const role =
+    session.user.role as UserRole;
+
+  /*
+   * CASHIER and SCHOOL_ADMIN may
+   * only access students belonging
+   * to their own school.
+   *
+   * SUPER_ADMIN remains unrestricted.
+   */
+  const schoolId =
+    role === UserRole.SUPER_ADMIN
+      ? null
+      : session.user.schoolId;
+
+  if (
+    role !== UserRole.SUPER_ADMIN &&
+    !schoolId
+  ) {
+    throw new Error("Unauthorized");
+  }
+
   const q = query.trim();
 
   if (!q) {
@@ -68,8 +90,13 @@ export async function findCashierStudents(
   return prisma.student.findMany({
     where: {
       deletedAt: null,
-
       status: StudentStatus.ACTIVE,
+
+      ...(schoolId
+        ? {
+            schoolId,
+          }
+        : {}),
 
       OR: [
         {
@@ -211,6 +238,21 @@ export async function getRecentCashierSales(
     throw new Error("Unauthorized");
   }
 
+  const role =
+    session.user.role as UserRole;
+
+  const schoolId =
+    role === UserRole.SUPER_ADMIN
+      ? null
+      : session.user.schoolId;
+
+  if (
+    role !== UserRole.SUPER_ADMIN &&
+    !schoolId
+  ) {
+    throw new Error("Unauthorized");
+  }
+
   const safeLimit = Math.min(
     Math.max(
       Number.isFinite(limit)
@@ -226,6 +268,13 @@ export async function getRecentCashierSales(
       where: {
         cashierUserId:
           session.user.id,
+
+        ...(schoolId
+          ? {
+              schoolId,
+            }
+          : {}),
+
         status: "COMPLETED",
       },
 
@@ -319,6 +368,24 @@ export async function createCashierSale(
     };
   }
 
+  const role =
+    session.user.role as UserRole;
+
+  const schoolId =
+    role === UserRole.SUPER_ADMIN
+      ? null
+      : session.user.schoolId;
+
+  if (
+    role !== UserRole.SUPER_ADMIN &&
+    !schoolId
+  ) {
+    return {
+      ok: false,
+      error: "Unauthorized",
+    };
+  }
+
   if (
     !input.idempotencyKey ||
     !input.items.length
@@ -356,10 +423,16 @@ export async function createCashierSale(
          */
 
         const existingSale =
-          await tx.sale.findUnique({
+          await tx.sale.findFirst({
             where: {
               idempotencyKey:
                 input.idempotencyKey,
+
+              ...(schoolId
+                ? {
+                    schoolId,
+                  }
+                : {}),
             },
           });
 
@@ -387,9 +460,15 @@ export async function createCashierSale(
          */
 
         const student =
-          await tx.student.findUnique({
+          await tx.student.findFirst({
             where: {
               id: input.studentId,
+
+              ...(schoolId
+                ? {
+                    schoolId,
+                  }
+                : {}),
             },
 
             include: {
@@ -417,7 +496,7 @@ export async function createCashierSale(
           student.deletedAt
         ) {
           throw new Error(
-            "Student is not active",
+            "Student is not active or is not available for this school",
           );
         }
 
