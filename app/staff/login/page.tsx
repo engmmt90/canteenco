@@ -1,17 +1,96 @@
 import Link from "next/link";
 
-import { staffLogin } from "@/app/actions/auth";
+import {
+  staffLogin,
+} from "@/app/actions/auth";
+
+import PasswordField from "./password-field";
 
 type PageProps = {
   searchParams: Promise<{
     error?: string;
+    remaining?: string;
+    minutes?: string;
   }>;
 };
 
 export default async function StaffLoginPage({
   searchParams,
 }: PageProps) {
-  const { error } = await searchParams;
+  const {
+    error,
+    remaining,
+    minutes,
+  } = await searchParams;
+
+  const parsedRemaining =
+    Number.parseInt(
+      remaining ?? "",
+      10,
+    );
+
+  const remainingAttempts =
+    Number.isFinite(
+      parsedRemaining,
+    ) &&
+    parsedRemaining >= 1 &&
+    parsedRemaining <= 4
+      ? parsedRemaining
+      : null;
+
+  const parsedMinutes =
+    Number.parseInt(
+      minutes ?? "",
+      10,
+    );
+
+  const minutesRemaining =
+    Number.isFinite(
+      parsedMinutes,
+    ) &&
+    parsedMinutes >= 1
+      ? Math.min(
+          parsedMinutes,
+          30,
+        )
+      : 30;
+
+  let errorMessage:
+    | string
+    | null = null;
+
+  if (
+    error === "blocked"
+  ) {
+    errorMessage =
+      `Too many failed login attempts. Please try again in ${minutesRemaining} minute${
+        minutesRemaining === 1
+          ? ""
+          : "s"
+      }.`;
+  } else if (
+    error ===
+    "invalid_credentials"
+  ) {
+    if (
+      remainingAttempts !==
+      null
+    ) {
+      const failedAttempt =
+        5 -
+        remainingAttempts;
+
+      errorMessage =
+        `Invalid email or password. Failed attempt ${failedAttempt} of 5 — ${remainingAttempts} attempt${
+          remainingAttempts === 1
+            ? ""
+            : "s"
+        } remaining.`;
+    } else {
+      errorMessage =
+        "Invalid email or password, or your account is not allowed to sign in.";
+    }
+  }
 
   return (
     <main className="shell">
@@ -24,20 +103,20 @@ export default async function StaffLoginPage({
           Admin and cashier access only.
         </p>
 
-        {error === "invalid_credentials" ? (
+        {errorMessage ? (
           <p
             className="alert"
             role="alert"
           >
-            Invalid email or password, or
-            your account is not allowed to
-            sign in.
+            {errorMessage}
           </p>
         ) : null}
 
         <form
           className="form"
-          action={staffLogin}
+          action={
+            staffLogin
+          }
         >
           <label className="label">
             Email
@@ -51,36 +130,30 @@ export default async function StaffLoginPage({
             />
           </label>
 
-          <label className="label">
-            Password
-
-            <input
-              className="input"
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              minLength={8}
-              required
-            />
-          </label>
+          <PasswordField />
 
           <div
             style={{
-              display: "flex",
+              display:
+                "flex",
+              alignItems:
+                "center",
               justifyContent:
                 "space-between",
-              alignItems: "center",
               gap: 12,
               marginTop: -4,
             }}
           >
             <label
               style={{
-                display: "flex",
-                alignItems: "center",
+                display:
+                  "flex",
+                alignItems:
+                  "center",
                 gap: 8,
+                cursor:
+                  "pointer",
                 fontSize: 14,
-                cursor: "pointer",
               }}
             >
               <input
@@ -96,7 +169,8 @@ export default async function StaffLoginPage({
               href="/staff/forgot-password"
               style={{
                 fontSize: 14,
-                textDecoration: "none",
+                textDecoration:
+                  "none",
               }}
             >
               Forgot password?
@@ -126,8 +200,9 @@ export default async function StaffLoginPage({
             marginTop: 10,
           }}
         >
-          No login required. Scan your staff
-          NFC card to clock in or out.
+          No login required. Scan your
+          staff NFC card to clock in or
+          out.
         </p>
 
         <div
