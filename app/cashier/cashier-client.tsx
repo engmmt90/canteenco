@@ -1214,7 +1214,7 @@ export default function CashierClient() {
     const timeoutId =
       window.setTimeout(() => {
         controller.abort();
-      }, 2500);
+      }, 10000);
 
     try {
       const response =
