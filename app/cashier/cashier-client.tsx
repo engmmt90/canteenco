@@ -195,6 +195,11 @@ export default function CashierClient() {
   const [busy, setBusy] =
     useState(false);
 
+  const [
+    openingDrawer,
+    setOpeningDrawer,
+  ] = useState(false);
+
   const [message, setMessage] =
     useState("");
 
@@ -1247,6 +1252,27 @@ export default function CashierClient() {
     }
   }
 
+  async function handleManualOpenCashDrawer() {
+    if (openingDrawer) {
+      return;
+    }
+
+    setOpeningDrawer(true);
+
+    try {
+      const opened =
+        await openCashDrawer();
+
+      if (!opened) {
+        window.alert(
+          "Cash drawer could not be opened. Please check the cash drawer helper.",
+        );
+      }
+    } finally {
+      setOpeningDrawer(false);
+    }
+  }
+
   async function confirm(printAfterSale = false) {
     const guestSale =
       isGuestMode;
@@ -1604,6 +1630,7 @@ export default function CashierClient() {
             gap: 10,
             alignItems:
               "center",
+            flexWrap: "wrap",
           }}
         >
           <a
@@ -1619,6 +1646,19 @@ export default function CashierClient() {
           >
             Pre-Orders
           </a>
+
+          <button
+            type="button"
+            className="secondary"
+            disabled={openingDrawer}
+            onClick={() =>
+              void handleManualOpenCashDrawer()
+            }
+          >
+            {openingDrawer
+              ? "Opening..."
+              : "Open Cash Drawer"}
+          </button>
 
           <button
             type="button"
