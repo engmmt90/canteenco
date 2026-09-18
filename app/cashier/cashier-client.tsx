@@ -1749,65 +1749,9 @@ export default function CashierClient() {
 
         {!isGuestMode ? (
           <>
-        {/* NORMAL SEARCH */}
-
-        <label className="label">
-          Scan QR, enter student code,
-          or search name
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-            }}
-          >
-            <input
-              className="input"
-              value={q}
-              onChange={(
-                event,
-              ) =>
-                setQ(
-                  event.target.value,
-                )
-              }
-              onKeyDown={(
-                event,
-              ) => {
-                if (
-                  event.key ===
-                  "Enter"
-                ) {
-                  event.preventDefault();
-
-                  void search();
-                }
-              }}
-              placeholder="3C-001"
-            />
-
-            <button
-              type="button"
-              className="primary"
-              onClick={() =>
-                void search()
-              }
-            >
-              Search
-            </button>
-          </div>
-        </label>
-
         {/* NFC */}
 
-        <div
-          style={{
-            marginTop: 16,
-            paddingTop: 16,
-            borderTop:
-              "1px solid #e5e7eb",
-          }}
-        >
+        <div>
           <label className="label">
             NFC Card
 
@@ -1863,6 +1807,62 @@ export default function CashierClient() {
               {nfcMessage}
             </p>
           )}
+        </div>
+
+        {/* STUDENT CODE SEARCH */}
+
+        <div
+          style={{
+            marginTop: 16,
+            paddingTop: 16,
+            borderTop:
+              "1px solid #e5e7eb",
+          }}
+        >
+          <label className="label">
+            Enter student code
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+              }}
+            >
+              <input
+                className="input"
+                value={q}
+                onChange={(
+                  event,
+                ) =>
+                  setQ(
+                    event.target.value,
+                  )
+                }
+                onKeyDown={(
+                  event,
+                ) => {
+                  if (
+                    event.key ===
+                    "Enter"
+                  ) {
+                    event.preventDefault();
+
+                    void search();
+                  }
+                }}
+              />
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() =>
+                  void search()
+                }
+              >
+                Search
+              </button>
+            </div>
+          </label>
         </div>
 
         {/* SEARCH RESULTS */}
