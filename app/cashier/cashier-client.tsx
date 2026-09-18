@@ -1202,6 +1202,51 @@ export default function CashierClient() {
       );
   }
 
+  async function openCashDrawer(): Promise<boolean> {
+    const controller =
+      new AbortController();
+
+    const timeoutId =
+      window.setTimeout(() => {
+        controller.abort();
+      }, 2500);
+
+    try {
+      const response =
+        await fetch(
+          "http://127.0.0.1:17833/open",
+          {
+            method: "POST",
+            cache: "no-store",
+            signal:
+              controller.signal,
+          },
+        );
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const result =
+        (await response.json()) as {
+          ok?: boolean;
+        };
+
+      return result.ok === true;
+    } catch (error) {
+      console.warn(
+        "Cash drawer did not open automatically.",
+        error,
+      );
+
+      return false;
+    } finally {
+      window.clearTimeout(
+        timeoutId,
+      );
+    }
+  }
+
   async function confirm(printAfterSale = false) {
     const guestSale =
       isGuestMode;
@@ -1315,13 +1360,31 @@ export default function CashierClient() {
       setShowAdminApproval(false);
       setNeedsOverride(false);
 
-      setMessage(
+      let drawerOpened = true;
+
+      if (
+        paymentMethod ===
+          "CASH" &&
+        result.duplicate !== true
+      ) {
+        drawerOpened =
+          await openCashDrawer();
+      }
+
+      const successMessage =
         guestSale
           ? paymentMethod ===
               "CASH"
             ? `Sale ${result.saleNumber} completed. Cash received: $${cashReceivedAmount.toFixed(2)}. Change: $${cashChange.toFixed(2)}.`
             : `Sale ${result.saleNumber} completed. Payment: CARD.`
-          : `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`,
+          : `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`;
+
+      setMessage(
+        paymentMethod ===
+            "CASH" &&
+          !drawerOpened
+          ? `${successMessage} Cash drawer did not open automatically.`
+          : successMessage,
       );
 
       setKey(crypto.randomUUID());
