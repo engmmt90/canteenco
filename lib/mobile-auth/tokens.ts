@@ -2,6 +2,7 @@ import {
   createHash,
   createHmac,
   randomBytes,
+  timingSafeEqual,
 } from "node:crypto";
 
 export const ACCESS_TOKEN_TTL_SECONDS =
@@ -14,6 +15,16 @@ type AccessTokenUser = {
   id: string;
   email: string;
   sessionVersion: number;
+};
+
+export type AccessTokenPayload = {
+  sub: string;
+  email: string;
+  role: "PARENT";
+  sessionVersion: number;
+  type: "access";
+  iat: number;
+  exp: number;
 };
 
 function getAccessTokenSecret() {
@@ -73,6 +84,87 @@ export function createAccessToken(
       .digest("base64url");
 
   return `${unsignedToken}.${signature}`;
+}
+
+export function verifyAccessToken(
+  token: string,
+): AccessTokenPayload | null {
+  try {
+    const parts = token.split(".");
+
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    const [
+      header,
+      payload,
+      signature,
+    ] = parts;
+
+    const unsignedToken =
+      `${header}.${payload}`;
+
+    const expectedSignature =
+      createHmac(
+        "sha256",
+        getAccessTokenSecret(),
+      )
+        .update(unsignedToken)
+        .digest("base64url");
+
+    const actualBuffer =
+      Buffer.from(signature);
+
+    const expectedBuffer =
+      Buffer.from(expectedSignature);
+
+    if (
+      actualBuffer.length !==
+      expectedBuffer.length
+    ) {
+      return null;
+    }
+
+    if (
+      !timingSafeEqual(
+        actualBuffer,
+        expectedBuffer,
+      )
+    ) {
+      return null;
+    }
+
+    const parsed =
+      JSON.parse(
+        Buffer.from(
+          payload,
+          "base64url",
+        ).toString("utf8"),
+      ) as AccessTokenPayload;
+
+    if (
+      parsed.type !== "access" ||
+      parsed.role !== "PARENT" ||
+      typeof parsed.sub !== "string" ||
+      typeof parsed.email !== "string" ||
+      typeof parsed.sessionVersion !== "number" ||
+      typeof parsed.exp !== "number"
+    ) {
+      return null;
+    }
+
+    const now =
+      Math.floor(Date.now() / 1000);
+
+    if (parsed.exp <= now) {
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export function createRefreshToken() {
