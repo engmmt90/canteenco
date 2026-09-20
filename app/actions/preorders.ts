@@ -2,9 +2,11 @@
 
 import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { verifyAccessToken } from "@/lib/mobile-auth/tokens";
 import { queueParentNotification } from "@/lib/notifications";
 
 import {
@@ -186,16 +188,16 @@ export async function getParentPreOrderData() {
    * IMPORTANT:
    *
    * Product
-   *   └── optionGroups
-   *          └── options
+   *   â””â”€â”€ optionGroups
+   *          â””â”€â”€ options
    *
    * This is what allows the parent UI
    * to display:
    *
    * Sauce
-   *   ├── Sauce 1
-   *   ├── Sauce 2
-   *   └── Sauce 3
+   *   â”œâ”€â”€ Sauce 1
+   *   â”œâ”€â”€ Sauce 2
+   *   â””â”€â”€ Sauce 3
    */
 
   const products =
@@ -255,6 +257,74 @@ export async function getParentPreOrderData() {
   };
 }
 
+async function resolveParentUserId() {
+  const session = await auth();
+
+  if (
+    session?.user?.id &&
+    session.user.role ===
+      UserRole.PARENT
+  ) {
+    return session.user.id;
+  }
+
+  const requestHeaders =
+    await headers();
+
+  const authorization =
+    requestHeaders.get(
+      "authorization",
+    );
+
+  if (
+    !authorization ||
+    !authorization.startsWith(
+      "Bearer ",
+    )
+  ) {
+    return null;
+  }
+
+  const token =
+    authorization
+      .slice(7)
+      .trim();
+
+  const payload =
+    verifyAccessToken(token);
+
+  if (!payload) {
+    return null;
+  }
+
+  const user =
+    await prisma.user.findUnique({
+      where: {
+        id: payload.sub,
+      },
+
+      select: {
+        id: true,
+        role: true,
+        status: true,
+        deletedAt: true,
+        sessionVersion: true,
+      },
+    });
+
+  if (
+    !user ||
+    user.role !== UserRole.PARENT ||
+    user.status !== "ACTIVE" ||
+    user.deletedAt ||
+    user.sessionVersion !==
+      payload.sessionVersion
+  ) {
+    return null;
+  }
+
+  return user.id;
+}
 /* ============================================================
  * CREATE PARENT PRE-ORDER
  * ============================================================ */
@@ -268,13 +338,10 @@ export async function createParentPreOrder(
     idempotencyKey: string;
   },
 ): Promise<CreatePreOrderResult> {
-  const session = await auth();
+  const parentUserId =
+    await resolveParentUserId();
 
-  if (
-    !session?.user?.id ||
-    session.user.role !==
-      UserRole.PARENT
-  ) {
+  if (!parentUserId) {
     return {
       ok: false,
       error: "Unauthorized",
@@ -352,7 +419,7 @@ export async function createParentPreOrder(
             {
               where: {
                 userId:
-                  session.user.id,
+                  parentUserId,
               },
 
               include: {
@@ -1147,7 +1214,7 @@ export async function createParentPreOrder(
           tx,
 
           userId:
-            session.user.id,
+            parentUserId,
 
           parentId:
             parent.id,
