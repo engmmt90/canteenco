@@ -188,16 +188,16 @@ export async function getParentPreOrderData() {
    * IMPORTANT:
    *
    * Product
-   *   â””â”€â”€ optionGroups
-   *          â””â”€â”€ options
+   *   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ optionGroups
+   *          Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ options
    *
    * This is what allows the parent UI
    * to display:
    *
    * Sauce
-   *   â”œâ”€â”€ Sauce 1
-   *   â”œâ”€â”€ Sauce 2
-   *   â””â”€â”€ Sauce 3
+   *   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ Sauce 1
+   *   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ Sauce 2
+   *   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ Sauce 3
    */
 
   const products =
@@ -1266,6 +1266,8 @@ export async function createParentPreOrder(
         isolationLevel:
           Prisma.TransactionIsolationLevel
             .Serializable,
+        maxWait: 5000,
+        timeout: 15000,
       },
     );
   } catch (error) {
