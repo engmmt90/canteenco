@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { PreOrderStatus } from "@/generated/prisma/client";
 import {
   verifyAccessToken,
 } from "@/lib/mobile-auth/tokens";
@@ -133,44 +134,90 @@ export async function GET(
     startOfTomorrow.getDate() + 1,
   );
 
-  const spendingRows =
+  const [
+    salesToday,
+    preOrdersToday,
+  ] =
     studentIds.length > 0
-      ? await prisma.sale.groupBy({
-          by: ["studentId"],
+      ? await Promise.all([
+          prisma.sale.groupBy({
+            by: ["studentId"],
 
-          where: {
-            studentId: {
-              in: studentIds,
+            where: {
+              studentId: {
+                in: studentIds,
+              },
+
+              createdAt: {
+                gte: startOfToday,
+                lt: startOfTomorrow,
+              },
+
+              status: "COMPLETED",
             },
 
-            createdAt: {
-              gte: startOfToday,
-              lt: startOfTomorrow,
+            _sum: {
+              total: true,
+            },
+          }),
+
+          prisma.preOrder.groupBy({
+            by: ["studentId"],
+
+            where: {
+              studentId: {
+                in: studentIds,
+              },
+
+              createdAt: {
+                gte: startOfToday,
+                lt: startOfTomorrow,
+              },
+
+              status: {
+                in: [
+                  PreOrderStatus.CONFIRMED,
+                  PreOrderStatus.PREPARING,
+                  PreOrderStatus.READY,
+                  PreOrderStatus.PICKED_UP,
+                ],
+              },
             },
 
-            status: {
-              not: "VOIDED",
+            _sum: {
+              total: true,
             },
-          },
-
-          _sum: {
-            total: true,
-          },
-        })
-      : [];
+          }),
+        ])
+      : [[], []];
 
   const spentByStudent =
     new Map<string, number>();
 
-  for (
-    const row of spendingRows
-  ) {
+  for (const row of salesToday) {
     if (row.studentId) {
       spentByStudent.set(
         row.studentId,
         Number(
           row._sum.total ?? 0,
         ),
+      );
+    }
+  }
+
+  for (const row of preOrdersToday) {
+    if (row.studentId) {
+      const current =
+        spentByStudent.get(
+          row.studentId,
+        ) ?? 0;
+
+      spentByStudent.set(
+        row.studentId,
+        current +
+          Number(
+            row._sum.total ?? 0,
+          ),
       );
     }
   }
