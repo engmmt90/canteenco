@@ -114,8 +114,10 @@ export async function GET(
 
       select: {
         id: true,
+        event: true,
         subject: true,
         message: true,
+        metadata: true,
         createdAt: true,
         parentReadAt: true,
       },
@@ -125,12 +127,18 @@ export async function GET(
     rows.map((notification) => ({
       id: notification.id,
 
+      event:
+        notification.event,
+
       title:
         notification.subject ??
         "CanteenCo notification",
 
       message:
         notification.message,
+
+      metadata:
+        notification.metadata,
 
       createdAt:
         notification.createdAt
