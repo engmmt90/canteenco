@@ -524,6 +524,7 @@ model Notification {
   createdAt         DateTime            @default(now())
   adminReadAt       DateTime?
   adminClearedAt    DateTime?
+  parentReadAt      DateTime?
 
   user User @relation(fields: [userId], references: [id])
 

@@ -317,7 +317,7 @@ export async function GET(
                 .map(
                   (item) =>
                     item.quantity > 1
-                      ? `${item.quantity}× ${item.productNameSnapshot}`
+                      ? `${item.quantity}Ã— ${item.productNameSnapshot}`
                       : item.productNameSnapshot,
                 )
                 .join(", ")

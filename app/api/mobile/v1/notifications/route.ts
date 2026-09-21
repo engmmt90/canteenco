@@ -117,6 +117,7 @@ export async function GET(
         subject: true,
         message: true,
         createdAt: true,
+        parentReadAt: true,
       },
     });
 
@@ -135,7 +136,10 @@ export async function GET(
         notification.createdAt
           .toISOString(),
 
-      readAt: null,
+      readAt:
+        notification.parentReadAt
+          ?.toISOString() ??
+        null,
     }));
 
   return NextResponse.json(
