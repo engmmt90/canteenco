@@ -71,7 +71,12 @@ export async function GET(
           select: {
             students: {
               where: {
-                status: "ACTIVE",
+                status: {
+  in: [
+    "ACTIVE",
+    "PENDING_APPROVAL",
+  ],
+},
                 deletedAt: null,
               },
 
@@ -82,6 +87,7 @@ export async function GET(
                 displayCode: true,
                 classCode: true,
                 dailySpendLimit: true,
+                status: true,
               },
 
               orderBy: [
@@ -257,6 +263,8 @@ export async function GET(
             student.displayCode,
           classCode:
             student.classCode,
+          status:
+            student.status,
           dailySpendLimit,
           spentToday,
           remainingToday,
