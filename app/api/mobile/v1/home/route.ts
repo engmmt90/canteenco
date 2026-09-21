@@ -317,7 +317,7 @@ export async function GET(
                 .map(
                   (item) =>
                     item.quantity > 1
-                      ? `${item.quantity}Ã— ${item.productNameSnapshot}`
+                      ? `${item.quantity}Ãƒâ€” ${item.productNameSnapshot}`
                       : item.productNameSnapshot,
                 )
                 .join(", ")
@@ -344,14 +344,14 @@ export async function GET(
   const name =
     splitName(user.fullName);
 
-  /*
-   * The current Notification model has
-   * adminReadAt but no parent/mobile
-   * read marker yet. Until we add one,
-   * do not falsely mark every historical
-   * IN_APP notification as unread.
-   */
-  const unreadNotifications = 0;
+  const unreadNotifications =
+    await prisma.notification.count({
+      where: {
+        userId: user.id,
+        channel: "IN_APP",
+        parentReadAt: null,
+      },
+    });
 
   return NextResponse.json(
     {
