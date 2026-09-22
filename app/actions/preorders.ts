@@ -188,16 +188,16 @@ export async function getParentPreOrderData() {
    * IMPORTANT:
    *
    * Product
-   *   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ optionGroups
-   *          Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ options
+   *   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ optionGroups
+   *          ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ options
    *
    * This is what allows the parent UI
    * to display:
    *
    * Sauce
-   *   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ Sauce 1
-   *   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ Sauce 2
-   *   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ Sauce 3
+   *   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Sauce 1
+   *   ÃƒÂ¢Ã¢â‚¬ÂÃ…â€œÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Sauce 2
+   *   ÃƒÂ¢Ã¢â‚¬ÂÃ¢â‚¬ÂÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Sauce 3
    */
 
   const products =
@@ -1601,13 +1601,10 @@ export async function markPreOrderLabelPrinted(
 export async function cancelOwnPreOrder(
   orderId: string,
 ): Promise<CancelPreOrderResult> {
-  const session = await auth();
+  const parentUserId =
+    await resolveParentUserId();
 
-  if (
-    !session?.user?.id ||
-    session.user.role !==
-      UserRole.PARENT
-  ) {
+  if (!parentUserId) {
     return {
       ok: false,
       error: "Unauthorized",
@@ -1622,7 +1619,7 @@ export async function cancelOwnPreOrder(
             {
               where: {
                 userId:
-                  session.user.id,
+                  parentUserId,
               },
 
               include: {
