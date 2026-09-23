@@ -116,7 +116,8 @@ model User {
   overrideApprovals     Sale[]                      @relation("OverrideApprover")
   confirmedTopUps       TopUpRequest[]              @relation("TopUpConfirmer")
   requestedTopUps       TopUpRequest[]              @relation("TopUpRequester")
-  mobileRefreshSessions MobileRefreshSession[]
+  mobileRefreshSessions MobileRefreshSession[]
+  pushDevices           PushDevice[]
   school                School?                     @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
   @@index([role, status])
@@ -619,6 +620,21 @@ model MobileRefreshSession {
   @@index([expiresAt])
 }
 
+model PushDevice {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  deviceId  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, active])
+}
 enum UserRole {
   SUPER_ADMIN
   SCHOOL_ADMIN

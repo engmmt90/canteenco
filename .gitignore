@@ -9,3 +9,6 @@ coverage
 tsconfig.tsbuildinfo
 
 .env.staging
+
+.vercel
+.env*
