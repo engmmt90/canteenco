@@ -132,7 +132,7 @@ export async function GET(
 
       title:
         notification.subject ??
-        "CanteenCo notification",
+        "CanteenGo notification",
 
       message:
         notification.message,

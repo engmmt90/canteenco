@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "CanteenCo",
+  title: "CanteenGo",
   description: "School canteen wallets, pre-orders and student payments.",
 };
 

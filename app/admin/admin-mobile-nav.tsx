@@ -47,7 +47,7 @@ export default function AdminMobileNav() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mobile-menu-header">
-              <strong>CanteenCo</strong>
+              <strong>CanteenGo</strong>
 
               <button
                 type="button"

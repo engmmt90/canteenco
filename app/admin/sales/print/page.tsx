@@ -96,7 +96,7 @@ export default async function SalesPrintPage({
             report.logoMimeType ? (
               <img
                 src={`/api/schools/${report.logoSchoolId}/logo`}
-                alt="CanteenCo logo"
+                alt="CanteenGo logo"
               />
             ) : null}
           </div>
@@ -108,7 +108,7 @@ export default async function SalesPrintPage({
 
             <strong>
               {report.schoolName ||
-                "CanteenCo"}
+                "CanteenGo"}
             </strong>
           </div>
 

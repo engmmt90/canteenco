@@ -158,7 +158,7 @@ async function processNotifications(
           to: job.user.email,
           subject:
             job.subject ||
-            "CanteenCo notification",
+            "CanteenGo notification",
           text: job.message,
         });
       } else {

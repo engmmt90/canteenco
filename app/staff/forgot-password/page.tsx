@@ -8,7 +8,7 @@ export default function StaffForgotPasswordPage() {
         <h1 className="brand">Forgot Password</h1>
 
         <p className="subtle">
-          Enter the email address used for your CanteenCo admin,
+          Enter the email address used for your CanteenGo admin,
           school admin, or cashier account. We will send you a secure
           password reset link.
         </p>

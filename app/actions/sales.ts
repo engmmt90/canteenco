@@ -1300,7 +1300,7 @@ export async function createCashierSale(
             student.lastName
           } purchased $${total.toFixed(
             2,
-          )} from CanteenCo. Family wallet balance: $${proposedBalance.toFixed(
+          )} from CanteenGo. Family wallet balance: $${proposedBalance.toFixed(
             2,
           )}.`,
 
@@ -1365,7 +1365,7 @@ export async function createCashierSale(
             subject:
               "Family wallet balance is low",
 
-            message: `Your CanteenCo family wallet balance is $${proposedBalance.toFixed(
+            message: `Your CanteenGo family wallet balance is $${proposedBalance.toFixed(
               2,
             )}, which is at or below your alert level of $${lowBalanceThreshold.toFixed(
               2,

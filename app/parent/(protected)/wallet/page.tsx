@@ -41,7 +41,7 @@ export default async function ParentWalletPage() {
       <div className="wallet-layout">
         <section className="panel">
           <h2>Request a cash top-up</h2>
-          <p className="subtle">Choose an amount now. Pay the cash to CanteenCo, then the administrator confirms it and your balance updates.</p>
+          <p className="subtle">Choose an amount now. Pay the cash to CanteenGo, then the administrator confirms it and your balance updates.</p>
           <TopUpForm />
         </section>
 

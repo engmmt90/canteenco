@@ -230,8 +230,8 @@ export async function approveParentRegistration(formData: FormData) {
       userId: user.id,
       parentId: parent.id,
       event: NotificationEvent.ACCOUNT_APPROVED,
-      subject: "CanteenCo account approved",
-      message: "Your CanteenCo parent account and family wallet are now active.",
+      subject: "CanteenGo account approved",
+      message: "Your CanteenGo parent account and family wallet are now active.",
       metadata: { registrationRequestId: request.id },
     });
 

@@ -134,7 +134,7 @@ export default async function AdminDashboardPage() {
 
       {/* Desktop navigation */}
       <aside className="sidebar">
-        <h1>CanteenCo</h1>
+        <h1>CanteenGo</h1>
 
         <nav className="nav">
           {links.map(
@@ -169,7 +169,7 @@ export default async function AdminDashboardPage() {
 
         <p className="subtle">
           Live foundation data from the
-          CanteenCo database.
+          CanteenGo database.
         </p>
 
         <div className="grid">

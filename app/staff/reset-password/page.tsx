@@ -32,7 +32,7 @@ export default async function StaffResetPasswordPage({
         ) : (
           <>
             <p className="subtle">
-              Choose a new password for your CanteenCo staff account.
+              Choose a new password for your CanteenGo staff account.
             </p>
 
             <StaffResetPasswordForm token={token} />

@@ -17,7 +17,7 @@ export default async function ParentLoginPage({
     <main className="shell">
       <section className="card">
         <h1 className="brand">
-          CanteenCo
+          CanteenGo
         </h1>
 
         <p className="subtle">

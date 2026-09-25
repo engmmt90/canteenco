@@ -29,7 +29,7 @@ export default async function NotificationSettingsPage() {
           </h1>
 
           <p className="subtle">
-            Choose how and when CanteenCo contacts you.
+            Choose how and when CanteenGo contacts you.
           </p>
         </div>
 

@@ -108,7 +108,7 @@ export async function getWalletReportData(): Promise<WalletReportData> {
   /*
    * Super Admin reports can include more than one school.
    * In that case there is no schoolId, so use the most
-   * recently updated uploaded logo as the CanteenCo brand
+   * recently updated uploaded logo as the CanteenGo brand
    * logo instead of leaving the report unbranded.
    *
    * This is also a fallback if a school does not yet have
@@ -157,7 +157,7 @@ export async function getWalletReportData(): Promise<WalletReportData> {
 
   if (!schoolId) {
     schoolName =
-      "CanteenCo";
+      "CanteenGo";
   }
 
   const wallets =

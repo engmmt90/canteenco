@@ -110,7 +110,7 @@ export async function createTopUpRequest(
       event: NotificationEvent.TOPUP_REQUESTED,
       preferenceKey: "notifyTopUp",
       subject: "Top-up request received",
-      message: `We received your request to add $${amount.toFixed(2)} to your CanteenCo family wallet. The balance will update after cash payment is confirmed by the administrator.`,
+      message: `We received your request to add $${amount.toFixed(2)} to your CanteenGo family wallet. The balance will update after cash payment is confirmed by the administrator.`,
       metadata: { topUpRequestId: created.id, amount },
     });
 
@@ -209,7 +209,7 @@ export async function confirmTopUpRequest(formData: FormData) {
       event: NotificationEvent.TOPUP_CONFIRMED,
       preferenceKey: "notifyTopUp",
       subject: "Family wallet topped up",
-      message: `Your cash payment has been confirmed. $${Number(request.amount).toFixed(2)} was added to your CanteenCo family wallet. New balance: $${Number(wallet.balance).toFixed(2)}.`,
+      message: `Your cash payment has been confirmed. $${Number(request.amount).toFixed(2)} was added to your CanteenGo family wallet. New balance: $${Number(wallet.balance).toFixed(2)}.`,
       metadata: {
         topUpRequestId: request.id,
         amount: Number(request.amount),

@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 
-const SUPPORT_EMAIL = "support@canteenco.com.au";
+const SUPPORT_EMAIL = "support@canteengo.com.au";
 
 export type ContactFormState = {
   ok: boolean;
@@ -122,7 +122,7 @@ export async function submitContactForm(
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>CanteenCo Contact Form</h2>
+        <h2>CanteenGo Contact Form</h2>
 
         <p>A support request has been submitted.</p>
 
@@ -161,7 +161,7 @@ export async function submitContactForm(
           to: [SUPPORT_EMAIL],
           reply_to: email,
           subject:
-            `CanteenCo Support: ${subject}`,
+            `CanteenGo Support: ${subject}`,
           html,
         }),
         cache: "no-store",
@@ -188,7 +188,7 @@ export async function submitContactForm(
     return {
       ok: true,
       success:
-        "Your message has been sent to CanteenCo Support.",
+        "Your message has been sent to CanteenGo Support.",
     };
   } catch (error) {
     console.error(

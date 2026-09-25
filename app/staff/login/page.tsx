@@ -96,7 +96,7 @@ export default async function StaffLoginPage({
     <main className="shell">
       <section className="card">
         <h1 className="brand">
-          CanteenCo Staff
+          CanteenGo Staff
         </h1>
 
         <p className="subtle">

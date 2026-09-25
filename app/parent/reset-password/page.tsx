@@ -37,7 +37,7 @@ export default async function ResetPasswordPage({
           <>
             <p className="subtle">
               Choose a new password for your
-              CanteenCo parent account.
+              CanteenGo parent account.
             </p>
 
             <ResetPasswordForm token={token} />

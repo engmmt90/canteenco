@@ -43,7 +43,7 @@ export default function ParentContactClient({
             </h1>
 
             <p className="subtle">
-              Need help with your CanteenCo
+              Need help with your CanteenGo
               account, wallet, orders, or
               children? We are here to help.
             </p>
@@ -68,7 +68,7 @@ export default function ParentContactClient({
           <h2>WhatsApp Support</h2>
 
           <p className="subtle">
-            Contact CanteenCo Support directly
+            Contact CanteenGo Support directly
             on WhatsApp.
           </p>
 

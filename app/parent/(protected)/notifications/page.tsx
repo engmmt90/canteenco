@@ -12,7 +12,7 @@ export default async function ParentNotificationsPage() {
 
   return <main className="content">
     <div className="page-heading">
-      <div><h1 className="brand">Notifications</h1><p className="subtle">Your latest CanteenCo account activity.</p></div>
+      <div><h1 className="brand">Notifications</h1><p className="subtle">Your latest CanteenGo account activity.</p></div>
       <div className="actions-row">
         <Link className="secondary" href="/parent/settings/notifications">Preferences</Link>
         <Link className="secondary" href="/parent/dashboard">Dashboard</Link>

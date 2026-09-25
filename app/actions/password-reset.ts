@@ -128,10 +128,10 @@ async function requestReset(
   try {
     await sendEmail({
       to: user.email,
-      subject: "Reset your CanteenCo password",
+      subject: "Reset your CanteenGo password",
       text:
         `Hi ${user.fullName},\n\n` +
-        `We received a request to reset your CanteenCo ${accountLabel} password.\n\n` +
+        `We received a request to reset your CanteenGo ${accountLabel} password.\n\n` +
         `Reset your password using this link:\n${resetUrl}\n\n` +
         `This link expires in ${RESET_EXPIRY_MINUTES} minutes and can only be used once.\n\n` +
         `If you did not request a password reset, you can ignore this email.`,

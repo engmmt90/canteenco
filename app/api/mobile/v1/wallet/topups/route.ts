@@ -338,7 +338,7 @@ export async function POST(
           message:
             `We received your request to add $${amount.toFixed(
               2,
-            )} to your CanteenCo family wallet. The balance will update after cash payment is confirmed by the administrator.`,
+            )} to your CanteenGo family wallet. The balance will update after cash payment is confirmed by the administrator.`,
 
           metadata: {
             topUpRequestId:

@@ -585,7 +585,7 @@ export async function getSalesReportData(
 
   if (!schoolId) {
     schoolName =
-      "CanteenCo";
+      "CanteenGo";
   }
 
   const rows =
@@ -985,7 +985,7 @@ export async function buildSalesReportPdf(
     page.drawText(
       safePdfText(
         report.schoolName ||
-          "CanteenCo",
+          "CanteenGo",
       ),
       {
         x: titleX,

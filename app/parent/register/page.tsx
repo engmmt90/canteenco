@@ -14,7 +14,7 @@ export default async function ParentRegisterPage({ searchParams }: PageProps) {
       <main className="shell">
         <section className="card">
           <h1 className="brand">Request received</h1>
-          <p className="success">Your registration has been submitted for CanteenCo admin approval.</p>
+          <p className="success">Your registration has been submitted for CanteenGo admin approval.</p>
           <p className="subtle">You will be able to sign in after the account is approved.</p>
           <Link className="secondary" href="/">Back to Parent Login</Link>
         </section>
@@ -32,11 +32,11 @@ export default async function ParentRegisterPage({ searchParams }: PageProps) {
     <main className="shell register-shell">
       <section className="card registration-card">
         <h1 className="brand">Create Parent Account</h1>
-        <p className="subtle">Add your children below. Nothing becomes active until CanteenCo administration approves the request.</p>
+        <p className="subtle">Add your children below. Nothing becomes active until CanteenGo administration approves the request.</p>
         {schools.length ? (
           <ParentRegistrationForm schools={schools} />
         ) : (
-          <p className="alert">No active schools are available yet. Please contact CanteenCo administration.</p>
+          <p className="alert">No active schools are available yet. Please contact CanteenGo administration.</p>
         )}
       </section>
     </main>

@@ -1620,7 +1620,7 @@ export default function CashierClient() {
       <div className="page-heading">
         <div>
           <h1 className="brand">
-            CanteenCo Cashier
+            CanteenGo Cashier
           </h1>
         </div>
 
@@ -3739,7 +3739,7 @@ export default function CashierClient() {
               marginBottom: 8,
             }}
           >
-            CanteenCo
+            CanteenGo
           </div>
 
           <div

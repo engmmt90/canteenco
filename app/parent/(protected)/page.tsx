@@ -85,7 +85,7 @@ export default async function ParentDashboardPage() {
   return (
     <main className="shell">
       <section className="card registration-card">
-        <h1 className="brand">CanteenCo</h1>
+        <h1 className="brand">CanteenGo</h1>
 
         <h2>Family Wallet</h2>
 
