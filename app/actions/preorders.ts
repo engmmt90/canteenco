@@ -1501,6 +1501,49 @@ export async function updatePreOrderStatus(
             data,
           });
 
+        
+
+        if (
+          target === PreOrderStatus.READY ||
+          target === PreOrderStatus.PICKED_UP
+        ) {
+          const isReady =
+            target === PreOrderStatus.READY;
+
+          await queueParentNotification({
+            tx,
+
+            userId:
+              order.student.parent.userId,
+
+            parentId:
+              order.student.parent.id,
+
+            event: isReady
+              ? NotificationEvent.PREORDER_READY
+              : NotificationEvent.PREORDER_PICKED_UP,
+
+            preferenceKey:
+              "notifyPreOrder",
+
+            subject: isReady
+              ? "Pre-order ready"
+              : "Pre-order picked up",
+
+            message: isReady
+              ? `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} is ready for pickup.`
+              : `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} has been picked up.`,
+
+            metadata: {
+              preOrderId:
+                order.id,
+
+              studentId:
+                order.student.id,
+            },
+          });
+        }
+
         return {
           ok: true,
 
