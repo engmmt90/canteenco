@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { authenticateParent } from "@/lib/mobile-auth/authenticate-parent";
+import {
+  authenticateParent,
+  getParentLoginThrottleStatus,
+} from "@/lib/mobile-auth/authenticate-parent";
 import {
   ACCESS_TOKEN_TTL_SECONDS,
   createAccessToken,
@@ -97,10 +100,24 @@ export async function POST(
     );
 
   if (!user) {
+    const throttle =
+      await getParentLoginThrottleStatus(
+        parsed.data.email,
+      );
+
+    const error =
+      throttle.blocked
+        ? `Account temporarily locked. Try again in ${throttle.minutesRemaining} minute${throttle.minutesRemaining === 1 ? "" : "s"}.`
+        : `Invalid email or password. ${throttle.remainingAttempts} attempt${throttle.remainingAttempts === 1 ? "" : "s"} remaining.`;
+
     return NextResponse.json(
       {
-        error:
-          "Invalid email or password.",
+        error,
+        blocked: throttle.blocked,
+        remainingAttempts:
+          throttle.remainingAttempts,
+        minutesRemaining:
+          throttle.minutesRemaining,
       },
       {
         status: 401,

@@ -136,6 +136,74 @@ async function clearFailures(
   });
 }
 
+
+export async function getParentLoginThrottleStatus(
+  rawEmail: string,
+) {
+  const email =
+    normalizeEmail(rawEmail);
+
+  const throttle =
+    await prisma.loginThrottle.findUnique({
+      where: {
+        identifierHash:
+          identifierHash(email),
+      },
+      select: {
+        failedCount: true,
+        windowStartedAt: true,
+        blockedUntil: true,
+      },
+    });
+
+  const now = Date.now();
+
+  if (
+    throttle?.blockedUntil &&
+    throttle.blockedUntil.getTime() >
+      now
+  ) {
+    const minutesRemaining =
+      Math.max(
+        1,
+        Math.ceil(
+          (
+            throttle.blockedUntil.getTime() -
+            now
+          ) /
+            60_000,
+        ),
+      );
+
+    return {
+      blocked: true,
+      remainingAttempts: 0,
+      minutesRemaining,
+    };
+  }
+
+  const insideWindow =
+    throttle?.windowStartedAt &&
+    now -
+      throttle.windowStartedAt.getTime() <
+      LOGIN_WINDOW_MS;
+
+  const failedCount =
+    insideWindow
+      ? throttle?.failedCount ?? 0
+      : 0;
+
+  return {
+    blocked: false,
+    remainingAttempts:
+      Math.max(
+        0,
+        MAX_FAILED_ATTEMPTS -
+          failedCount,
+      ),
+    minutesRemaining: 0,
+  };
+}
 export async function authenticateParent(
   rawEmail: string,
   password: string,
