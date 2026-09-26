@@ -131,3 +131,58 @@ export async function sendSms(args: {
       body?.sid,
   };
 }
+export async function sendPush(args: {
+  to: string;
+  title: string;
+  body: string;
+  data?: Record<string, unknown>;
+}): Promise<DeliveryResult> {
+  const response = await fetch(
+    "https://exp.host/--/api/v2/push/send",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        to: args.to,
+        sound: "default",
+        title: args.title,
+        body: args.body,
+        data: args.data ?? {},
+      }),
+    },
+  );
+
+  const body =
+    await response
+      .json()
+      .catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      body?.message ||
+        `Push provider returned ${response.status}`,
+    );
+  }
+
+  const ticket =
+    Array.isArray(body?.data)
+      ? body.data[0]
+      : body?.data;
+
+  if (ticket?.status === "error") {
+    throw new Error(
+      ticket?.message ||
+        ticket?.details?.error ||
+        "Push notification failed",
+    );
+  }
+
+  return {
+    providerMessageId:
+      ticket?.id,
+  };
+}

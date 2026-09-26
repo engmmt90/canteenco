@@ -5,6 +5,7 @@ import {
 } from "@/generated/prisma/client";
 import {
   sendEmail,
+  sendPush,
   sendSms,
 } from "@/lib/notification-providers";
 import { prisma } from "@/lib/prisma";
@@ -87,6 +88,7 @@ async function processNotifications(
           in: [
             NotificationChannel.EMAIL,
             NotificationChannel.SMS,
+            NotificationChannel.PUSH,
           ],
         },
         sentAt: null,
@@ -161,6 +163,52 @@ async function processNotifications(
             "CanteenGo notification",
           text: job.message,
         });
+            } else if (
+        job.channel ===
+        NotificationChannel.PUSH
+      ) {
+        const devices =
+          await prisma.pushDevice.findMany({
+            where: {
+              userId: job.userId,
+              active: true,
+            },
+            select: {
+              token: true,
+            },
+          });
+
+        if (devices.length === 0) {
+          throw new Error(
+            "No active push device registered",
+          );
+        }
+
+        let providerMessageId:
+          | string
+          | undefined;
+
+        for (const device of devices) {
+          const pushResult =
+            await sendPush({
+              to: device.token,
+              title:
+                job.subject ||
+                "CanteenGo notification",
+              body: job.message,
+              data: {
+                notificationId: job.id,
+                event: job.event,
+              },
+            });
+
+          providerMessageId =
+            pushResult.providerMessageId;
+        }
+
+        result = {
+          providerMessageId,
+        };
       } else {
         if (!job.user.phone) {
           throw new Error(
