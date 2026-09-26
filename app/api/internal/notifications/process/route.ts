@@ -199,6 +199,13 @@ async function processNotifications(
               data: {
                 notificationId: job.id,
                 event: job.event,
+                ...(
+                  job.metadata &&
+                  typeof job.metadata === "object" &&
+                  !Array.isArray(job.metadata)
+                    ? job.metadata
+                    : {}
+                ),
               },
             });
 
