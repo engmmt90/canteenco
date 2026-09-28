@@ -227,13 +227,15 @@ export async function authenticateParent(
         passwordHash: true,
         role: true,
         status: true,
+        deletedAt: true,
         sessionVersion: true,
       },
     });
 
   if (
     !user ||
-    user.status !== "ACTIVE"
+    user.status !== "ACTIVE" ||
+    user.deletedAt
   ) {
     await recordFailure(email);
     return null;
@@ -268,3 +270,4 @@ export async function authenticateParent(
 
   return user;
 }
+
