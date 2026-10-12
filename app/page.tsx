@@ -113,6 +113,33 @@ export default async function ParentLoginPage({
           >
             Contact Us
           </Link>
+
+          <div
+            style={{
+              textAlign: "center",
+              marginTop: 8,
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              CanteenGo mobile apps are coming soon.
+            </p>
+            <p
+              className="subtle"
+              style={{
+                margin: "4px 0 0",
+                fontSize: 13,
+              }}
+            >
+              In the meantime, please continue using the website.
+            </p>
+          </div>
+
           <div
             style={{
               display: "grid",
@@ -123,7 +150,8 @@ export default async function ParentLoginPage({
             }}
           >
             <div
-              aria-label="CanteenGo Parent on Google Play"
+              aria-label="CanteenGo Parent on Google Play — coming soon"
+              aria-disabled="true"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -135,6 +163,9 @@ export default async function ParentLoginPage({
                 background: "#000000",
                 color: "#ffffff",
                 boxSizing: "border-box",
+                opacity: 0.65,
+                cursor: "default",
+                userSelect: "none",
               }}
             >
               <svg
@@ -190,11 +221,9 @@ export default async function ParentLoginPage({
               </span>
             </div>
 
-            <a
-              href="https://apps.apple.com/app/id6816551149"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Download CanteenGo Parent on the App Store"
+            <div
+              aria-label="CanteenGo Parent on the App Store — coming soon"
+              aria-disabled="true"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -205,8 +234,10 @@ export default async function ParentLoginPage({
                 borderRadius: 12,
                 background: "#000000",
                 color: "#ffffff",
-                textDecoration: "none",
                 boxSizing: "border-box",
+                opacity: 0.65,
+                cursor: "default",
+                userSelect: "none",
               }}
             >
               <svg
@@ -246,7 +277,7 @@ export default async function ParentLoginPage({
                   App Store
                 </span>
               </span>
-            </a>
+            </div>
           </div>
         </div>
       </section>
