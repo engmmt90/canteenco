@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import {
   submitContactForm,
@@ -24,6 +24,10 @@ export default function ParentContactClient({
       submitContactForm,
       initialState,
     );
+
+  const [startedAt] = useState(() =>
+    Date.now(),
+  );
 
   const backHref = isParentLoggedIn
     ? "/parent"
@@ -97,6 +101,33 @@ export default function ParentContactClient({
             action={formAction}
             className="form"
           >
+            <input
+              type="hidden"
+              name="startedAt"
+              value={startedAt}
+            />
+
+            <div
+              aria-hidden="true"
+              style={{
+                position: "absolute",
+                left: "-10000px",
+                width: 1,
+                height: 1,
+                overflow: "hidden",
+              }}
+            >
+              <label>
+                Website
+                <input
+                  type="text"
+                  name="website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+              </label>
+            </div>
+
             <label className="label">
               Name
 
