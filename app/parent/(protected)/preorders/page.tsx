@@ -55,7 +55,7 @@ export default async function ParentPreOrdersPage() {
                   },
 
                   orderBy: {
-                    sortOrder: "asc",
+                    startTime: "asc",
                   },
                 },
               },
