@@ -114,7 +114,7 @@ export async function GET(
                       },
 
                       orderBy: {
-                        sortOrder: "asc",
+                        startTime: "asc",
                       },
 
                       select: {
