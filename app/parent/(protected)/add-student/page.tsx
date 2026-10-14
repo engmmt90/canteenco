@@ -55,6 +55,13 @@ export default async function AddStudentPage() {
     ],
   });
 
+  classes.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+
   return (
     <main className="shell">
       <section className="card registration-card">
