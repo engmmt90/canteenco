@@ -382,14 +382,9 @@ export default async function SchoolSettingsPage({
         },
 
         pickupSlots: {
-          orderBy: [
-            {
-              sortOrder: "asc",
-            },
-            {
-              startTime: "asc",
-            },
-          ],
+          orderBy: {
+            startTime: "asc",
+          },
         },
       },
     });
@@ -1137,14 +1132,6 @@ export default async function SchoolSettingsPage({
                     />
                   </label>
                 </div>
-
-                <input
-                  className="input"
-                  name="sortOrder"
-                  type="number"
-                  defaultValue="0"
-                  placeholder="Sort order"
-                />
 
                 <button
                   className="primary"
