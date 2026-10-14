@@ -345,12 +345,6 @@ export async function addPickupSlot(
   const endTime =
     str(f, "endTime");
 
-  const sortOrder =
-    Number(
-      str(f, "sortOrder") ||
-        0,
-    );
-
   if (!label) {
     throw new Error(
       "Label is required",
@@ -386,13 +380,6 @@ export async function addPickupSlot(
       label,
       startTime,
       endTime,
-
-      sortOrder:
-        Number.isFinite(
-          sortOrder,
-        )
-          ? sortOrder
-          : 0,
 
       isActive: true,
     },
