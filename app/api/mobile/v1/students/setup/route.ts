@@ -136,6 +136,13 @@ export async function GET(
       }),
     ]);
 
+  classes.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+
   return NextResponse.json(
     {
       schools,
