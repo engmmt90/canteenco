@@ -48,6 +48,7 @@ type ProductOptionData = {
   name: string;
   price: number;
   category: string | null;
+  imageUrl: string | null;
   blockedSchoolIds: string[];
 
   optionGroups: ProductOptionGroup[];
@@ -849,6 +850,30 @@ export default function PreOrderForm({
                     gap: 8,
                   }}
                 >
+                  {product.imageUrl ? (
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        objectFit: "cover",
+                        borderRadius: 10,
+                        display: "block",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        borderRadius: 10,
+                        background: "#f3f4f6",
+                      }}
+                    />
+                  )}
+
                   <strong
                     style={{
                       fontSize: 16,
