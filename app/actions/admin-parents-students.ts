@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import {
   buildStudentDisplayCode,
-  normalizeClassCode,
 } from "@/lib/student-code";
 
 function str(
@@ -54,11 +53,7 @@ export async function updateStudent(
   const id = str(f, "id");
   const firstName = str(f, "firstName");
   const lastName = str(f, "lastName");
-  const grade = str(f, "grade");
-  const classSection = str(
-    f,
-    "classSection",
-  );
+  const classId = str(f, "classId");
   const officialSchoolId =
     str(f, "officialSchoolId") || null;
 
@@ -74,11 +69,10 @@ export async function updateStudent(
     !id ||
     !firstName ||
     !lastName ||
-    !grade ||
-    !classSection
+    !classId
   ) {
     throw new Error(
-      "Student name, grade and class section are required",
+      "Student name and class are required",
     );
   }
 
@@ -132,11 +126,33 @@ export async function updateStudent(
         }
       }
 
-      const classCode =
-        normalizeClassCode(
-          grade,
-          classSection,
+      const schoolClass =
+        await tx.schoolClass.findFirst({
+          where: {
+            id: classId,
+            schoolId: student.schoolId,
+            isActive: true,
+          },
+          select: {
+            grade: true,
+            section: true,
+            classCode: true,
+          },
+        });
+
+      if (
+        !schoolClass ||
+        !schoolClass.grade ||
+        !schoolClass.section
+      ) {
+        throw new Error(
+          "Please select a valid active class for this school",
         );
+      }
+
+      const grade = schoolClass.grade;
+      const classSection = schoolClass.section;
+      const classCode = schoolClass.classCode;
 
       let sequenceNumber =
         student.sequenceNumber;
