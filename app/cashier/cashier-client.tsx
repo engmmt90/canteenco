@@ -3762,7 +3762,8 @@ export default function CashierClient() {
                               </span>
 
                               {checked &&
-                              !single ? (
+                              !single &&
+                              option.quantityEnabled ? (
                                 <div
                                   style={{
                                     display:
