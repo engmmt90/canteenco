@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
 import {
   verifyAccessToken,
 } from "@/lib/mobile-auth/tokens";
@@ -148,8 +149,9 @@ export async function GET(
     return unauthorized();
   }
 
-  const products =
-    await prisma.product.findMany({
+  const [products, blockedRows] =
+    await Promise.all([
+      prisma.product.findMany({
       where: {
         isActive: true,
         deletedAt: null,
@@ -215,7 +217,25 @@ export async function GET(
           },
         },
       },
-    });
+      }),
+      getBlockedSchoolIdsByProduct(),
+    ]);
+
+  const blockedSchoolIdsByProduct =
+    new Map<string, string[]>();
+
+  for (const row of blockedRows) {
+    const current =
+      blockedSchoolIdsByProduct.get(
+        row.productId,
+      ) ?? [];
+
+    current.push(row.schoolId);
+    blockedSchoolIdsByProduct.set(
+      row.productId,
+      current,
+    );
+  }
 
   const wallet =
     user.parentProfile.wallet;
@@ -278,6 +298,11 @@ export async function GET(
               Number(product.price),
             imageUrl:
               product.imageUrl,
+
+            blockedSchoolIds:
+              blockedSchoolIdsByProduct.get(
+                product.id,
+              ) ?? [],
 
             optionGroups:
               product.optionGroups.map(
