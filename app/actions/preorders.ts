@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureProductSchoolAvailabilityTable } from "@/lib/product-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import { isSchoolPreOrderDayEnabled } from "@/lib/school-preorder-days";
 import { verifyAccessToken } from "@/lib/mobile-auth/tokens";
 import { queueParentNotification } from "@/lib/notifications";
 
@@ -590,6 +591,18 @@ export async function createParentPreOrder(
         ) {
           throw new Error(
             `Pre-orders are closed for today after ${student.school.settings.preOrderCutoffTime}. Please choose Tomorrow.`,
+          );
+        }
+
+        const pickupDayEnabled =
+          await isSchoolPreOrderDayEnabled(
+            student.schoolId,
+            input.pickupDate,
+          );
+
+        if (!pickupDayEnabled) {
+          throw new Error(
+            "The canteen is closed for pre-orders on the selected day.",
           );
         }
 
