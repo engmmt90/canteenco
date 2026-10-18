@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import {
+  PREORDER_WEEKDAYS,
+  setSchoolPreOrderDays,
+} from "@/lib/school-preorder-days";
 
 function str(
   f: FormData,
@@ -178,6 +182,21 @@ export async function saveSchoolSettings(
         ),
     },
   });
+
+  const enabledWeekdays =
+    PREORDER_WEEKDAYS
+      .filter((day) =>
+        bool(
+          f,
+          `preOrderDay${day.value}`,
+        ),
+      )
+      .map((day) => day.value);
+
+  await setSchoolPreOrderDays(
+    schoolId,
+    enabledWeekdays,
+  );
 
   revalidatePath(
     `/admin/schools/${schoolId}/settings`,
