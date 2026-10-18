@@ -33,6 +33,7 @@ type ProductOption = {
   id: string;
   name: string;
   additionalPrice: number;
+  quantityEnabled: boolean;
 };
 type ProductOptionGroup = {
   id: string;
@@ -67,6 +68,7 @@ type CartLine = {
   options: Array<{
     groupId: string;
     optionId: string;
+    quantity: number;
   }>;
 };
 
@@ -141,6 +143,11 @@ export default function PreOrderForm({
   ] =
     useState<SelectedOptions>({});
 
+  const [
+    optionQuantities,
+    setOptionQuantities,
+  ] = useState<Record<string, number>>({});
+
   /* ==========================================================
    * UI
    * ========================================================== */
@@ -178,6 +185,7 @@ export default function PreOrderForm({
     setCart([]);
     setSelectedProduct(null);
     setModalSelections({});
+    setOptionQuantities({});
     setMessage("");
   }
 
@@ -217,6 +225,7 @@ export default function PreOrderForm({
     }
 
     setModalSelections(initial);
+    setOptionQuantities({});
     setSelectedProduct(product);
   }
 
@@ -314,6 +323,62 @@ export default function PreOrderForm({
       },
     );
 
+    setOptionQuantities((current) => ({
+      ...current,
+      [optionId]: current[optionId] ?? 1,
+    }));
+
+    setMessage("");
+  }
+
+  function changeOptionQuantity(
+    group: ProductOptionGroup,
+    optionId: string,
+    delta: number,
+  ) {
+    const selected =
+      modalSelections[group.id] ?? [];
+
+    if (!selected.includes(optionId)) {
+      return;
+    }
+
+    const option =
+      group.options.find(
+        (item) => item.id === optionId,
+      );
+
+    if (!option?.quantityEnabled) {
+      return;
+    }
+
+    const currentQuantity =
+      optionQuantities[optionId] ?? 1;
+
+    const nextQuantity =
+      Math.max(1, currentQuantity + delta);
+
+    const otherUnits = selected
+      .filter((id) => id !== optionId)
+      .reduce(
+        (sum, id) =>
+          sum + (optionQuantities[id] ?? 1),
+        0,
+      );
+
+    if (
+      group.maxSelections > 0 &&
+      otherUnits + nextQuantity >
+        group.maxSelections
+    ) {
+      return;
+    }
+
+    setOptionQuantities((current) => ({
+      ...current,
+      [optionId]: nextQuantity,
+    }));
+
     setMessage("");
   }
 
@@ -341,8 +406,18 @@ export default function PreOrderForm({
             : 0,
         );
 
+      const selectedCount =
+        selected.reduce(
+          (sum, optionId) =>
+            sum +
+            (optionQuantities[
+              optionId
+            ] ?? 1),
+          0,
+        );
+
       if (
-        selected.length < minimum
+        selectedCount < minimum
       ) {
         return `Please select at least ${minimum} option${
           minimum === 1
@@ -354,7 +429,7 @@ export default function PreOrderForm({
       if (
         group.maxSelections >
           0 &&
-        selected.length >
+        selectedCount >
           group.maxSelections
       ) {
         return `You can select a maximum of ${group.maxSelections} option${
@@ -389,6 +464,7 @@ export default function PreOrderForm({
     const options: Array<{
       groupId: string;
       optionId: string;
+      quantity: number;
     }> = [];
 
     for (const group of
@@ -402,6 +478,10 @@ export default function PreOrderForm({
         options.push({
           groupId: group.id,
           optionId,
+          quantity:
+            optionQuantities[
+              optionId
+            ] ?? 1,
         });
       }
     }
@@ -423,6 +503,7 @@ export default function PreOrderForm({
 
     setSelectedProduct(null);
     setModalSelections({});
+    setOptionQuantities({});
     setMessage("");
   }
 
@@ -543,7 +624,8 @@ export default function PreOrderForm({
       }
 
       total +=
-        option.additionalPrice;
+        option.additionalPrice *
+        selection.quantity;
     }
 
     return total;
@@ -664,6 +746,8 @@ export default function PreOrderForm({
       setSelectedProduct(null);
 
       setModalSelections({});
+
+      setOptionQuantities({});
 
       setKey(
         crypto.randomUUID(),
@@ -1533,8 +1617,87 @@ export default function PreOrderForm({
                                 }
                               </span>
 
-                              {option.additionalPrice >
-                              0 ? (
+                              {checked &&
+                              !isSingle &&
+                              option.quantityEnabled ? (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 7,
+                                  }}
+                                  onClick={(event) =>
+                                    event.preventDefault()
+                                  }
+                                >
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() =>
+                                      changeOptionQuantity(
+                                        group,
+                                        option.id,
+                                        -1,
+                                      )
+                                    }
+                                    style={{
+                                      minWidth: 30,
+                                      height: 30,
+                                      padding: 0,
+                                    }}
+                                  >
+                                    −
+                                  </button>
+
+                                  <strong
+                                    style={{
+                                      minWidth: 20,
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {optionQuantities[
+                                      option.id
+                                    ] ?? 1}
+                                  </strong>
+
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() =>
+                                      changeOptionQuantity(
+                                        group,
+                                        option.id,
+                                        1,
+                                      )
+                                    }
+                                    style={{
+                                      minWidth: 30,
+                                      height: 30,
+                                      padding: 0,
+                                    }}
+                                  >
+                                    +
+                                  </button>
+
+                                  {option.additionalPrice >
+                                  0 ? (
+                                    <strong>
+                                      +$
+                                      {(
+                                        option.additionalPrice *
+                                        (optionQuantities[
+                                          option.id
+                                        ] ?? 1)
+                                      ).toFixed(2)}
+                                    </strong>
+                                  ) : (
+                                    <span className="subtle">
+                                      Included
+                                    </span>
+                                  )}
+                                </div>
+                              ) : option.additionalPrice >
+                                0 ? (
                                 <strong>
                                   +$
                                   {option.additionalPrice.toFixed(
@@ -1645,7 +1808,10 @@ export default function PreOrderForm({
                                 optionTotal +
                                 (option
                                   ?.additionalPrice ??
-                                  0)
+                                  0) *
+                                (optionQuantities[
+                                  optionId
+                                ] ?? 1)
                               );
                             },
                             0,
