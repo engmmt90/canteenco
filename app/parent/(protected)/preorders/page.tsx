@@ -206,6 +206,9 @@ export default async function ParentPreOrdersPage() {
         category:
           product.category,
 
+        imageUrl:
+          product.imageUrl,
+
         blockedSchoolIds:
           blockedSchoolIdsByProduct.get(
             product.id,
