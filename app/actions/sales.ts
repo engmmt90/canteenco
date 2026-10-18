@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { queueParentNotification } from "@/lib/notifications";
+import { ensureProductSchoolAvailabilityTable, getBlockedProductIds } from "@/lib/product-availability";
 
 import {
   NotificationEvent,
@@ -173,6 +174,16 @@ export async function getCashierProducts() {
     throw new Error("Unauthorized");
   }
 
+  const schoolId =
+    session.user.schoolId ?? null;
+
+  const blockedProductIds =
+    schoolId
+      ? await getBlockedProductIds(
+          schoolId,
+        )
+      : new Set<string>();
+
   const products =
     await prisma.product.findMany({
       where: {
@@ -227,13 +238,19 @@ export async function getCashierProducts() {
       ],
     });
 
-  return products;
+  return products.filter(
+    (product) =>
+      !blockedProductIds.has(
+        product.id,
+      ),
+  );
 }
 
 
 async function buildValidatedSaleLines(
   tx: Prisma.TransactionClient,
   cleanItems: CartLine[],
+  schoolId: string,
 ) {
   const uniqueProductIds = [
     ...new Set(
@@ -276,9 +293,32 @@ async function buildValidatedSaleLines(
       },
     });
 
+  const blockedRows =
+    await tx.$queryRaw<
+      Array<{ productId: string }>
+    >`
+      SELECT "productId"
+      FROM "ProductSchoolAvailability"
+      WHERE "schoolId" = ${schoolId}
+        AND "isAvailable" = FALSE
+    `;
+
+  const blockedProductIds =
+    new Set(
+      blockedRows.map(
+        (row) => row.productId,
+      ),
+    );
+
   if (
     products.length !==
-    uniqueProductIds.length
+      uniqueProductIds.length ||
+    uniqueProductIds.some(
+      (productId) =>
+        blockedProductIds.has(
+          productId,
+        ),
+    )
   ) {
     throw new Error(
       "A product is unavailable",
@@ -716,6 +756,8 @@ export async function createCashierSale(
   }
 
   try {
+    await ensureProductSchoolAvailabilityTable();
+
     return await prisma.$transaction(
       async (tx) => {
         /*
@@ -797,6 +839,7 @@ export async function createCashierSale(
             await buildValidatedSaleLines(
               tx,
               cleanItems,
+              school.id,
             );
 
           const sale =
@@ -920,6 +963,7 @@ export async function createCashierSale(
           await buildValidatedSaleLines(
             tx,
             cleanItems,
+            student.schoolId,
           );
 
         /*
