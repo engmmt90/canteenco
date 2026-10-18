@@ -87,6 +87,28 @@ type CancelPreOrderResult =
  * HELPERS
  * ============================================================ */
 
+function addDaysToDateString(
+  dateString: string,
+  days: number,
+) {
+  const [year, month, day] =
+    dateString.split("-").map(Number);
+
+  const date = new Date(
+    Date.UTC(
+      year,
+      month - 1,
+      day + days,
+    ),
+  );
+
+  return `${date.getUTCFullYear()}-${String(
+    date.getUTCMonth() + 1,
+  ).padStart(2, "0")}-${String(
+    date.getUTCDate(),
+  ).padStart(2, "0")}`;
+}
+
 function getLocalDateTime(
   timeZone: string,
 ) {
@@ -544,12 +566,18 @@ export async function createParentPreOrder(
               .timezone,
           );
 
+        const tomorrow =
+          addDaysToDateString(
+            now.date,
+            1,
+          );
+
         if (
-          input.pickupDate <
-          now.date
+          input.pickupDate !== now.date &&
+          input.pickupDate !== tomorrow
         ) {
           throw new Error(
-            "Pickup date cannot be in the past",
+            "Pickup day must be Today or Tomorrow",
           );
         }
 
@@ -561,7 +589,7 @@ export async function createParentPreOrder(
               .preOrderCutoffTime
         ) {
           throw new Error(
-            `Pre-orders are closed for today after ${student.school.settings.preOrderCutoffTime}`,
+            `Pre-orders are closed for today after ${student.school.settings.preOrderCutoffTime}. Please choose Tomorrow.`,
           );
         }
 
