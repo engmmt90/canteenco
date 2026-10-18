@@ -22,11 +22,42 @@ export default async function ParentRegisterPage({ searchParams }: PageProps) {
     );
   }
 
-  const schools = await prisma.school.findMany({
-    where: { isActive: true, deletedAt: null },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+  const [schools, classes] = await Promise.all([
+    prisma.school.findMany({
+      where: { isActive: true, deletedAt: null },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+
+    prisma.schoolClass.findMany({
+      where: {
+        isActive: true,
+        school: {
+          isActive: true,
+          deletedAt: null,
+        },
+      },
+      select: {
+        id: true,
+        schoolId: true,
+        name: true,
+        grade: true,
+        section: true,
+        classCode: true,
+      },
+      orderBy: [
+        { grade: "asc" },
+        { classCode: "asc" },
+      ],
+    }),
+  ]);
+
+  classes.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
 
   return (
     <main className="shell register-shell">
@@ -34,7 +65,10 @@ export default async function ParentRegisterPage({ searchParams }: PageProps) {
         <h1 className="brand">Create Parent Account</h1>
         <p className="subtle">Add your children below. Nothing becomes active until CanteenGo administration approves the request.</p>
         {schools.length ? (
-          <ParentRegistrationForm schools={schools} />
+          <ParentRegistrationForm
+            schools={schools}
+            classes={classes}
+          />
         ) : (
           <p className="alert">No active schools are available yet. Please contact CanteenGo administration.</p>
         )}
