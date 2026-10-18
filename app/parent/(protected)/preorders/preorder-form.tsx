@@ -48,6 +48,7 @@ type ProductOptionData = {
   name: string;
   price: number;
   category: string | null;
+  blockedSchoolIds: string[];
 
   optionGroups: ProductOptionGroup[];
 };
@@ -173,6 +174,9 @@ export default function PreOrderForm({
         "",
     );
 
+    setCart([]);
+    setSelectedProduct(null);
+    setModalSelections({});
     setMessage("");
   }
 
@@ -813,7 +817,15 @@ export default function PreOrderForm({
               gap: 12,
             }}
           >
-            {data.products.map(
+            {data.products
+              .filter(
+                (product) =>
+                  !student ||
+                  !product.blockedSchoolIds.includes(
+                    student.schoolId,
+                  ),
+              )
+              .map(
               (product) => (
                 <button
                   key={product.id}
