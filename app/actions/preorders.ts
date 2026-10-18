@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureProductSchoolAvailabilityTable } from "@/lib/product-availability";
+import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 import { verifyAccessToken } from "@/lib/mobile-auth/tokens";
 import { queueParentNotification } from "@/lib/notifications";
 
@@ -29,6 +30,7 @@ const STAFF_ROLES: UserRole[] = [
 type PreOrderOptionInput = {
   groupId: string;
   optionId: string;
+  quantity?: number;
 };
 
 type PreOrderLine = {
@@ -369,6 +371,9 @@ export async function createParentPreOrder(
 
   try {
     await ensureProductSchoolAvailabilityTable();
+
+    const optionQuantitySettings =
+      await getProductOptionQuantitySettings();
 
     return await prisma.$transaction(
       async (tx) => {
@@ -750,6 +755,8 @@ export async function createParentPreOrder(
                           group.id,
 
                         optionId,
+
+                        quantity: 1,
                       };
                     },
                   );
@@ -813,9 +820,30 @@ export async function createParentPreOrder(
                       );
                     }
 
+                    const quantityEnabled =
+                      optionQuantitySettings.get(
+                        option.id,
+                      ) ?? true;
+
+                    const requestedQuantity =
+                      Number.isInteger(
+                        selection.quantity,
+                      )
+                        ? Math.max(
+                            1,
+                            Number(
+                              selection.quantity,
+                            ),
+                          )
+                        : 1;
+
                     return {
                       group,
                       option,
+                      quantity:
+                        quantityEnabled
+                          ? requestedQuantity
+                          : 1,
                     };
                   },
                 );
@@ -829,11 +857,18 @@ export async function createParentPreOrder(
               for (const group of
                 product.optionGroups) {
                 const selectedCount =
-                  selectedOptions.filter(
-                    (selection) =>
-                      selection.group.id ===
-                      group.id,
-                  ).length;
+                  selectedOptions
+                    .filter(
+                      (selection) =>
+                        selection.group.id ===
+                        group.id,
+                    )
+                    .reduce(
+                      (sum, selection) =>
+                        sum +
+                        selection.quantity,
+                      0,
+                    );
 
                 const minimum =
                   Math.max(
@@ -887,7 +922,9 @@ export async function createParentPreOrder(
                   ) =>
                     sum.add(
                       selection.option
-                        .additionalPrice,
+                        .additionalPrice.mul(
+                          selection.quantity,
+                        ),
                     ),
 
                   new Prisma.Decimal(
@@ -1173,7 +1210,8 @@ export async function createParentPreOrder(
                                   .option
                                   .additionalPrice,
 
-                              quantity: 1,
+                              quantity:
+                                selection.quantity,
                             }),
                           ),
                       },
