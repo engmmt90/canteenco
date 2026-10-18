@@ -78,6 +78,10 @@ export async function GET(
               where: {
                 status: "ACTIVE",
                 deletedAt: null,
+                school: {
+                  isActive: true,
+                  deletedAt: null,
+                },
               },
 
               orderBy: [
