@@ -62,6 +62,42 @@ export default async function Page({
     notFound();
   }
 
+  const schoolClasses = await prisma.schoolClass.findMany({
+    where: {
+      schoolId: student.schoolId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      grade: true,
+      section: true,
+      classCode: true,
+    },
+    orderBy: [
+      { grade: "asc" },
+      { classCode: "asc" },
+    ],
+  });
+
+  schoolClasses.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+
+  const currentClass =
+    schoolClasses.find(
+      (schoolClass) =>
+        schoolClass.classCode === student.classCode,
+    ) ??
+    schoolClasses.find(
+      (schoolClass) =>
+        schoolClass.grade === student.grade &&
+        schoolClass.section === student.classSection,
+    );
+
   return (
     <main className="content">
       <div className="page-heading">
@@ -147,28 +183,36 @@ export default async function Page({
           </label>
 
           <label className="label">
-            Grade
+            Class
 
-            <input
+            <select
               className="input"
-              name="grade"
-              defaultValue={student.grade}
+              name="classId"
+              defaultValue={currentClass?.id ?? ""}
               required
-            />
+            >
+              {!currentClass ? (
+                <option value="" disabled>
+                  Select class
+                </option>
+              ) : null}
+
+              {schoolClasses.map((schoolClass) => (
+                <option
+                  key={schoolClass.id}
+                  value={schoolClass.id}
+                >
+                  {schoolClass.name}
+                </option>
+              ))}
+            </select>
           </label>
 
-          <label className="label">
-            Class Section
-
-            <input
-              className="input"
-              name="classSection"
-              defaultValue={
-                student.classSection ?? ""
-              }
-              required
-            />
-          </label>
+          {schoolClasses.length === 0 ? (
+            <p className="alert">
+              No active classes are configured for this school.
+            </p>
+          ) : null}
 
           <label className="label">
             Official School ID
