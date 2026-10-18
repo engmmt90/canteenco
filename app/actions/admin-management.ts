@@ -235,15 +235,20 @@ export async function updateStaffAccount(
   f: FormData,
 ) {
   const id = str(f, "id");
+  const fullName = str(f, "fullName");
   const email = str(f, "email").toLowerCase();
+  const nfcCardNumber =
+    str(f, "nfcCardNumber") || null;
   const password = str(f, "password");
 
   if (!id) {
     throw new Error("Staff member is required");
   }
 
-  if (!email) {
-    throw new Error("Email is required");
+  if (!fullName || !email) {
+    throw new Error(
+      "Name and email are required",
+    );
   }
 
   if (password && password.length < 8) {
@@ -272,7 +277,9 @@ export async function updateStaffAccount(
   await prisma.user.update({
     where: { id },
     data: {
+      fullName,
       email,
+      nfcCardNumber,
       ...(password
         ? {
             passwordHash:
