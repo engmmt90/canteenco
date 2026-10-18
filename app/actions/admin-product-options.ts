@@ -383,3 +383,47 @@ export async function deleteProductOption(
     `/admin/products/${option.group.productId}/options`,
   );
 }
+
+export async function toggleProductOptionQuantity(
+  formData: FormData,
+): Promise<void> {
+  await requireAdmin();
+
+  const id = str(formData, "id");
+  const enabled =
+    str(formData, "enabled") === "true";
+
+  if (!id) {
+    throw new Error(
+      "Option ID is required.",
+    );
+  }
+
+  const option =
+    await prisma.productOption.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        group: {
+          select: {
+            productId: true,
+          },
+        },
+      },
+    });
+
+  if (!option) {
+    throw new Error(
+      "Option not found.",
+    );
+  }
+
+  await setProductOptionQuantityEnabled(
+    option.id,
+    !enabled,
+  );
+
+  revalidatePath(
+    `/admin/products/${option.group.productId}/options`,
+  );
+}
