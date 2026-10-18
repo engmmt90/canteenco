@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { setProductOptionQuantityEnabled } from "@/lib/product-option-quantity";
 
 function str(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -77,6 +78,9 @@ export async function saveProductOptionGroup(
 
   const isActive =
     formData.get("isActive") !== "off";
+
+  const quantityEnabled =
+    formData.get("quantityEnabled") === "on";
 
   if (!productId) {
     throw new Error(
@@ -246,6 +250,9 @@ export async function saveProductOption(
   const isActive =
     formData.get("isActive") !== "off";
 
+  const quantityEnabled =
+    formData.get("quantityEnabled") === "on";
+
   if (!groupId) {
     throw new Error(
       "Option group is required.",
@@ -307,16 +314,27 @@ export async function saveProductOption(
         isActive,
       },
     });
+
+    await setProductOptionQuantityEnabled(
+      id,
+      quantityEnabled,
+    );
   } else {
-    await prisma.productOption.create({
-      data: {
-        groupId,
-        name,
-        additionalPrice,
-        sortOrder,
-        isActive,
-      },
-    });
+    const createdOption =
+      await prisma.productOption.create({
+        data: {
+          groupId,
+          name,
+          additionalPrice,
+          sortOrder,
+          isActive,
+        },
+      });
+
+    await setProductOptionQuantityEnabled(
+      createdOption.id,
+      quantityEnabled,
+    );
   }
 
   revalidatePath(
