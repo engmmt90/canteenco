@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { requireParent } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
 import PreOrderForm from "./preorder-form";
 import { cancelOwnPreOrderFromForm } from "@/app/actions/preorders";
 
@@ -78,8 +79,9 @@ export default async function ParentPreOrdersPage() {
       },
     });
 
-  const products =
-    await prisma.product.findMany({
+  const [products, blockedRows] =
+    await Promise.all([
+      prisma.product.findMany({
       where: {
         isActive: true,
         deletedAt: null,
@@ -127,7 +129,25 @@ export default async function ParentPreOrdersPage() {
           name: "asc",
         },
       ],
-    });
+      }),
+      getBlockedSchoolIdsByProduct(),
+    ]);
+
+  const blockedSchoolIdsByProduct =
+    new Map<string, string[]>();
+
+  for (const row of blockedRows) {
+    const current =
+      blockedSchoolIdsByProduct.get(
+        row.productId,
+      ) ?? [];
+
+    current.push(row.schoolId);
+    blockedSchoolIdsByProduct.set(
+      row.productId,
+      current,
+    );
+  }
 
   const data = {
     walletBalance: Number(
@@ -185,6 +205,11 @@ export default async function ParentPreOrdersPage() {
 
         category:
           product.category,
+
+        blockedSchoolIds:
+          blockedSchoolIdsByProduct.get(
+            product.id,
+          ) ?? [],
 
         optionGroups:
           product.optionGroups.map(
