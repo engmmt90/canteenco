@@ -340,6 +340,19 @@ export default async function Page({
               />
 
               <label className="label">
+                Full name
+
+                <input
+                  className="input"
+                  name="fullName"
+                  defaultValue={
+                    member.fullName
+                  }
+                  required
+                />
+              </label>
+
+              <label className="label">
                 Email
 
                 <input
@@ -350,6 +363,21 @@ export default async function Page({
                     member.email
                   }
                   required
+                />
+              </label>
+
+              <label className="label">
+                NFC Card
+
+                <input
+                  className="input"
+                  name="nfcCardNumber"
+                  defaultValue={
+                    member.nfcCardNumber ??
+                    ""
+                  }
+                  placeholder="Tap or scan staff NFC card"
+                  autoComplete="off"
                 />
               </label>
 
@@ -368,8 +396,7 @@ export default async function Page({
               <p className="subtle compact">
                 Password must be at least
                 8 characters. Leave it blank
-                if you only want to change
-                the email.
+                to keep the current password.
               </p>
 
               <div className="actions-row">
