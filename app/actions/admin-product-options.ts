@@ -79,9 +79,6 @@ export async function saveProductOptionGroup(
   const isActive =
     formData.get("isActive") !== "off";
 
-  const quantityEnabled =
-    formData.get("quantityEnabled") === "on";
-
   if (!productId) {
     throw new Error(
       "Product is required.",
