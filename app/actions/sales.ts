@@ -94,6 +94,11 @@ export async function findCashierStudents(
       deletedAt: null,
       status: StudentStatus.ACTIVE,
 
+      school: {
+        isActive: true,
+        deletedAt: null,
+      },
+
       ...(schoolId
         ? {
             schoolId,
@@ -880,7 +885,9 @@ export async function createCashierSale(
           !student ||
           student.status !==
             StudentStatus.ACTIVE ||
-          student.deletedAt
+          student.deletedAt ||
+          !student.school.isActive ||
+          student.school.deletedAt
         ) {
           throw new Error(
             "Student is not active or is not available for this school",
