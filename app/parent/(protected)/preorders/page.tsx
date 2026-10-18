@@ -42,6 +42,10 @@ export default async function ParentPreOrdersPage() {
           where: {
             status: "ACTIVE",
             deletedAt: null,
+            school: {
+              isActive: true,
+              deletedAt: null,
+            },
           },
 
           include: {
