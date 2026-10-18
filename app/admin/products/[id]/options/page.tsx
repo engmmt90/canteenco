@@ -5,6 +5,7 @@ import {
   deleteProductOptionGroup,
   saveProductOption,
   saveProductOptionGroup,
+  toggleProductOptionQuantity,
 } from "@/app/actions/admin-product-options";
 
 import { requireAdmin } from "@/lib/authz";
@@ -666,7 +667,7 @@ export default async function ProductOptionsPage({
                                 display:
                                   "grid",
                                 gridTemplateColumns:
-                                  "minmax(180px, 1fr) 120px 100px auto auto auto",
+                                  "minmax(180px, 1fr) 120px 100px auto auto",
                                 gap: 8,
                                 alignItems:
                                   "center",
@@ -732,30 +733,6 @@ export default async function ProductOptionsPage({
                               >
                                 <input
                                   type="checkbox"
-                                  name="quantityEnabled"
-                                  defaultChecked={
-                                    quantitySettings.get(
-                                      option.id,
-                                    ) ?? true
-                                  }
-                                />
-
-                                Quantity
-                              </label>
-
-                              <label
-                                style={{
-                                  display:
-                                    "flex",
-                                  alignItems:
-                                    "center",
-                                  gap: 5,
-                                  whiteSpace:
-                                    "nowrap",
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
                                   name="isActive"
                                   defaultChecked={
                                     option.isActive
@@ -770,6 +747,51 @@ export default async function ProductOptionsPage({
                                 type="submit"
                               >
                                 Save
+                              </button>
+                            </form>
+
+                            {/* QUANTITY TOGGLE */}
+
+                            <form
+                              action={
+                                toggleProductOptionQuantity
+                              }
+                            >
+                              <input
+                                type="hidden"
+                                name="id"
+                                value={
+                                  option.id
+                                }
+                              />
+
+                              <input
+                                type="hidden"
+                                name="enabled"
+                                value={
+                                  (
+                                    quantitySettings.get(
+                                      option.id,
+                                    ) ?? true
+                                  )
+                                    ? "true"
+                                    : "false"
+                                }
+                              />
+
+                              <button
+                                className="secondary"
+                                type="submit"
+                                title="Enable or disable quantity controls for this option"
+                              >
+                                Quantity{" "}
+                                {(
+                                  quantitySettings.get(
+                                    option.id,
+                                  ) ?? true
+                                )
+                                  ? "ON"
+                                  : "OFF"}
                               </button>
                             </form>
 
@@ -910,7 +932,7 @@ export default async function ProductOptionsPage({
                           name="quantityEnabled"
                         />
 
-                        Allow quantity
+                        Quantity enabled
                       </label>
 
                       <label
