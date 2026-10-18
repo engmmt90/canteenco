@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import {
+  PREORDER_WEEKDAYS,
+  getSchoolPreOrderDaySettings,
+} from "@/lib/school-preorder-days";
 
 import {
   addPickupSlot,
@@ -396,6 +400,11 @@ export default async function SchoolSettingsPage({
   const s =
     school.settings;
 
+  const preOrderDays =
+    await getSchoolPreOrderDaySettings(
+      school.id,
+    );
+
   return (
     <main className="content">
       <div className="page-heading">
@@ -645,6 +654,49 @@ export default async function SchoolSettingsPage({
                   }
                 />
               </label>
+
+              <div className="label">
+                Pre-order available days
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    marginTop: 8,
+                  }}
+                >
+                  {PREORDER_WEEKDAYS.map(
+                    (day) => (
+                      <label
+                        key={day.value}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          name={`preOrderDay${day.value}`}
+                          defaultChecked={
+                            preOrderDays.get(
+                              day.value,
+                            ) ?? true
+                          }
+                        />{" "}
+                        {day.label}
+                      </label>
+                    ),
+                  )}
+                </div>
+
+                <span className="subtle compact">
+                  Untick any day when the
+                  canteen is closed. Parents
+                  will not be able to place a
+                  pre-order for that day.
+                </span>
+              </div>
 
               <label>
                 <input
