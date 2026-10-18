@@ -25,6 +25,7 @@ type StudentOption = {
   pickupToday: string;
   pickupTomorrow: string;
   todayAvailable: boolean;
+  tomorrowAvailable: boolean;
 
   pickupSlots: Array<{
     id: string;
@@ -122,7 +123,9 @@ export default function PreOrderForm({
     student
       ? student.todayAvailable
         ? student.pickupToday
-        : student.pickupTomorrow
+        : student.tomorrowAvailable
+          ? student.pickupTomorrow
+          : ""
       : "",
   );
 
@@ -195,7 +198,9 @@ export default function PreOrderForm({
       nextStudent
         ? nextStudent.todayAvailable
           ? nextStudent.pickupToday
-          : nextStudent.pickupTomorrow
+          : nextStudent.tomorrowAvailable
+            ? nextStudent.pickupTomorrow
+            : ""
         : "",
     );
 
@@ -858,6 +863,10 @@ export default function PreOrderForm({
                       event.target.value,
                     )
                   }
+                  disabled={
+                    !student.todayAvailable &&
+                    !student.tomorrowAvailable
+                  }
                 >
                   {student.todayAvailable ? (
                     <option
@@ -867,13 +876,31 @@ export default function PreOrderForm({
                     </option>
                   ) : null}
 
-                  <option
-                    value={student.pickupTomorrow}
-                  >
-                    Tomorrow
-                  </option>
+                  {student.tomorrowAvailable ? (
+                    <option
+                      value={student.pickupTomorrow}
+                    >
+                      Tomorrow
+                    </option>
+                  ) : null}
+
+                  {!student.todayAvailable &&
+                  !student.tomorrowAvailable ? (
+                    <option value="">
+                      No pickup days available
+                    </option>
+                  ) : null}
                 </select>
               </label>
+
+              {!student.todayAvailable &&
+              !student.tomorrowAvailable ? (
+                <p className="alert">
+                  Pre-orders are not available
+                  for Today or Tomorrow for this
+                  school.
+                </p>
+              ) : null}
 
               {/* PICKUP SLOT */}
 
