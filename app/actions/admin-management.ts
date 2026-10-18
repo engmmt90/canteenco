@@ -167,6 +167,128 @@ export async function saveProduct(f: FormData) {
   redirect("/admin/products");
 }
 
+async function getManageableStaff(
+  id: string,
+) {
+  const session = await requireAdmin();
+
+  const staff = await prisma.user.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      role: true,
+      schoolId: true,
+      deletedAt: true,
+      status: true,
+    },
+  });
+
+  if (
+    !staff ||
+    staff.deletedAt ||
+    !["CASHIER", "SCHOOL_ADMIN", "STAFF"].includes(
+      staff.role,
+    )
+  ) {
+    throw new Error("Staff member not found");
+  }
+
+  if (
+    session.user.role === "SCHOOL_ADMIN" &&
+    staff.schoolId !== session.user.schoolId
+  ) {
+    throw new Error("Unauthorized");
+  }
+
+  return { session, staff };
+}
+
+export async function toggleStaffActive(
+  f: FormData,
+) {
+  const id = str(f, "id");
+
+  if (!id) {
+    throw new Error("Staff member is required");
+  }
+
+  const { staff } =
+    await getManageableStaff(id);
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      status:
+        staff.status === "ACTIVE"
+          ? "DISABLED"
+          : "ACTIVE",
+      sessionVersion: {
+        increment: 1,
+      },
+    },
+  });
+
+  revalidatePath("/admin/staff");
+}
+
+export async function updateStaffAccount(
+  f: FormData,
+) {
+  const id = str(f, "id");
+  const email = str(f, "email").toLowerCase();
+  const password = str(f, "password");
+
+  if (!id) {
+    throw new Error("Staff member is required");
+  }
+
+  if (!email) {
+    throw new Error("Email is required");
+  }
+
+  if (password && password.length < 8) {
+    throw new Error(
+      "Password must be at least 8 characters",
+    );
+  }
+
+  await getManageableStaff(id);
+
+  const existingEmail =
+    await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+  if (
+    existingEmail &&
+    existingEmail.id !== id
+  ) {
+    throw new Error(
+      "This email is already in use",
+    );
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      email,
+      ...(password
+        ? {
+            passwordHash:
+              await bcrypt.hash(password, 12),
+            sessionVersion: {
+              increment: 1,
+            },
+          }
+        : {}),
+    },
+  });
+
+  revalidatePath("/admin/staff");
+  redirect("/admin/staff");
+}
+
 export async function saveStaff(f: FormData) {
   const session = await requireAdmin();
 
