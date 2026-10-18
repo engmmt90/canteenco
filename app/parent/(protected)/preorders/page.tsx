@@ -7,6 +7,52 @@ import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity"
 import PreOrderForm from "./preorder-form";
 import { cancelOwnPreOrderFromForm } from "@/app/actions/preorders";
 
+function getPickupDayOptions(
+  timeZone: string,
+  cutoffTime: string,
+) {
+  const parts =
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date());
+
+  const get = (type: string) =>
+    parts.find((part) => part.type === type)
+      ?.value ?? "";
+
+  const today =
+    `${get("year")}-${get("month")}-${get("day")}`;
+  const time =
+    `${get("hour")}:${get("minute")}`;
+
+  const [year, month, day] =
+    today.split("-").map(Number);
+
+  const tomorrowDate =
+    new Date(
+      Date.UTC(year, month - 1, day + 1),
+    );
+
+  const tomorrow =
+    `${tomorrowDate.getUTCFullYear()}-${String(
+      tomorrowDate.getUTCMonth() + 1,
+    ).padStart(2, "0")}-${String(
+      tomorrowDate.getUTCDate(),
+    ).padStart(2, "0")}`;
+
+  return {
+    today,
+    tomorrow,
+    todayAvailable: time < cutoffTime,
+  };
+}
+
 export default async function ParentPreOrdersPage() {
   const session = await requireParent();
 
@@ -158,7 +204,21 @@ export default async function ParentPreOrdersPage() {
 
     students: (
       parent?.students ?? []
-    ).map((student) => ({
+    ).map((student) => {
+      const cutoffTime =
+        student.school.settings
+          ?.preOrderCutoffTime ??
+        "07:00";
+
+      const pickupDays =
+        getPickupDayOptions(
+          student.school.settings
+            ?.timezone ??
+            "Australia/Brisbane",
+          cutoffTime,
+        );
+
+      return {
       id: student.id,
 
       firstName:
@@ -186,6 +246,15 @@ export default async function ParentPreOrdersPage() {
           ?.preOrderCutoffTime ??
         "07:00",
 
+      pickupToday:
+        pickupDays.today,
+
+      pickupTomorrow:
+        pickupDays.tomorrow,
+
+      todayAvailable:
+        pickupDays.todayAvailable,
+
       pickupSlots:
         student.school.pickupSlots.map(
           (slot) => ({
@@ -193,7 +262,8 @@ export default async function ParentPreOrdersPage() {
             label: slot.label,
           }),
         ),
-    })),
+      };
+    }),
 
     products: products.map(
       (product) => ({
