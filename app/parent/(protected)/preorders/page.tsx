@@ -4,6 +4,10 @@ import { requireParent } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import {
+  getSchoolPreOrderDaySettings,
+  weekdayFromDateString,
+} from "@/lib/school-preorder-days";
 import PreOrderForm from "./preorder-form";
 import { cancelOwnPreOrderFromForm } from "@/app/actions/preorders";
 
@@ -197,6 +201,31 @@ export default async function ParentPreOrdersPage() {
     );
   }
 
+  const schoolIds = [
+    ...new Set(
+      (parent?.students ?? []).map(
+        (student) => student.schoolId,
+      ),
+    ),
+  ];
+
+  const preOrderDaysBySchool =
+    new Map<
+      string,
+      Map<number, boolean>
+    >();
+
+  await Promise.all(
+    schoolIds.map(async (schoolId) => {
+      preOrderDaysBySchool.set(
+        schoolId,
+        await getSchoolPreOrderDaySettings(
+          schoolId,
+        ),
+      );
+    }),
+  );
+
   const data = {
     walletBalance: Number(
       parent?.wallet?.balance ?? 0,
@@ -217,6 +246,25 @@ export default async function ParentPreOrdersPage() {
             "Australia/Brisbane",
           cutoffTime,
         );
+
+      const availableDays =
+        preOrderDaysBySchool.get(
+          student.schoolId,
+        );
+
+      const todayEnabled =
+        availableDays?.get(
+          weekdayFromDateString(
+            pickupDays.today,
+          ),
+        ) ?? true;
+
+      const tomorrowEnabled =
+        availableDays?.get(
+          weekdayFromDateString(
+            pickupDays.tomorrow,
+          ),
+        ) ?? true;
 
       return {
       id: student.id,
@@ -253,7 +301,11 @@ export default async function ParentPreOrdersPage() {
         pickupDays.tomorrow,
 
       todayAvailable:
-        pickupDays.todayAvailable,
+        pickupDays.todayAvailable &&
+        todayEnabled,
+
+      tomorrowAvailable:
+        tomorrowEnabled,
 
       pickupSlots:
         student.school.pickupSlots.map(
