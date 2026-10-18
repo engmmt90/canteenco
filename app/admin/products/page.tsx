@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { saveProduct } from "@/app/actions/admin-management";
+import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
 import ProductReorder from "./product-reorder";
 
 export default async function Page({
@@ -14,14 +15,15 @@ export default async function Page({
     reorder?: string;
   }>;
 }) {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const params = await searchParams;
   const editId = params.edit;
   const showAddForm = params.add === "1";
   const showReorder = params.reorder === "1";
 
-  const products = await prisma.product.findMany({
+  const [products, schools, blockedRows] = await Promise.all([
+    prisma.product.findMany({
     where: {
       deletedAt: null,
     },
@@ -34,7 +36,36 @@ export default async function Page({
         name: "asc",
       },
     ],
-  });
+    }),
+    prisma.school.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        ...(session.user.role === "SCHOOL_ADMIN"
+          ? { id: session.user.schoolId ?? "__none__" }
+          : {}),
+      },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+    getBlockedSchoolIdsByProduct(),
+  ]);
+
+  const blockedSchoolIdsByProduct =
+    new Map<string, Set<string>>();
+
+  for (const row of blockedRows) {
+    const current =
+      blockedSchoolIdsByProduct.get(
+        row.productId,
+      ) ?? new Set<string>();
+
+    current.add(row.schoolId);
+    blockedSchoolIdsByProduct.set(
+      row.productId,
+      current,
+    );
+  }
 
   const editingProduct = editId
     ? products.find(
@@ -256,7 +287,7 @@ export default async function Page({
           />
         </label>
 
-        {/* Active */}
+        {/* Global Active */}
         <label
           style={{
             display: "flex",
@@ -274,8 +305,67 @@ export default async function Page({
             }
           />
 
-          Available for sale
+          Product enabled globally
         </label>
+
+        {/* School Availability */}
+        <section
+          style={{
+            padding: 14,
+            border:
+              "1px solid #e5e7eb",
+            borderRadius: 12,
+          }}
+        >
+          <strong>
+            Available for sale at
+          </strong>
+
+          <p className="subtle compact">
+            Choose the schools where this
+            product should appear for sales
+            and pre-orders.
+          </p>
+
+          <div
+            style={{
+              marginTop: 10,
+              display: "grid",
+              gap: 8,
+            }}
+          >
+            {schools.map((school) => {
+              const blocked =
+                editingProduct
+                  ? blockedSchoolIdsByProduct
+                      .get(
+                        editingProduct.id,
+                      )
+                      ?.has(school.id) ??
+                    false
+                  : false;
+
+              return (
+                <label
+                  key={school.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name="availableSchoolIds"
+                    value={school.id}
+                    defaultChecked={!blocked}
+                  />{" "}
+                  {school.name}
+                </label>
+              );
+            })}
+          </div>
+        </section>
 
         {/* Form Buttons */}
         <div
