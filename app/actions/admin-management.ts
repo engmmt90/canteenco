@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
+import { setProductAvailabilityForSchools } from "@/lib/product-availability";
 
 function str(f: FormData, k: string) {
   return String(f.get(k) ?? "").trim();
@@ -113,7 +114,7 @@ export async function toggleSchoolActive(f: FormData) {
 }
 
 export async function saveProduct(f: FormData) {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const id = str(f, "id");
   const name = str(f, "name");
@@ -151,16 +152,56 @@ export async function saveProduct(f: FormData) {
     isActive: bool(f, "isActive"),
   };
 
-  if (id) {
-    await prisma.product.update({
-      where: { id },
-      data,
+  const savedProduct = id
+    ? await prisma.product.update({
+        where: { id },
+        data,
+      })
+    : await prisma.product.create({
+        data,
+      });
+
+  const managedSchools =
+    await prisma.school.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        ...(session.user.role ===
+        "SCHOOL_ADMIN"
+          ? {
+              id:
+                session.user.schoolId ??
+                "__none__",
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+      },
     });
-  } else {
-    await prisma.product.create({
-      data,
-    });
-  }
+
+  const managedSchoolIds =
+    managedSchools.map(
+      (school) => school.id,
+    );
+
+  const availableSchoolIds =
+    f
+      .getAll("availableSchoolIds")
+      .map((value) =>
+        String(value).trim(),
+      )
+      .filter((schoolId) =>
+        managedSchoolIds.includes(
+          schoolId,
+        ),
+      );
+
+  await setProductAvailabilityForSchools(
+    savedProduct.id,
+    managedSchoolIds,
+    availableSchoolIds,
+  );
 
   revalidatePath("/admin/products");
   revalidatePath("/cashier");
