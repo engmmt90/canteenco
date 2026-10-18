@@ -151,6 +151,11 @@ export async function getParentPreOrderData() {
                 StudentStatus.ACTIVE,
 
               deletedAt: null,
+
+              school: {
+                isActive: true,
+                deletedAt: null,
+              },
             },
 
             include: {
@@ -467,9 +472,13 @@ export async function createParentPreOrder(
             },
           });
 
-        if (!student) {
+        if (
+          !student ||
+          !student.school.isActive ||
+          student.school.deletedAt
+        ) {
           throw new Error(
-            "Student not available",
+            "Student or school is not available",
           );
         }
 
