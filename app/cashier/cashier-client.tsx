@@ -45,6 +45,7 @@ type CartLine = {
   productId: string;
   quantity: number;
   optionIds: string[];
+  optionQuantities: Record<string, number>;
 };
 
 type SelectedOptions = Record<
@@ -56,6 +57,7 @@ type PrintLineOption = {
   groupName: string;
   optionName: string;
   additionalPrice: number;
+  quantity: number;
 };
 
 type PrintLine = {
@@ -188,6 +190,13 @@ export default function CashierClient() {
     {},
   );
 
+  const [
+    optionQuantities,
+    setOptionQuantities,
+  ] = useState<Record<string, number>>(
+    {},
+  );
+
   /* ==========================================================
    * SALE
    * ========================================================== */
@@ -302,6 +311,7 @@ export default function CashierClient() {
     setCart([]);
     setSelectedProduct(null);
     setSelectedOptions({});
+    setOptionQuantities({});
     setMessage("");
     setNeedsOverride(false);
     setAdminPassword("");
@@ -529,6 +539,7 @@ export default function CashierClient() {
     setSelectedProduct(null);
 
     setSelectedOptions({});
+    setOptionQuantities({});
 
     setMessage("");
 
@@ -594,6 +605,7 @@ export default function CashierClient() {
     setSelectedOptions(
       initial,
     );
+    setOptionQuantities({});
 
     setSelectedProduct(
       product,
@@ -658,6 +670,7 @@ export default function CashierClient() {
         quantity: 1,
 
         optionIds: [],
+        optionQuantities: {},
       },
     ]);
   }
@@ -685,6 +698,10 @@ export default function CashierClient() {
           group.maxSelections <=
           1
         ) {
+          setOptionQuantities({
+            [optionId]: 1,
+          });
+
           return {
             ...current,
 
@@ -703,6 +720,16 @@ export default function CashierClient() {
             optionId,
           )
         ) {
+          setOptionQuantities(
+            (quantities) => {
+              const next = {
+                ...quantities,
+              };
+              delete next[optionId];
+              return next;
+            },
+          );
+
           return {
             ...current,
 
@@ -727,6 +754,13 @@ export default function CashierClient() {
           return current;
         }
 
+        setOptionQuantities(
+          (quantities) => ({
+            ...quantities,
+            [optionId]: 1,
+          }),
+        );
+
         return {
           ...current,
 
@@ -736,6 +770,57 @@ export default function CashierClient() {
           ],
         };
       },
+    );
+
+    setMessage("");
+  }
+
+  function changeOptionQuantity(
+    group:
+      Product["optionGroups"][number],
+    optionId: string,
+    delta: number,
+  ) {
+    const chosen =
+      selectedOptions[group.id] ?? [];
+
+    if (!chosen.includes(optionId)) {
+      return;
+    }
+
+    const current =
+      optionQuantities[optionId] ?? 1;
+
+    const groupTotal =
+      chosen.reduce(
+        (sum, id) =>
+          sum +
+          (optionQuantities[id] ?? 1),
+        0,
+      );
+
+    const maximum =
+      group.maxSelections > 0
+        ? group.maxSelections
+        : Number.POSITIVE_INFINITY;
+
+    const next = Math.max(
+      1,
+      current + delta,
+    );
+
+    if (
+      delta > 0 &&
+      groupTotal >= maximum
+    ) {
+      return;
+    }
+
+    setOptionQuantities(
+      (quantities) => ({
+        ...quantities,
+        [optionId]: next,
+      }),
     );
 
     setMessage("");
@@ -765,8 +850,18 @@ export default function CashierClient() {
             : 0,
         );
 
+      const chosenCount =
+        chosen.reduce(
+          (sum, optionId) =>
+            sum +
+            (optionQuantities[
+              optionId
+            ] ?? 1),
+          0,
+        );
+
       if (
-        chosen.length <
+        chosenCount <
         minimum
       ) {
         return `Please select ${
@@ -779,7 +874,7 @@ export default function CashierClient() {
       if (
         group.maxSelections >
           0 &&
-        chosen.length >
+        chosenCount >
           group.maxSelections
       ) {
         return `Maximum ${group.maxSelections} selection${
@@ -834,6 +929,14 @@ export default function CashierClient() {
     const signature =
       [...optionIds]
         .sort()
+        .map(
+          (optionId) =>
+            `${optionId}:${
+              optionQuantities[
+                optionId
+              ] ?? 1
+            }`,
+        )
         .join("|");
 
     const existing =
@@ -848,6 +951,14 @@ export default function CashierClient() {
         return (
           [...line.optionIds]
             .sort()
+            .map(
+              (optionId) =>
+                `${optionId}:${
+                  line.optionQuantities[
+                    optionId
+                  ] ?? 1
+                }`,
+            )
             .join("|") ===
           signature
         );
@@ -882,6 +993,17 @@ export default function CashierClient() {
           quantity: 1,
 
           optionIds,
+          optionQuantities:
+            Object.fromEntries(
+              optionIds.map(
+                (optionId) => [
+                  optionId,
+                  optionQuantities[
+                    optionId
+                  ] ?? 1,
+                ],
+              ),
+            ),
         },
       ]);
     }
@@ -889,6 +1011,7 @@ export default function CashierClient() {
     setSelectedProduct(null);
 
     setSelectedOptions({});
+    setOptionQuantities({});
 
     setMessage("");
   }
@@ -995,9 +1118,13 @@ export default function CashierClient() {
             option.id,
           )
         ) {
-          amount += Number(
-            option.additionalPrice,
-          );
+          amount +=
+            Number(
+              option.additionalPrice,
+            ) *
+            (line.optionQuantities[
+              option.id
+            ] ?? 1);
         }
       }
     }
@@ -1127,7 +1254,10 @@ export default function CashierClient() {
             optionsTotal +=
               Number(
                 option.additionalPrice,
-              );
+              ) *
+              (optionQuantities[
+                option.id
+              ] ?? 1);
           }
         }
       }
@@ -1141,6 +1271,7 @@ export default function CashierClient() {
     }, [
       selectedProduct,
       selectedOptions,
+      optionQuantities,
     ]);
 
   /* ==========================================================
@@ -1160,6 +1291,7 @@ export default function CashierClient() {
     setCart([]);
     setSelectedProduct(null);
     setSelectedOptions({});
+    setOptionQuantities({});
     setAdminPassword("");
     setNeedsOverride(false);
     setPendingPrint(false);
@@ -1192,6 +1324,10 @@ export default function CashierClient() {
                 additionalPrice: Number(
                   option.additionalPrice,
                 ),
+                quantity:
+                  line.optionQuantities[
+                    option.id
+                  ] ?? 1,
               })),
           );
 
@@ -1332,6 +1468,8 @@ export default function CashierClient() {
             line.quantity,
           optionIds:
             line.optionIds,
+          optionQuantities:
+            line.optionQuantities,
         }),
       );
 
@@ -1493,6 +1631,8 @@ export default function CashierClient() {
               Number(
                 option.additionalPrice,
               ),
+            quantity:
+              option.quantity,
           }),
         ),
       }));
@@ -3621,10 +3761,107 @@ export default function CashierClient() {
                                 }
                               </span>
 
-                              {Number(
-                                option.additionalPrice,
-                              ) >
-                              0 ? (
+                              {checked &&
+                              !single ? (
+                                <div
+                                  style={{
+                                    display:
+                                      "flex",
+                                    alignItems:
+                                      "center",
+                                    gap: 7,
+                                  }}
+                                  onClick={(
+                                    event,
+                                  ) =>
+                                    event.preventDefault()
+                                  }
+                                >
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() =>
+                                      changeOptionQuantity(
+                                        group,
+                                        option.id,
+                                        -1,
+                                      )
+                                    }
+                                    style={{
+                                      minWidth: 30,
+                                      height: 30,
+                                      padding: 0,
+                                    }}
+                                  >
+                                    −
+                                  </button>
+
+                                  <strong
+                                    style={{
+                                      minWidth: 20,
+                                      textAlign:
+                                        "center",
+                                    }}
+                                  >
+                                    {optionQuantities[
+                                      option.id
+                                    ] ?? 1}
+                                  </strong>
+
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() =>
+                                      changeOptionQuantity(
+                                        group,
+                                        option.id,
+                                        1,
+                                      )
+                                    }
+                                    style={{
+                                      minWidth: 30,
+                                      height: 30,
+                                      padding: 0,
+                                    }}
+                                  >
+                                    +
+                                  </button>
+
+                                  <span
+                                    style={{
+                                      minWidth: 62,
+                                      textAlign:
+                                        "right",
+                                    }}
+                                  >
+                                    {Number(
+                                      option.additionalPrice,
+                                    ) >
+                                    0 ? (
+                                      <strong>
+                                        +$
+                                        {(
+                                          Number(
+                                            option.additionalPrice,
+                                          ) *
+                                          (optionQuantities[
+                                            option.id
+                                          ] ?? 1)
+                                        ).toFixed(
+                                          2,
+                                        )}
+                                      </strong>
+                                    ) : (
+                                      <span className="subtle">
+                                        Included
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                              ) : Number(
+                                  option.additionalPrice,
+                                ) >
+                                0 ? (
                                 <strong>
                                   +$
                                   {Number(
@@ -3815,7 +4052,11 @@ export default function CashierClient() {
                       fontSize: 11,
                     }}
                   >
-                    {option.groupName}: {option.optionName}
+                    {option.groupName}:{" "}
+                    {option.quantity > 1
+                      ? `${option.quantity} × `
+                      : ""}
+                    {option.optionName}
                     {option.additionalPrice > 0 &&
                       ` (+$${option.additionalPrice.toFixed(2)})`}
                   </div>
