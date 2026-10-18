@@ -25,8 +25,7 @@ const studentSchema = z.object({
   firstName: z.string().trim().min(1).max(80),
   lastName: z.string().trim().min(1).max(80),
   schoolId: z.string().min(1),
-  grade: z.string().trim().min(1).max(20),
-  classSection: z.string().trim().min(1).max(20),
+  classId: z.string().min(1),
   officialSchoolId: z.string().trim().max(80).optional(),
 });
 
@@ -62,8 +61,7 @@ export async function submitParentRegistration(
       firstName: formString(formData, `students.${index}.firstName`),
       lastName: formString(formData, `students.${index}.lastName`),
       schoolId: formString(formData, `students.${index}.schoolId`),
-      grade: formString(formData, `students.${index}.grade`),
-      classSection: formString(formData, `students.${index}.classSection`),
+      classId: formString(formData, `students.${index}.classId`),
       officialSchoolId: formString(formData, `students.${index}.officialSchoolId`) || undefined,
     });
 
@@ -98,6 +96,58 @@ export async function submitParentRegistration(
     return { error: "One of the selected schools is not currently available." };
   }
 
+  const classIds = [...new Set(students.map((student) => student.classId))];
+  const activeClasses = await prisma.schoolClass.findMany({
+    where: {
+      id: { in: classIds },
+      isActive: true,
+      school: {
+        isActive: true,
+        deletedAt: null,
+      },
+    },
+    select: {
+      id: true,
+      schoolId: true,
+      grade: true,
+      section: true,
+    },
+  });
+
+  if (activeClasses.length !== classIds.length) {
+    return { error: "One of the selected classes is not currently available." };
+  }
+
+  const classById = new Map(
+    activeClasses.map((schoolClass) => [
+      schoolClass.id,
+      schoolClass,
+    ]),
+  );
+
+  const studentsWithClass = students.map((student) => {
+    const schoolClass = classById.get(student.classId);
+
+    if (
+      !schoolClass ||
+      schoolClass.schoolId !== student.schoolId ||
+      !schoolClass.grade ||
+      !schoolClass.section
+    ) {
+      return null;
+    }
+
+    return {
+      ...student,
+      grade: schoolClass.grade,
+      classSection: schoolClass.section,
+    };
+  });
+
+  if (studentsWithClass.some((student) => !student)) {
+    return { error: "Please select a valid class for each student." };
+  }
+
   const passwordHash = await bcrypt.hash(parent.data.password, 12);
 
   await prisma.parentRegistrationRequest.create({
@@ -107,13 +157,13 @@ export async function submitParentRegistration(
       phone: parent.data.phone || null,
       passwordHash,
       students: {
-        create: students.map((student) => ({
-          schoolId: student.schoolId,
-          firstName: student.firstName,
-          lastName: student.lastName,
-          grade: student.grade,
-          classSection: student.classSection,
-          officialSchoolId: student.officialSchoolId || null,
+        create: studentsWithClass.map((student) => ({
+          schoolId: student!.schoolId,
+          firstName: student!.firstName,
+          lastName: student!.lastName,
+          grade: student!.grade,
+          classSection: student!.classSection,
+          officialSchoolId: student!.officialSchoolId || null,
         })),
       },
     },
