@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { queueParentNotification } from "@/lib/notifications";
 import { ensureProductSchoolAvailabilityTable, getBlockedProductIds } from "@/lib/product-availability";
+import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 
 import {
   NotificationEvent,
@@ -239,12 +240,35 @@ export async function getCashierProducts() {
       ],
     });
 
-  return products.filter(
-    (product) =>
-      !blockedProductIds.has(
-        product.id,
-      ),
-  );
+  const quantitySettings =
+    await getProductOptionQuantitySettings();
+
+  return products
+    .filter(
+      (product) =>
+        !blockedProductIds.has(
+          product.id,
+        ),
+    )
+    .map((product) => ({
+      ...product,
+      optionGroups:
+        product.optionGroups.map(
+          (group) => ({
+            ...group,
+            options:
+              group.options.map(
+                (option) => ({
+                  ...option,
+                  quantityEnabled:
+                    quantitySettings.get(
+                      option.id,
+                    ) ?? true,
+                }),
+              ),
+          }),
+        ),
+    }));
 }
 
 
@@ -326,6 +350,9 @@ async function buildValidatedSaleLines(
     );
   }
 
+  const quantitySettings =
+    await getProductOptionQuantitySettings();
+
   const productMap = new Map(
     products.map((product) => [
       product.id,
@@ -370,14 +397,18 @@ async function buildValidatedSaleLines(
           .map((option) => ({
             ...option,
             selectedQuantity:
-              Math.max(
-                1,
-                Math.trunc(
-                  line.optionQuantities?.[
-                    option.id
-                  ] ?? 1,
-                ),
-              ),
+              (quantitySettings.get(
+                option.id,
+              ) ?? true)
+                ? Math.max(
+                    1,
+                    Math.trunc(
+                      line.optionQuantities?.[
+                        option.id
+                      ] ?? 1,
+                    ),
+                  )
+                : 1,
           }));
 
       if (
