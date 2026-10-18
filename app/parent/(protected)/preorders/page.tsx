@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireParent } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
+import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 import PreOrderForm from "./preorder-form";
 import { cancelOwnPreOrderFromForm } from "@/app/actions/preorders";
 
@@ -79,7 +80,7 @@ export default async function ParentPreOrdersPage() {
       },
     });
 
-  const [products, blockedRows] =
+  const [products, blockedRows, quantitySettings] =
     await Promise.all([
       prisma.product.findMany({
       where: {
@@ -131,6 +132,7 @@ export default async function ParentPreOrdersPage() {
       ],
       }),
       getBlockedSchoolIdsByProduct(),
+      getProductOptionQuantitySettings(),
     ]);
 
   const blockedSchoolIdsByProduct =
@@ -241,6 +243,11 @@ export default async function ParentPreOrdersPage() {
                       Number(
                         option.additionalPrice,
                       ),
+
+                    quantityEnabled:
+                      quantitySettings.get(
+                        option.id,
+                      ) ?? true,
                   }),
                 ),
             }),
