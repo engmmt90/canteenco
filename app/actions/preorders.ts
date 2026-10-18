@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureProductSchoolAvailabilityTable } from "@/lib/product-availability";
 import { verifyAccessToken } from "@/lib/mobile-auth/tokens";
 import { queueParentNotification } from "@/lib/notifications";
 
@@ -367,6 +368,8 @@ export async function createParentPreOrder(
   }
 
   try {
+    await ensureProductSchoolAvailabilityTable();
+
     return await prisma.$transaction(
       async (tx) => {
         /*
