@@ -9,6 +9,7 @@ import {
 
 import { requireAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
+import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 
 export default async function ProductOptionsPage({
   params,
@@ -22,8 +23,9 @@ export default async function ProductOptionsPage({
   const { id } =
     await params;
 
-  const product =
-    await prisma.product.findUnique({
+  const [product, quantitySettings] =
+    await Promise.all([
+      prisma.product.findUnique({
       where: {
         id,
       },
@@ -58,7 +60,9 @@ export default async function ProductOptionsPage({
           },
         },
       },
-    });
+      }),
+      getProductOptionQuantitySettings(),
+    ]);
 
   if (!product) {
     return (
@@ -662,7 +666,7 @@ export default async function ProductOptionsPage({
                                 display:
                                   "grid",
                                 gridTemplateColumns:
-                                  "minmax(180px, 1fr) 120px 100px auto auto",
+                                  "minmax(180px, 1fr) 120px 100px auto auto auto",
                                 gap: 8,
                                 alignItems:
                                   "center",
@@ -714,6 +718,30 @@ export default async function ProductOptionsPage({
                                   option.sortOrder
                                 }
                               />
+
+                              <label
+                                style={{
+                                  display:
+                                    "flex",
+                                  alignItems:
+                                    "center",
+                                  gap: 5,
+                                  whiteSpace:
+                                    "nowrap",
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  name="quantityEnabled"
+                                  defaultChecked={
+                                    quantitySettings.get(
+                                      option.id,
+                                    ) ?? true
+                                  }
+                                />
+
+                                Quantity
+                              </label>
 
                               <label
                                 style={{
@@ -867,6 +895,23 @@ export default async function ProductOptionsPage({
                           />
                         </label>
                       </div>
+
+                      <label
+                        style={{
+                          display:
+                            "flex",
+                          alignItems:
+                            "center",
+                          gap: 8,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          name="quantityEnabled"
+                        />
+
+                        Allow quantity
+                      </label>
 
                       <label
                         style={{
