@@ -71,6 +71,47 @@ export async function saveSchool(f: FormData) {
   revalidatePath("/admin");
 }
 
+export async function toggleSchoolActive(f: FormData) {
+  const session = await requireAdmin();
+
+  if (session.user.role !== "SUPER_ADMIN") {
+    throw new Error("Super Admin only");
+  }
+
+  const id = str(f, "id");
+
+  if (!id) {
+    throw new Error("School is required");
+  }
+
+  const school = await prisma.school.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      isActive: true,
+      deletedAt: true,
+    },
+  });
+
+  if (!school || school.deletedAt) {
+    throw new Error("School not found");
+  }
+
+  await prisma.school.update({
+    where: { id },
+    data: {
+      isActive: !school.isActive,
+    },
+  });
+
+  revalidatePath("/admin/schools");
+  revalidatePath("/admin");
+  revalidatePath("/parent/register");
+  revalidatePath("/parent/add-student");
+  revalidatePath("/parent/preorders");
+  revalidatePath("/cashier");
+}
+
 export async function saveProduct(f: FormData) {
   await requireAdmin();
 
