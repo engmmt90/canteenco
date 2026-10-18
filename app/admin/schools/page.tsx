@@ -2,7 +2,10 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
-import { saveSchool } from "@/app/actions/admin-management";
+import {
+  saveSchool,
+  toggleSchoolActive,
+} from "@/app/actions/admin-management";
 
 export default async function Page({
   searchParams,
@@ -165,6 +168,29 @@ export default async function Page({
                     ? "ACTIVE"
                     : "INACTIVE"}
                 </span>
+
+                {session.user.role === "SUPER_ADMIN" ? (
+                  <form action={toggleSchoolActive}>
+                    <input
+                      type="hidden"
+                      name="id"
+                      value={school.id}
+                    />
+
+                    <button
+                      className={
+                        school.isActive
+                          ? "danger"
+                          : "secondary"
+                      }
+                      type="submit"
+                    >
+                      {school.isActive
+                        ? "Deactivate"
+                        : "Activate"}
+                    </button>
+                  </form>
+                ) : null}
 
                 <Link
                   className="secondary"
