@@ -3383,7 +3383,7 @@ export default function CashierClient() {
             }
             style={{
               width: "100%",
-              maxWidth: 650,
+              maxWidth: 1100,
               maxHeight:
                 "calc(100vh - 36px)",
               overflowY:
@@ -3548,6 +3548,8 @@ export default function CashierClient() {
                       style={{
                         display:
                           "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(260px, 1fr))",
                         gap: 8,
                       }}
                     >
@@ -3656,9 +3658,16 @@ export default function CashierClient() {
 
             <div
               style={{
+                position: "sticky",
+                bottom: -22,
+                zIndex: 2,
+                background: "white",
                 borderTop:
                   "1px solid #e5e7eb",
-                paddingTop: 14,
+                margin:
+                  "0 -22px -22px",
+                padding:
+                  "14px 22px 18px",
                 display: "flex",
                 justifyContent:
                   "space-between",
