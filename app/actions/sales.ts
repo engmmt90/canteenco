@@ -30,6 +30,7 @@ type CartLine = {
   productId: string;
   quantity: number;
   optionIds?: string[];
+  optionQuantities?: Record<string, number>;
 };
 
 type CashierSaleResult =
@@ -360,11 +361,24 @@ async function buildValidatedSaleLines(
         );
 
       const selectedOptions =
-        allOptions.filter((option) =>
-          requestedOptionIds.includes(
-            option.id,
-          ),
-        );
+        allOptions
+          .filter((option) =>
+            requestedOptionIds.includes(
+              option.id,
+            ),
+          )
+          .map((option) => ({
+            ...option,
+            selectedQuantity:
+              Math.max(
+                1,
+                Math.trunc(
+                  line.optionQuantities?.[
+                    option.id
+                  ] ?? 1,
+                ),
+              ),
+          }));
 
       if (
         selectedOptions.length !==
@@ -391,7 +405,12 @@ async function buildValidatedSaleLines(
           );
 
         const count =
-          selectedInGroup.length;
+          selectedInGroup.reduce(
+            (sum, option) =>
+              sum +
+              option.selectedQuantity,
+            0,
+          );
 
         const minimum = Math.max(
           group.minSelections,
@@ -420,7 +439,9 @@ async function buildValidatedSaleLines(
         selectedOptions.reduce(
           (sum, option) =>
             sum.add(
-              option.additionalPrice,
+              option.additionalPrice.mul(
+                option.selectedQuantity,
+              ),
             ),
           new Prisma.Decimal(0),
         );
@@ -505,7 +526,8 @@ async function createSaleItems(
                 option.name,
               additionalPrice:
                 option.additionalPrice,
-              quantity: 1,
+              quantity:
+                option.selectedQuantity,
             }),
           ),
       });
