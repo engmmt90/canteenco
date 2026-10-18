@@ -204,8 +204,8 @@ export default async function Page({
           <input
             className="input"
             name="imageUrl"
-            type="url"
-            placeholder="https://..."
+            type="text"
+            placeholder="/images/product-name.png"
             defaultValue={
               editingProduct?.imageUrl ?? ""
             }
