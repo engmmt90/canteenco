@@ -22,6 +22,9 @@ type StudentOption = {
   schoolName: string;
   preOrderEnabled: boolean;
   cutoffTime: string;
+  pickupToday: string;
+  pickupTomorrow: string;
+  todayAvailable: boolean;
 
   pickupSlots: Array<{
     id: string;
@@ -115,7 +118,13 @@ export default function PreOrderForm({
   const [
     pickupDate,
     setPickupDate,
-  ] = useState("");
+  ] = useState(
+    student
+      ? student.todayAvailable
+        ? student.pickupToday
+        : student.pickupTomorrow
+      : "",
+  );
 
   /* ==========================================================
    * CART
@@ -180,6 +189,14 @@ export default function PreOrderForm({
       nextStudent
         ?.pickupSlots[0]?.id ??
         "",
+    );
+
+    setPickupDate(
+      nextStudent
+        ? nextStudent.todayAvailable
+          ? nextStudent.pickupToday
+          : nextStudent.pickupTomorrow
+        : "",
     );
 
     setCart([]);
@@ -828,23 +845,34 @@ export default function PreOrderForm({
                 </p>
               )}
 
-              {/* PICKUP DATE */}
+              {/* PICKUP DAY */}
 
               <label className="label">
-                Pickup date
+                Pickup day
 
-                <input
+                <select
                   className="input"
-                  type="date"
                   value={pickupDate}
-                  onChange={(
-                    event,
-                  ) =>
+                  onChange={(event) =>
                     setPickupDate(
                       event.target.value,
                     )
                   }
-                />
+                >
+                  {student.todayAvailable ? (
+                    <option
+                      value={student.pickupToday}
+                    >
+                      Today
+                    </option>
+                  ) : null}
+
+                  <option
+                    value={student.pickupTomorrow}
+                  >
+                    Tomorrow
+                  </option>
+                </select>
               </label>
 
               {/* PICKUP SLOT */}
