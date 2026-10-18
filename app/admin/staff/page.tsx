@@ -2,18 +2,24 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
-import { saveStaff } from "@/app/actions/admin-management";
+import {
+  saveStaff,
+  toggleStaffActive,
+  updateStaffAccount,
+} from "@/app/actions/admin-management";
 
 export default async function Page({
   searchParams,
 }: {
   searchParams: Promise<{
     add?: string;
+    edit?: string;
   }>;
 }) {
   const session = await requireAdmin();
   const params = await searchParams;
   const showAddForm = params.add === "1";
+  const editStaffId = params.edit ?? "";
 
   const schoolWhere =
     session.user.role === "SCHOOL_ADMIN"
@@ -42,6 +48,7 @@ export default async function Page({
             in: [
               "CASHIER",
               "SCHOOL_ADMIN",
+              "STAFF",
             ],
           },
 
@@ -297,6 +304,94 @@ export default async function Page({
         </form>
       )}
 
+      {editStaffId ? (
+        (() => {
+          const member =
+            staff.find(
+              (item) =>
+                item.id === editStaffId,
+            );
+
+          if (!member) {
+            return null;
+          }
+
+          return (
+            <form
+              action={updateStaffAccount}
+              className="panel form"
+              style={{
+                marginTop: 18,
+              }}
+            >
+              <h2>
+                Edit Staff Account
+              </h2>
+
+              <p className="subtle compact">
+                {member.fullName} ·{" "}
+                {member.role}
+              </p>
+
+              <input
+                type="hidden"
+                name="id"
+                value={member.id}
+              />
+
+              <label className="label">
+                Email
+
+                <input
+                  className="input"
+                  name="email"
+                  type="email"
+                  defaultValue={
+                    member.email
+                  }
+                  required
+                />
+              </label>
+
+              <label className="label">
+                New password
+
+                <input
+                  className="input"
+                  name="password"
+                  type="password"
+                  placeholder="Leave blank to keep current password"
+                  minLength={8}
+                />
+              </label>
+
+              <p className="subtle compact">
+                Password must be at least
+                8 characters. Leave it blank
+                if you only want to change
+                the email.
+              </p>
+
+              <div className="actions-row">
+                <button
+                  className="primary"
+                  type="submit"
+                >
+                  Save Changes
+                </button>
+
+                <Link
+                  className="secondary"
+                  href="/admin/staff"
+                >
+                  Cancel
+                </Link>
+              </div>
+            </form>
+          );
+        })()
+      ) : null}
+
       <section
         className="panel"
         style={{
@@ -343,10 +438,44 @@ export default async function Page({
                 </div>
               </div>
 
-              <span className="badge">
-                {user.role} ·{" "}
-                {user.status}
-              </span>
+              <div className="actions-row">
+                <span className="badge">
+                  {user.role} ·{" "}
+                  {user.status}
+                </span>
+
+                <form
+                  action={toggleStaffActive}
+                >
+                  <input
+                    type="hidden"
+                    name="id"
+                    value={user.id}
+                  />
+
+                  <button
+                    className={
+                      user.status ===
+                      "ACTIVE"
+                        ? "danger"
+                        : "secondary"
+                    }
+                    type="submit"
+                  >
+                    {user.status ===
+                    "ACTIVE"
+                      ? "Deactivate"
+                      : "Activate"}
+                  </button>
+                </form>
+
+                <Link
+                  className="secondary"
+                  href={`/admin/staff?edit=${user.id}`}
+                >
+                  Edit Account
+                </Link>
+              </div>
             </div>
           ))}
         </div>
