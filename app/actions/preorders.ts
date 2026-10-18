@@ -169,7 +169,7 @@ export async function getParentPreOrderData() {
                     },
 
                     orderBy: {
-                      sortOrder: "asc",
+                      startTime: "asc",
                     },
                   },
                 },
