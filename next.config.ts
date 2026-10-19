@@ -10,7 +10,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https: wss:",
+  "connect-src 'self' https: wss: http://127.0.0.1:17833 http://localhost:17833",
   "worker-src 'self' blob:",
   "media-src 'self' https:",
   "manifest-src 'self'",
