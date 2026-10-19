@@ -158,6 +158,9 @@ export default function CashierClient() {
       null,
     );
 
+  const nfcAutoSearchTimerRef =
+    useRef<number | null>(null);
+
   /* ==========================================================
    * PRODUCTS
    * ========================================================== */
@@ -370,6 +373,17 @@ export default function CashierClient() {
     void loadRecentSales();
 
     focusNfcInput();
+
+    return () => {
+      if (
+        nfcAutoSearchTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          nfcAutoSearchTimerRef.current,
+        );
+      }
+    };
   }, []);
 
   /* ==========================================================
@@ -450,9 +464,11 @@ export default function CashierClient() {
    * NFC SEARCH
    * ========================================================== */
 
-  async function searchNfc() {
+  async function searchNfc(
+    scannedValue?: string,
+  ) {
     const value =
-      nfc.trim();
+      (scannedValue ?? nfc).trim();
 
     if (!value) {
       focusNfcInput();
@@ -1904,13 +1920,39 @@ export default function CashierClient() {
               onChange={(
                 event,
               ) => {
-                setNfc(
-                  event.target.value,
-                );
+                const value =
+                  event.target.value;
 
-                setNfcMessage(
-                  "",
-                );
+                setNfc(value);
+                setNfcMessage("");
+
+                if (
+                  nfcAutoSearchTimerRef.current !==
+                  null
+                ) {
+                  window.clearTimeout(
+                    nfcAutoSearchTimerRef.current,
+                  );
+                }
+
+                if (!value.trim()) {
+                  return;
+                }
+
+                /*
+                 * NFC readers type the card number
+                 * very quickly. Wait briefly for the
+                 * scan to finish, then look up the
+                 * student automatically so Enter is
+                 * not required.
+                 */
+                nfcAutoSearchTimerRef.current =
+                  window.setTimeout(() => {
+                    nfcAutoSearchTimerRef.current =
+                      null;
+
+                    void searchNfc(value);
+                  }, 180);
               }}
               onKeyDown={(
                 event,
@@ -1920,6 +1962,17 @@ export default function CashierClient() {
                   "Enter"
                 ) {
                   event.preventDefault();
+
+                  if (
+                    nfcAutoSearchTimerRef.current !==
+                    null
+                  ) {
+                    window.clearTimeout(
+                      nfcAutoSearchTimerRef.current,
+                    );
+                    nfcAutoSearchTimerRef.current =
+                      null;
+                  }
 
                   void searchNfc();
                 }
