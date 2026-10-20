@@ -1366,7 +1366,7 @@ export default function CashierClient() {
     const timeoutId =
       window.setTimeout(() => {
         controller.abort();
-      }, 10000);
+      }, 3000);
 
     try {
       const response =
@@ -1540,32 +1540,38 @@ export default function CashierClient() {
       setShowAdminApproval(false);
       setNeedsOverride(false);
 
-      let drawerOpened = true;
+      const successMessage =
+        guestSale
+          ? paymentMethod ===
+              "CASH"
+            ? `Sale ${result.saleNumber} completed. Cash received: ${cashReceivedAmount.toFixed(2)}. Change: ${cashChange.toFixed(2)}.`
+            : `Sale ${result.saleNumber} completed. Payment: CARD.`
+          : `Sale ${result.saleNumber} completed. New balance: ${result.balanceAfter}`;
+
+      /*
+       * Do not keep the cashier waiting for the
+       * local cash-drawer helper. The sale is
+       * already complete, so show success
+       * immediately and open the drawer in the
+       * background.
+       */
+      setMessage(successMessage);
 
       if (
         paymentMethod ===
           "CASH" &&
         result.duplicate !== true
       ) {
-        drawerOpened =
-          await openCashDrawer();
+        void openCashDrawer().then(
+          (drawerOpened) => {
+            if (!drawerOpened) {
+              setMessage(
+                `${successMessage} Cash drawer did not open automatically.`,
+              );
+            }
+          },
+        );
       }
-
-      const successMessage =
-        guestSale
-          ? paymentMethod ===
-              "CASH"
-            ? `Sale ${result.saleNumber} completed. Cash received: $${cashReceivedAmount.toFixed(2)}. Change: $${cashChange.toFixed(2)}.`
-            : `Sale ${result.saleNumber} completed. Payment: CARD.`
-          : `Sale ${result.saleNumber} completed. New balance: $${result.balanceAfter}`;
-
-      setMessage(
-        paymentMethod ===
-            "CASH" &&
-          !drawerOpened
-          ? `${successMessage} Cash drawer did not open automatically.`
-          : successMessage,
-      );
 
       setKey(crypto.randomUUID());
 
