@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { logout } from "@/app/actions/auth";
+
 const links = [
   ["Dashboard", "/admin"],
   ["Registration Requests", "/admin/registrations"],
@@ -70,6 +72,34 @@ export default function AdminMobileNav() {
                 </Link>
               ))}
             </nav>
+
+            <div
+              style={{
+                borderTop: "1px solid #374151",
+                marginTop: "14px",
+                paddingTop: "14px",
+              }}
+            >
+              <form action={logout}>
+                <button
+                  type="submit"
+                  style={{
+                    width: "100%",
+                    border: 0,
+                    borderRadius: "9px",
+                    padding: "12px",
+                    background: "transparent",
+                    color: "#fca5a5",
+                    font: "inherit",
+                    fontWeight: 700,
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  Log out
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}
