@@ -4,6 +4,7 @@ import { requireParent } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import { getBlockedSchoolIdsByProductOption } from "@/lib/product-option-availability";
 import {
   getSchoolPreOrderDaySettings,
   weekdayFromDateString,
@@ -130,8 +131,12 @@ export default async function ParentPreOrdersPage() {
       },
     });
 
-  const [products, blockedRows, quantitySettings] =
-    await Promise.all([
+  const [
+    products,
+    blockedRows,
+    blockedOptionRows,
+    quantitySettings,
+  ] = await Promise.all([
       prisma.product.findMany({
       where: {
         isActive: true,
@@ -182,6 +187,7 @@ export default async function ParentPreOrdersPage() {
       ],
       }),
       getBlockedSchoolIdsByProduct(),
+      getBlockedSchoolIdsByProductOption(),
       getProductOptionQuantitySettings(),
     ]);
 
@@ -197,6 +203,23 @@ export default async function ParentPreOrdersPage() {
     current.push(row.schoolId);
     blockedSchoolIdsByProduct.set(
       row.productId,
+      current,
+    );
+  }
+
+  const blockedSchoolIdsByOption =
+    new Map<string, string[]>();
+
+  for (const row of blockedOptionRows) {
+    const current =
+      blockedSchoolIdsByOption.get(
+        row.optionId,
+      ) ?? [];
+
+    current.push(row.schoolId);
+
+    blockedSchoolIdsByOption.set(
+      row.optionId,
       current,
     );
   }
@@ -370,6 +393,11 @@ export default async function ParentPreOrdersPage() {
                       quantitySettings.get(
                         option.id,
                       ) ?? true,
+
+                    blockedSchoolIds:
+                      blockedSchoolIdsByOption.get(
+                        option.id,
+                      ) ?? [],
                   }),
                 ),
             }),
