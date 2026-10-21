@@ -7,6 +7,7 @@ import {
 } from "react";
 
 import {
+  cancelCashierPreOrder,
   markPreOrderLabelPrinted,
   updatePreOrderStatus,
 } from "@/app/actions/preorders";
@@ -78,6 +79,16 @@ export default function PreOrderQueue({
   const [printOrder, setPrintOrder] =
     useState<O | null>(null);
 
+  const [
+    cancelOrder,
+    setCancelOrder,
+  ] = useState<O | null>(null);
+
+  const [
+    cancelling,
+    setCancelling,
+  ] = useState(false);
+
   const [showFilters, setShowFilters] =
     useState(false);
 
@@ -140,6 +151,63 @@ export default function PreOrderQueue({
               : item,
           ),
     );
+  }
+
+  /* ==========================================================
+   * CANCEL
+   * ========================================================== */
+
+  async function cancelSelectedOrder(
+    refund: boolean,
+  ) {
+    if (!cancelOrder || cancelling) {
+      return;
+    }
+
+    setCancelling(true);
+    setMessage("");
+
+    try {
+      const result =
+        await cancelCashierPreOrder(
+          cancelOrder.id,
+          refund,
+        );
+
+      if (!result.ok) {
+        setMessage(
+          result.error ??
+            "Cancellation failed",
+        );
+        return;
+      }
+
+      setOrders((current) =>
+        current.filter(
+          (item) =>
+            item.id !==
+            cancelOrder.id,
+        ),
+      );
+
+      setCancelOrder(null);
+
+      setMessage(
+        refund
+          ? `Pre-order cancelled and ${cancelOrder.total.toFixed(
+              2,
+            )} refunded.`
+          : "Pre-order cancelled without refund.",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Cancellation failed",
+      );
+    } finally {
+      setCancelling(false);
+    }
   }
 
   /* ==========================================================
@@ -936,6 +1004,30 @@ export default function PreOrderQueue({
                     <div className="actions-row">
                       <button
                         type="button"
+                        onClick={() =>
+                          setCancelOrder(
+                            order,
+                          )
+                        }
+                        style={{
+                          border:
+                            "1px solid #dc2626",
+                          background:
+                            "#dc2626",
+                          color: "white",
+                          borderRadius: 8,
+                          padding:
+                            "9px 14px",
+                          fontWeight: 700,
+                          cursor:
+                            "pointer",
+                        }}
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="button"
                         className="secondary"
                         onClick={() =>
                           void printLabel(
@@ -1036,6 +1128,175 @@ export default function PreOrderQueue({
             </button>
           )}
         </section>
+      )}
+
+      {/* ======================================================
+       * CANCEL MODAL
+       * ==================================================== */}
+
+      {cancelOrder && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-preorder-title"
+          onClick={() => {
+            if (!cancelling) {
+              setCancelOrder(null);
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background:
+              "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
+            padding: 18,
+          }}
+        >
+          <div
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              background: "white",
+              borderRadius: 16,
+              padding: 22,
+              boxShadow:
+                "0 24px 80px rgba(0,0,0,0.3)",
+            }}
+          >
+            <h2
+              id="cancel-preorder-title"
+              style={{
+                margin:
+                  "0 0 8px",
+              }}
+            >
+              Cancel Pre-Order
+            </h2>
+
+            <p
+              className="subtle"
+              style={{
+                margin:
+                  "0 0 18px",
+              }}
+            >
+              {cancelOrder.orderNumber}
+              {" · "}
+              {
+                cancelOrder.student
+                  .firstName
+              }{" "}
+              {
+                cancelOrder.student
+                  .lastName
+              }
+            </p>
+
+            <p
+              style={{
+                margin:
+                  "0 0 18px",
+              }}
+            >
+              Choose how you want to
+              cancel this order.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 10,
+              }}
+            >
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() =>
+                  void cancelSelectedOrder(
+                    false,
+                  )
+                }
+                style={{
+                  width: "100%",
+                  border:
+                    "1px solid #dc2626",
+                  background:
+                    "white",
+                  color: "#dc2626",
+                  borderRadius: 9,
+                  padding:
+                    "11px 14px",
+                  fontWeight: 700,
+                  cursor:
+                    cancelling
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {cancelling
+                  ? "Processing..."
+                  : "Cancel Only"}
+              </button>
+
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() =>
+                  void cancelSelectedOrder(
+                    true,
+                  )
+                }
+                style={{
+                  width: "100%",
+                  border:
+                    "1px solid #dc2626",
+                  background:
+                    "#dc2626",
+                  color: "white",
+                  borderRadius: 9,
+                  padding:
+                    "11px 14px",
+                  fontWeight: 700,
+                  cursor:
+                    cancelling
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                {cancelling
+                  ? "Processing..."
+                  : `Cancel & Refund (${cancelOrder.total.toFixed(
+                      2,
+                    )})`}
+              </button>
+
+              <button
+                type="button"
+                className="secondary"
+                disabled={cancelling}
+                onClick={() =>
+                  setCancelOrder(
+                    null,
+                  )
+                }
+                style={{
+                  width: "100%",
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ======================================================
