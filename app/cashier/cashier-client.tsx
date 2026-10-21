@@ -20,6 +20,11 @@ import {
   getStudentDailySpending,
 } from "@/app/actions/student-spending";
 
+import {
+  getCashierStockData,
+  saveCashierStockChanges,
+} from "@/app/actions/cashier-stock";
+
 /* ============================================================
  * TYPES
  * ============================================================ */
@@ -95,6 +100,16 @@ type RecentSale =
     >
   >[number];
 
+type StockData =
+  Awaited<
+    ReturnType<
+      typeof getCashierStockData
+    >
+  >;
+
+type StockProduct =
+  StockData["products"][number];
+
 /* ============================================================
  * COMPONENT
  * ============================================================ */
@@ -167,6 +182,50 @@ export default function CashierClient() {
 
   const [products, setProducts] =
     useState<Product[]>([]);
+
+  const [
+    showStock,
+    setShowStock,
+  ] = useState(false);
+
+  const [
+    stockData,
+    setStockData,
+  ] = useState<StockData | null>(
+    null,
+  );
+
+  const [
+    stockDraft,
+    setStockDraft,
+  ] = useState<StockData | null>(
+    null,
+  );
+
+  const [
+    loadingStock,
+    setLoadingStock,
+  ] = useState(false);
+
+  const [
+    savingStock,
+    setSavingStock,
+  ] = useState(false);
+
+  const [
+    stockAdminPassword,
+    setStockAdminPassword,
+  ] = useState("");
+
+  const [
+    showStockApproval,
+    setShowStockApproval,
+  ] = useState(false);
+
+  const [
+    stockError,
+    setStockError,
+  ] = useState("");
 
   /* ==========================================================
    * CART
@@ -1722,6 +1781,318 @@ export default function CashierClient() {
     await confirm(pendingPrint);
   }
 
+
+  /* ============================================================
+   * STOCK
+   * ============================================================ */
+
+  async function openStock() {
+    if (loadingStock) {
+      return;
+    }
+
+    setLoadingStock(true);
+    setStockError("");
+    setStockAdminPassword("");
+    setShowStockApproval(false);
+
+    try {
+      const data =
+        await getCashierStockData();
+
+      setStockData(data);
+      setStockDraft(
+        structuredClone(data),
+      );
+      setShowStock(true);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not load stock.",
+      );
+    } finally {
+      setLoadingStock(false);
+    }
+  }
+
+  function closeStock() {
+    if (savingStock) {
+      return;
+    }
+
+    setShowStock(false);
+    setStockData(null);
+    setStockDraft(null);
+    setStockError("");
+    setStockAdminPassword("");
+    setShowStockApproval(false);
+  }
+
+  function toggleStockProduct(
+    productId: string,
+  ) {
+    setStockDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        products:
+          current.products.map(
+            (product) =>
+              product.id ===
+              productId
+                ? {
+                    ...product,
+                    isAvailable:
+                      !product.isAvailable,
+                  }
+                : product,
+          ),
+      };
+    });
+
+    setStockError("");
+  }
+
+  function toggleStockOption(
+    productId: string,
+    optionId: string,
+  ) {
+    setStockDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        products:
+          current.products.map(
+            (product) =>
+              product.id !==
+              productId
+                ? product
+                : {
+                    ...product,
+                    optionGroups:
+                      product.optionGroups.map(
+                        (group) => ({
+                          ...group,
+                          options:
+                            group.options.map(
+                              (option) =>
+                                option.id ===
+                                optionId
+                                  ? {
+                                      ...option,
+                                      isAvailable:
+                                        !option.isAvailable,
+                                    }
+                                  : option,
+                            ),
+                        }),
+                      ),
+                  },
+          ),
+      };
+    });
+
+    setStockError("");
+  }
+
+  function getStockChanges() {
+    if (
+      !stockData ||
+      !stockDraft
+    ) {
+      return {
+        productChanges: [],
+        optionChanges: [],
+      };
+    }
+
+    const originalProducts =
+      new Map(
+        stockData.products.map(
+          (product) => [
+            product.id,
+            product,
+          ],
+        ),
+      );
+
+    const originalOptions =
+      new Map(
+        stockData.products.flatMap(
+          (product) =>
+            product.optionGroups.flatMap(
+              (group) =>
+                group.options.map(
+                  (option) => [
+                    option.id,
+                    option,
+                  ] as const,
+                ),
+            ),
+        ),
+      );
+
+    const productChanges =
+      stockDraft.products
+        .filter(
+          (product) =>
+            originalProducts.get(
+              product.id,
+            )?.isAvailable !==
+            product.isAvailable,
+        )
+        .map((product) => ({
+          id: product.id,
+          isAvailable:
+            product.isAvailable,
+        }));
+
+    const optionChanges =
+      stockDraft.products
+        .flatMap((product) =>
+          product.optionGroups.flatMap(
+            (group) =>
+              group.options,
+          ),
+        )
+        .filter(
+          (option) =>
+            originalOptions.get(
+              option.id,
+            )?.isAvailable !==
+            option.isAvailable,
+        )
+        .map((option) => ({
+          id: option.id,
+          isAvailable:
+            option.isAvailable,
+        }));
+
+    return {
+      productChanges,
+      optionChanges,
+    };
+  }
+
+  function requestStockSave() {
+    const {
+      productChanges,
+      optionChanges,
+    } = getStockChanges();
+
+    if (
+      productChanges.length === 0 &&
+      optionChanges.length === 0
+    ) {
+      closeStock();
+      return;
+    }
+
+    setStockError("");
+    setShowStockApproval(true);
+  }
+
+  async function saveStock() {
+    if (
+      savingStock ||
+      !stockAdminPassword.trim()
+    ) {
+      return;
+    }
+
+    const changes =
+      getStockChanges();
+
+    setSavingStock(true);
+    setStockError("");
+
+    try {
+      const result =
+        await saveCashierStockChanges({
+          adminPassword:
+            stockAdminPassword,
+          ...changes,
+        });
+
+      if (!result.ok) {
+        setStockError(
+          result.error,
+        );
+        return;
+      }
+
+      const refreshed =
+        await getCashierProducts();
+
+      setProducts(refreshed);
+
+      const validProductIds =
+        new Set(
+          refreshed.map(
+            (product) =>
+              product.id,
+          ),
+        );
+
+      const validOptionIds =
+        new Set(
+          refreshed.flatMap(
+            (product) =>
+              product.optionGroups.flatMap(
+                (group) =>
+                  group.options.map(
+                    (option) =>
+                      option.id,
+                  ),
+              ),
+          ),
+        );
+
+      setCart((current) =>
+        current.filter(
+          (line) =>
+            validProductIds.has(
+              line.productId,
+            ) &&
+            line.optionIds.every(
+              (optionId) =>
+                validOptionIds.has(
+                  optionId,
+                ),
+            ),
+        ),
+      );
+
+      setSelectedProduct(null);
+      setSelectedOptions({});
+      setOptionQuantities({});
+      setShowStock(false);
+      setStockData(null);
+      setStockDraft(null);
+      setStockAdminPassword("");
+      setShowStockApproval(false);
+      setStockError("");
+      setMessage(
+        "Stock updated.",
+      );
+    } catch (error) {
+      setStockError(
+        error instanceof Error
+          ? error.message
+          : "Could not update stock.",
+      );
+    } finally {
+      setSavingStock(false);
+    }
+  }
+
   /* ============================================================
    * RENDER
    * ============================================================ */
@@ -1808,6 +2179,22 @@ export default function CashierClient() {
           >
             Pre-Orders
           </a>
+
+          <button
+            type="button"
+            className="secondary"
+            disabled={
+              loadingStock ||
+              savingStock
+            }
+            onClick={() =>
+              void openStock()
+            }
+          >
+            {loadingStock
+              ? "Loading Stock..."
+              : "Stock"}
+          </button>
 
           <button
             type="button"
@@ -4026,6 +4413,392 @@ export default function CashierClient() {
                   Add to Sale
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================
+          STOCK MODAL
+      ====================================================== */}
+
+      {showStock && stockDraft && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cashier-stock-title"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 10000,
+            background:
+              "rgba(0, 0, 0, 0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 760,
+              maxHeight:
+                "calc(100vh - 32px)",
+              overflowY: "auto",
+              background: "white",
+              borderRadius: 18,
+              padding: 22,
+              boxShadow:
+                "0 24px 80px rgba(0,0,0,0.35)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems:
+                  "flex-start",
+                justifyContent:
+                  "space-between",
+                gap: 14,
+                marginBottom: 18,
+              }}
+            >
+              <div>
+                <h2
+                  id="cashier-stock-title"
+                  style={{
+                    margin: 0,
+                  }}
+                >
+                  Stock
+                </h2>
+
+                <p
+                  className="subtle"
+                  style={{
+                    margin:
+                      "5px 0 0",
+                  }}
+                >
+                  {
+                    stockDraft.school
+                      .name
+                  }
+                  {" · "}
+                  Changes apply only
+                  to this school.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="secondary"
+                disabled={
+                  savingStock
+                }
+                onClick={
+                  closeStock
+                }
+              >
+                Close
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 14,
+              }}
+            >
+              {stockDraft.products.map(
+                (
+                  product: StockProduct,
+                ) => (
+                  <section
+                    key={
+                      product.id
+                    }
+                    style={{
+                      border:
+                        "1px solid #e5e7eb",
+                      borderRadius: 14,
+                      padding: 14,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display:
+                          "flex",
+                        justifyContent:
+                          "space-between",
+                        alignItems:
+                          "center",
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <strong
+                          style={{
+                            fontSize: 16,
+                          }}
+                        >
+                          {
+                            product.name
+                          }
+                        </strong>
+
+                        {product.category ? (
+                          <div className="subtle compact">
+                            {
+                              product.category
+                            }
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <button
+                        type="button"
+                        className={
+                          product.isAvailable
+                            ? "primary"
+                            : "secondary"
+                        }
+                        onClick={() =>
+                          toggleStockProduct(
+                            product.id,
+                          )
+                        }
+                      >
+                        {product.isAvailable
+                          ? "Available"
+                          : "Out of stock"}
+                      </button>
+                    </div>
+
+                    {product.optionGroups
+                      .length > 0 ? (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          display:
+                            "grid",
+                          gap: 10,
+                        }}
+                      >
+                        {product.optionGroups.map(
+                          (group) => (
+                            <div
+                              key={
+                                group.id
+                              }
+                              style={{
+                                paddingTop:
+                                  10,
+                                borderTop:
+                                  "1px solid #f0f0f0",
+                              }}
+                            >
+                              <div
+                                className="subtle compact"
+                                style={{
+                                  marginBottom:
+                                    7,
+                                  fontWeight:
+                                    600,
+                                }}
+                              >
+                                {
+                                  group.name
+                                }
+                              </div>
+
+                              <div
+                                style={{
+                                  display:
+                                    "grid",
+                                  gap: 7,
+                                }}
+                              >
+                                {group.options.map(
+                                  (
+                                    option,
+                                  ) => (
+                                    <div
+                                      key={
+                                        option.id
+                                      }
+                                      style={{
+                                        display:
+                                          "flex",
+                                        justifyContent:
+                                          "space-between",
+                                        alignItems:
+                                          "center",
+                                        gap: 10,
+                                      }}
+                                    >
+                                      <span>
+                                        {
+                                          option.name
+                                        }
+                                      </span>
+
+                                      <button
+                                        type="button"
+                                        className={
+                                          option.isAvailable
+                                            ? "primary"
+                                            : "secondary"
+                                        }
+                                        onClick={() =>
+                                          toggleStockOption(
+                                            product.id,
+                                            option.id,
+                                          )
+                                        }
+                                      >
+                                        {option.isAvailable
+                                          ? "Available"
+                                          : "Out of stock"}
+                                      </button>
+                                    </div>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    ) : null}
+                  </section>
+                ),
+              )}
+            </div>
+
+            {stockError ? (
+              <p
+                className="alert"
+                style={{
+                  marginTop: 14,
+                }}
+              >
+                {stockError}
+              </p>
+            ) : null}
+
+            <div
+              style={{
+                position: "sticky",
+                bottom: -22,
+                background: "white",
+                borderTop:
+                  "1px solid #e5e7eb",
+                margin:
+                  "18px -22px -22px",
+                padding:
+                  "14px 22px 18px",
+              }}
+            >
+              {!showStockApproval ? (
+                <button
+                  type="button"
+                  className="primary"
+                  style={{
+                    width: "100%",
+                  }}
+                  onClick={
+                    requestStockSave
+                  }
+                >
+                  Save & Exit
+                </button>
+              ) : (
+                <>
+                  <label className="label">
+                    Admin password
+
+                    <input
+                      className="input"
+                      type="password"
+                      autoFocus
+                      value={
+                        stockAdminPassword
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setStockAdminPassword(
+                          event.target
+                            .value,
+                        )
+                      }
+                      onKeyDown={(
+                        event,
+                      ) => {
+                        if (
+                          event.key ===
+                          "Enter"
+                        ) {
+                          event.preventDefault();
+                          void saveStock();
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "flex",
+                      gap: 8,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="secondary"
+                      style={{
+                        flex: 1,
+                      }}
+                      disabled={
+                        savingStock
+                      }
+                      onClick={() => {
+                        setShowStockApproval(
+                          false,
+                        );
+                        setStockAdminPassword(
+                          "",
+                        );
+                        setStockError(
+                          "",
+                        );
+                      }}
+                    >
+                      Back
+                    </button>
+
+                    <button
+                      type="button"
+                      className="primary"
+                      style={{
+                        flex: 1,
+                      }}
+                      disabled={
+                        savingStock ||
+                        !stockAdminPassword.trim()
+                      }
+                      onClick={() =>
+                        void saveStock()
+                      }
+                    >
+                      {savingStock
+                        ? "Saving..."
+                        : "Approve & Save"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
