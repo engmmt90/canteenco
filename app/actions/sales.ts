@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { queueParentNotification } from "@/lib/notifications";
 import { ensureProductSchoolAvailabilityTable, getBlockedProductIds } from "@/lib/product-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import { getBlockedProductOptionIds } from "@/lib/product-option-availability";
 
 import {
   NotificationEvent,
@@ -179,12 +180,22 @@ export async function getCashierProducts() {
   const schoolId =
     session.user.schoolId ?? null;
 
-  const blockedProductIds =
-    schoolId
-      ? await getBlockedProductIds(
+  const [
+    blockedProductIds,
+    blockedOptionIds,
+  ] = schoolId
+    ? await Promise.all([
+        getBlockedProductIds(
           schoolId,
-        )
-      : new Set<string>();
+        ),
+        getBlockedProductOptionIds(
+          schoolId,
+        ),
+      ])
+    : [
+        new Set<string>(),
+        new Set<string>(),
+      ];
 
   const products =
     await prisma.product.findMany({
@@ -257,15 +268,22 @@ export async function getCashierProducts() {
           (group) => ({
             ...group,
             options:
-              group.options.map(
-                (option) => ({
-                  ...option,
-                  quantityEnabled:
-                    quantitySettings.get(
+              group.options
+                .filter(
+                  (option) =>
+                    !blockedOptionIds.has(
                       option.id,
-                    ) ?? true,
-                }),
-              ),
+                    ),
+                )
+                .map(
+                  (option) => ({
+                    ...option,
+                    quantityEnabled:
+                      quantitySettings.get(
+                        option.id,
+                      ) ?? true,
+                  }),
+                ),
           }),
         ),
     }));
@@ -350,6 +368,23 @@ async function buildValidatedSaleLines(
     );
   }
 
+  const blockedOptionRows =
+    await tx.$queryRaw<
+      Array<{ optionId: string }>
+    >`
+      SELECT "optionId"
+      FROM "ProductOptionSchoolAvailability"
+      WHERE "schoolId" = ${schoolId}
+        AND "isAvailable" = FALSE
+    `;
+
+  const blockedOptionIds =
+    new Set(
+      blockedOptionRows.map(
+        (row) => row.optionId,
+      ),
+    );
+
   const quantitySettings =
     await getProductOptionQuantitySettings();
 
@@ -386,6 +421,19 @@ async function buildValidatedSaleLines(
           (group) =>
             group.options,
         );
+
+      if (
+        requestedOptionIds.some(
+          (optionId) =>
+            blockedOptionIds.has(
+              optionId,
+            ),
+        )
+      ) {
+        throw new Error(
+          `An option is out of stock for ${product.name}`,
+        );
+      }
 
       const selectedOptions =
         allOptions
