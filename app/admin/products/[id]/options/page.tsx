@@ -743,18 +743,44 @@ export default async function ProductOptionsPage({
                                 }
                               />
 
-                              <input
-                                className="input"
-                                name="additionalPrice"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                defaultValue={Number(
-                                  option.additionalPrice,
-                                ).toFixed(
-                                  2,
-                                )}
-                              />
+                              <div
+                                style={{
+                                  position: "relative",
+                                }}
+                              >
+                                <span
+                                  aria-hidden="true"
+                                  style={{
+                                    position: "absolute",
+                                    left: 12,
+                                    top: "50%",
+                                    transform:
+                                      "translateY(-50%)",
+                                    color: "#64748b",
+                                    pointerEvents:
+                                      "none",
+                                    zIndex: 1,
+                                  }}
+                                >
+                                  $
+                                </span>
+
+                                <input
+                                  className="input"
+                                  name="additionalPrice"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  defaultValue={Number(
+                                    option.additionalPrice,
+                                  ).toFixed(
+                                    2,
+                                  )}
+                                  style={{
+                                    paddingLeft: 28,
+                                  }}
+                                />
+                              </div>
 
                               <input
                                 className="input"
@@ -1033,15 +1059,45 @@ export default async function ProductOptionsPage({
                         <label className="label">
                           Additional price
 
-                          <input
-                            className="input"
-                            name="additionalPrice"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            defaultValue="0.00"
-                            required
-                          />
+                          <div
+                            style={{
+                              position:
+                                "relative",
+                            }}
+                          >
+                            <span
+                              aria-hidden="true"
+                              style={{
+                                position:
+                                  "absolute",
+                                left: 12,
+                                top: "50%",
+                                transform:
+                                  "translateY(-50%)",
+                                color:
+                                  "#64748b",
+                                pointerEvents:
+                                  "none",
+                                zIndex: 1,
+                              }}
+                            >
+                              $
+                            </span>
+
+                            <input
+                              className="input"
+                              name="additionalPrice"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              defaultValue="0.00"
+                              required
+                              style={{
+                                paddingLeft:
+                                  28,
+                              }}
+                            />
+                          </div>
                         </label>
 
                         <label className="label">
