@@ -427,3 +427,51 @@ export async function toggleProductOptionQuantity(
     `/admin/products/${option.group.productId}/options`,
   );
 }
+
+
+export async function toggleProductOptionAvailability(
+  formData: FormData,
+): Promise<void> {
+  await requireAdmin();
+
+  const id = str(formData, "id");
+
+  if (!id) {
+    throw new Error(
+      "Option ID is required.",
+    );
+  }
+
+  const option =
+    await prisma.productOption.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        isActive: true,
+        group: {
+          select: {
+            productId: true,
+          },
+        },
+      },
+    });
+
+  if (!option) {
+    throw new Error(
+      "Option not found.",
+    );
+  }
+
+  await prisma.productOption.update({
+    where: { id: option.id },
+    data: {
+      isActive: !option.isActive,
+    },
+  });
+
+  revalidatePath(
+    `/admin/products/${option.group.productId}/options`,
+  );
+  revalidatePath("/cashier");
+  revalidatePath("/parent/preorders");
+}
