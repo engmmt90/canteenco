@@ -5,13 +5,14 @@ import {
   deleteProductOptionGroup,
   saveProductOption,
   saveProductOptionGroup,
-  toggleProductOptionAvailability,
+  saveProductOptionSchoolAvailability,
   toggleProductOptionQuantity,
 } from "@/app/actions/admin-product-options";
 
 import { requireAdmin } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import { getBlockedSchoolIdsByProductOption } from "@/lib/product-option-availability";
 
 export default async function ProductOptionsPage({
   params,
@@ -20,13 +21,17 @@ export default async function ProductOptionsPage({
     id: string;
   }>;
 }) {
-  await requireAdmin();
+  const session = await requireAdmin();
 
   const { id } =
     await params;
 
-  const [product, quantitySettings] =
-    await Promise.all([
+  const [
+    product,
+    quantitySettings,
+    schools,
+    blockedRows,
+  ] = await Promise.all([
       prisma.product.findUnique({
       where: {
         id,
@@ -64,7 +69,46 @@ export default async function ProductOptionsPage({
       },
       }),
       getProductOptionQuantitySettings(),
+      prisma.school.findMany({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          ...(session.user.role ===
+          "SCHOOL_ADMIN"
+            ? {
+                id:
+                  session.user.schoolId ??
+                  "__none__",
+              }
+            : {}),
+        },
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      }),
+      getBlockedSchoolIdsByProductOption(),
     ]);
+
+  const blockedSchoolIdsByOption =
+    new Map<string, Set<string>>();
+
+  for (const row of blockedRows) {
+    const current =
+      blockedSchoolIdsByOption.get(
+        row.optionId,
+      ) ?? new Set<string>();
+
+    current.add(row.schoolId);
+
+    blockedSchoolIdsByOption.set(
+      row.optionId,
+      current,
+    );
+  }
 
   if (!product) {
     return (
@@ -739,12 +783,24 @@ export default async function ProductOptionsPage({
                               </button>
                             </form>
 
-                            {/* AVAILABILITY TOGGLE */}
+                            {/* SCHOOL AVAILABILITY */}
 
                             <form
                               action={
-                                toggleProductOptionAvailability
+                                saveProductOptionSchoolAvailability
                               }
+                              style={{
+                                minWidth:
+                                  220,
+                                padding:
+                                  "10px 12px",
+                                border:
+                                  "1px solid #e5e7eb",
+                                borderRadius:
+                                  10,
+                                background:
+                                  "#f8fafc",
+                              }}
                             >
                               <input
                                 type="hidden"
@@ -754,14 +810,81 @@ export default async function ProductOptionsPage({
                                 }
                               />
 
+                              <div
+                                className="subtle compact"
+                                style={{
+                                  marginBottom:
+                                    7,
+                                }}
+                              >
+                                Available at
+                              </div>
+
+                              <div
+                                style={{
+                                  display:
+                                    "grid",
+                                  gap: 5,
+                                }}
+                              >
+                                {schools.map(
+                                  (school) => {
+                                    const blocked =
+                                      blockedSchoolIdsByOption
+                                        .get(
+                                          option.id,
+                                        )
+                                        ?.has(
+                                          school.id,
+                                        ) ??
+                                      false;
+
+                                    return (
+                                      <label
+                                        key={
+                                          school.id
+                                        }
+                                        style={{
+                                          display:
+                                            "flex",
+                                          alignItems:
+                                            "center",
+                                          gap: 6,
+                                          fontSize:
+                                            13,
+                                        }}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          name="availableSchoolIds"
+                                          value={
+                                            school.id
+                                          }
+                                          defaultChecked={
+                                            !blocked
+                                          }
+                                        />
+
+                                        {
+                                          school.name
+                                        }
+                                      </label>
+                                    );
+                                  },
+                                )}
+                              </div>
+
                               <button
                                 className="secondary"
                                 type="submit"
-                                title="Make only this option available or out of stock"
+                                style={{
+                                  marginTop:
+                                    8,
+                                  width:
+                                    "100%",
+                                }}
                               >
-                                {option.isActive
-                                  ? "Available"
-                                  : "Out of stock"}
+                                Save Availability
                               </button>
                             </form>
 
