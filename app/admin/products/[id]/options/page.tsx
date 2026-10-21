@@ -721,27 +721,15 @@ export default async function ProductOptionsPage({
                                 }
                               />
 
-                              <label
-                                style={{
-                                  display:
-                                    "flex",
-                                  alignItems:
-                                    "center",
-                                  gap: 5,
-                                  whiteSpace:
-                                    "nowrap",
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  name="isActive"
-                                  defaultChecked={
-                                    option.isActive
-                                  }
-                                />
-
-                                Available
-                              </label>
+                              <input
+                                type="hidden"
+                                name="isActive"
+                                value={
+                                  option.isActive
+                                    ? "on"
+                                    : "off"
+                                }
+                              />
 
                               <button
                                 className="secondary"
