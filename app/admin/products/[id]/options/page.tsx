@@ -131,6 +131,19 @@ export default async function ProductOptionsPage({
 
   return (
     <main className="content">
+      <style>{`
+        .option-group-details > summary::-webkit-details-marker {
+          display: none;
+        }
+
+        .option-group-details .option-group-chevron {
+          transition: transform 0.18s ease;
+        }
+
+        .option-group-details[open] .option-group-chevron {
+          transform: rotate(180deg);
+        }
+      `}</style>
       {/* HEADER */}
 
       <div className="page-heading">
@@ -357,23 +370,25 @@ export default async function ProductOptionsPage({
           >
             {product.optionGroups.map(
               (group) => (
-                <section
-                  className="panel"
+                <details
+                  className="panel option-group-details"
                   key={group.id}
                 >
                   {/* GROUP HEADER */}
 
-                  <div
+                  <summary
                     style={{
                       display:
                         "flex",
                       alignItems:
-                        "flex-start",
+                        "center",
                       justifyContent:
                         "space-between",
                       gap: 12,
-                      flexWrap:
-                        "wrap",
+                      cursor:
+                        "pointer",
+                      listStyle:
+                        "none",
                     }}
                   >
                     <div>
@@ -416,12 +431,34 @@ export default async function ProductOptionsPage({
                       </p>
                     </div>
 
-                    <span className="badge">
-                      {group.isActive
-                        ? "ACTIVE"
-                        : "INACTIVE"}
-                    </span>
-                  </div>
+                    <div
+                      style={{
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        gap: 10,
+                        flexShrink: 0,
+                      }}
+                    >
+                      <span className="badge">
+                        {group.isActive
+                          ? "ACTIVE"
+                          : "INACTIVE"}
+                      </span>
+
+                      <span
+                        className="option-group-chevron"
+                        aria-hidden="true"
+                        style={{
+                          fontSize: 20,
+                          lineHeight: 1,
+                        }}
+                      >
+                        ▾
+                      </span>
+                    </div>
+                  </summary>
 
                   {/* EDIT GROUP */}
 
@@ -1186,7 +1223,7 @@ export default async function ProductOptionsPage({
                       {group.name} Group
                     </button>
                   </form>
-                </section>
+                </details>
               ),
             )}
           </div>
