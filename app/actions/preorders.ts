@@ -1719,6 +1719,268 @@ export async function updatePreOrderStatus(
 }
 
 /* ============================================================
+ * CASHIER CANCEL PRE-ORDER
+ * ============================================================ */
+
+export async function cancelCashierPreOrder(
+  orderId: string,
+  refund: boolean,
+): Promise<
+  | {
+      ok: true;
+      refunded: boolean;
+      balanceAfter: string | null;
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  const session = await auth();
+
+  if (
+    !session?.user?.id ||
+    !STAFF_ROLES.includes(
+      session.user.role as UserRole,
+    )
+  ) {
+    return {
+      ok: false,
+      error: "Unauthorized",
+    };
+  }
+
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const order =
+          await tx.preOrder.findUnique({
+            where: {
+              id: orderId,
+            },
+
+            include: {
+              wallet: true,
+
+              student: {
+                include: {
+                  parent: true,
+                },
+              },
+            },
+          });
+
+        if (!order) {
+          throw new Error(
+            "Order not found",
+          );
+        }
+
+        if (
+          session.user.role !==
+            UserRole.SUPER_ADMIN &&
+          session.user.schoolId !==
+            order.schoolId
+        ) {
+          throw new Error(
+            "Unauthorized",
+          );
+        }
+
+        if (
+          ![
+            PreOrderStatus.CONFIRMED,
+            PreOrderStatus.PREPARING,
+            PreOrderStatus.READY,
+          ].includes(order.status)
+        ) {
+          throw new Error(
+            "This pre-order can no longer be cancelled.",
+          );
+        }
+
+        const changed =
+          await tx.preOrder.updateMany({
+            where: {
+              id: order.id,
+              status: order.status,
+            },
+
+            data: {
+              status:
+                PreOrderStatus.CANCELLED,
+              cancelledAt:
+                new Date(),
+            },
+          });
+
+        if (changed.count !== 1) {
+          throw new Error(
+            "Order status changed. Please refresh.",
+          );
+        }
+
+        let balanceAfter:
+          | Prisma.Decimal
+          | null = null;
+
+        if (refund) {
+          if (!order.wallet) {
+            throw new Error(
+              "Wallet not found",
+            );
+          }
+
+          balanceAfter =
+            order.wallet.balance.add(
+              order.total,
+            );
+
+          const walletUpdated =
+            await tx.wallet.updateMany({
+              where: {
+                id: order.wallet.id,
+                balance:
+                  order.wallet.balance,
+              },
+
+              data: {
+                balance:
+                  balanceAfter,
+              },
+            });
+
+          if (
+            walletUpdated.count !== 1
+          ) {
+            throw new Error(
+              "Wallet balance changed. Please retry.",
+            );
+          }
+
+          await tx.walletTransaction.create({
+            data: {
+              walletId:
+                order.wallet.id,
+
+              studentId:
+                order.studentId,
+
+              type:
+                WalletTransactionType.REFUND,
+
+              amount:
+                order.total,
+
+              balanceAfter,
+
+              description:
+                `Refund for cancelled pre-order ${order.orderNumber}`,
+            },
+          });
+        }
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId:
+              session.user.id,
+
+            action: refund
+              ? "CASHIER_CANCEL_PREORDER_REFUND"
+              : "CASHIER_CANCEL_PREORDER",
+
+            entityType:
+              "PreOrder",
+
+            entityId:
+              order.id,
+
+            metadata: {
+              orderNumber:
+                order.orderNumber,
+              schoolId:
+                order.schoolId,
+              studentId:
+                order.studentId,
+              refund,
+              amount:
+                refund
+                  ? Number(
+                      order.total,
+                    )
+                  : 0,
+            },
+          },
+        });
+
+        await queueParentNotification({
+          tx,
+
+          userId:
+            order.student.parent.userId,
+
+          parentId:
+            order.student.parent.id,
+
+          event:
+            NotificationEvent.PREORDER_CANCELLED,
+
+          preferenceKey:
+            "notifyPreOrder",
+
+          subject:
+            "Pre-order cancelled",
+
+          message: refund
+            ? `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} was cancelled and ${order.total.toFixed(2)} was refunded to the family wallet.`
+            : `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} was cancelled without a refund.`,
+
+          metadata: {
+            preOrderId:
+              order.id,
+            studentId:
+              order.student.id,
+            refunded:
+              refund,
+            refundAmount:
+              refund
+                ? Number(
+                    order.total,
+                  )
+                : 0,
+          },
+
+          schoolId:
+            order.schoolId,
+        });
+
+        return {
+          ok: true,
+          refunded:
+            refund,
+          balanceAfter:
+            balanceAfter?.toFixed(2) ??
+            null,
+        };
+      },
+      {
+        isolationLevel:
+          Prisma.TransactionIsolationLevel
+            .Serializable,
+      },
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Cancellation failed",
+    };
+  }
+}
+
+/* ============================================================
  * MARK LABEL PRINTED
  * ============================================================ */
 
