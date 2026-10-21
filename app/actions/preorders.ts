@@ -8,6 +8,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureProductSchoolAvailabilityTable } from "@/lib/product-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import { ensureProductOptionSchoolAvailabilityTable } from "@/lib/product-option-availability";
 import { isSchoolPreOrderDayEnabled } from "@/lib/school-preorder-days";
 import { verifyAccessToken } from "@/lib/mobile-auth/tokens";
 import { queueParentNotification } from "@/lib/notifications";
@@ -393,7 +394,10 @@ export async function createParentPreOrder(
   }
 
   try {
-    await ensureProductSchoolAvailabilityTable();
+    await Promise.all([
+      ensureProductSchoolAvailabilityTable(),
+      ensureProductOptionSchoolAvailabilityTable(),
+    ]);
 
     const optionQuantitySettings =
       await getProductOptionQuantitySettings();
@@ -711,6 +715,55 @@ export async function createParentPreOrder(
           );
         }
 
+        const [
+          blockedProductRows,
+          blockedOptionRows,
+        ] = await Promise.all([
+          tx.$queryRaw<
+            Array<{ productId: string }>
+          >`
+            SELECT "productId"
+            FROM "ProductSchoolAvailability"
+            WHERE "schoolId" = ${student.schoolId}
+              AND "isAvailable" = FALSE
+          `,
+          tx.$queryRaw<
+            Array<{ optionId: string }>
+          >`
+            SELECT "optionId"
+            FROM "ProductOptionSchoolAvailability"
+            WHERE "schoolId" = ${student.schoolId}
+              AND "isAvailable" = FALSE
+          `,
+        ]);
+
+        const blockedProductIds =
+          new Set(
+            blockedProductRows.map(
+              (row) => row.productId,
+            ),
+          );
+
+        if (
+          productIds.some(
+            (productId) =>
+              blockedProductIds.has(
+                productId,
+              ),
+          )
+        ) {
+          throw new Error(
+            "One or more products are out of stock for this school",
+          );
+        }
+
+        const blockedOptionIds =
+          new Set(
+            blockedOptionRows.map(
+              (row) => row.optionId,
+            ),
+          );
+
         const productMap =
           new Map(
             products.map(
@@ -858,6 +911,16 @@ export async function createParentPreOrder(
                     if (!option) {
                       throw new Error(
                         `Invalid option for ${product.name}`,
+                      );
+                    }
+
+                    if (
+                      blockedOptionIds.has(
+                        option.id,
+                      )
+                    ) {
+                      throw new Error(
+                        `${option.name} is out of stock for this school`,
                       );
                     }
 
