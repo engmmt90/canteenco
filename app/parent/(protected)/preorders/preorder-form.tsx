@@ -38,6 +38,7 @@ type ProductOption = {
   name: string;
   additionalPrice: number;
   quantityEnabled: boolean;
+  blockedSchoolIds: string[];
 };
 type ProductOptionGroup = {
   id: string;
@@ -1601,7 +1602,15 @@ export default function PreOrderForm({
                         gap: 9,
                       }}
                     >
-                      {group.options.map(
+                      {group.options
+                        .filter(
+                          (option) =>
+                            !student ||
+                            !option.blockedSchoolIds.includes(
+                              student.schoolId,
+                            ),
+                        )
+                        .map(
                         (option) => {
                           const checked =
                             selected.includes(
