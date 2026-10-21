@@ -1751,7 +1751,11 @@ export async function cancelCashierPreOrder(
   }
 
   try {
-    const result =
+    const result: {
+      ok: true;
+      refunded: boolean;
+      balanceAfter: string | null;
+    } =
       await prisma.$transaction(
       async (tx) => {
         const order =
