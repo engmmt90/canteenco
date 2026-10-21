@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { setProductOptionQuantityEnabled } from "@/lib/product-option-quantity";
+import { setProductOptionAvailabilityForSchools } from "@/lib/product-option-availability";
 
 function str(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -427,6 +428,108 @@ export async function toggleProductOptionQuantity(
     `/admin/products/${option.group.productId}/options`,
   );
 }
+
+
+export async function saveProductOptionSchoolAvailability(
+  formData: FormData,
+): Promise<void> {
+  const session = await requireAdmin();
+
+  const id = str(formData, "id");
+
+  if (!id) {
+    throw new Error(
+      "Option ID is required.",
+    );
+  }
+
+  const option =
+    await prisma.productOption.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        group: {
+          select: {
+            productId: true,
+          },
+        },
+      },
+    });
+
+  if (!option) {
+    throw new Error(
+      "Option not found.",
+    );
+  }
+
+  const managedSchools =
+    await prisma.school.findMany({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        ...(session.user.role ===
+        "SCHOOL_ADMIN"
+          ? {
+              id:
+                session.user.schoolId ??
+                "__none__",
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+  const managedSchoolIds =
+    managedSchools.map(
+      (school) => school.id,
+    );
+
+  const availableSchoolIds =
+    formData
+      .getAll("availableSchoolIds")
+      .map((value) =>
+        String(value).trim(),
+      )
+      .filter((schoolId) =>
+        managedSchoolIds.includes(
+          schoolId,
+        ),
+      );
+
+  await setProductOptionAvailabilityForSchools(
+    option.id,
+    managedSchoolIds,
+    availableSchoolIds,
+  );
+
+  await prisma.auditLog.create({
+    data: {
+      actorUserId:
+        session.user.id,
+      action:
+        "UPDATE_PRODUCT_OPTION_AVAILABILITY",
+      entityType:
+        "ProductOption",
+      entityId:
+        option.id,
+      metadata: {
+        productId:
+          option.group.productId,
+        managedSchoolIds,
+        availableSchoolIds,
+      },
+    },
+  });
+
+  revalidatePath(
+    `/admin/products/${option.group.productId}/options`,
+  );
+  revalidatePath("/cashier");
+  revalidatePath("/parent/preorders");
+}
+
 
 
 export async function toggleProductOptionAvailability(
