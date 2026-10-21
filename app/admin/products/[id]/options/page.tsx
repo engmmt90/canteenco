@@ -5,6 +5,7 @@ import {
   deleteProductOptionGroup,
   saveProductOption,
   saveProductOptionGroup,
+  toggleProductOptionAvailability,
   toggleProductOptionQuantity,
 } from "@/app/actions/admin-product-options";
 
@@ -739,7 +740,7 @@ export default async function ProductOptionsPage({
                                   }
                                 />
 
-                                Active
+                                Available
                               </label>
 
                               <button
@@ -747,6 +748,32 @@ export default async function ProductOptionsPage({
                                 type="submit"
                               >
                                 Save
+                              </button>
+                            </form>
+
+                            {/* AVAILABILITY TOGGLE */}
+
+                            <form
+                              action={
+                                toggleProductOptionAvailability
+                              }
+                            >
+                              <input
+                                type="hidden"
+                                name="id"
+                                value={
+                                  option.id
+                                }
+                              />
+
+                              <button
+                                className="secondary"
+                                type="submit"
+                                title="Make only this option available or out of stock"
+                              >
+                                {option.isActive
+                                  ? "Available"
+                                  : "Out of stock"}
                               </button>
                             </form>
 
