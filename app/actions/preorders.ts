@@ -1751,7 +1751,8 @@ export async function cancelCashierPreOrder(
   }
 
   try {
-    return await prisma.$transaction(
+    const result =
+      await prisma.$transaction(
       async (tx) => {
         const order =
           await tx.preOrder.findUnique({
@@ -1788,11 +1789,12 @@ export async function cancelCashierPreOrder(
         }
 
         if (
-          ![
-            PreOrderStatus.CONFIRMED,
-            PreOrderStatus.PREPARING,
-            PreOrderStatus.READY,
-          ].includes(order.status)
+          order.status !==
+            PreOrderStatus.CONFIRMED &&
+          order.status !==
+            PreOrderStatus.PREPARING &&
+          order.status !==
+            PreOrderStatus.READY
         ) {
           throw new Error(
             "This pre-order can no longer be cancelled.",
@@ -1969,6 +1971,21 @@ export async function cancelCashierPreOrder(
             .Serializable,
       },
     );
+
+    revalidatePath(
+      "/cashier/preorders",
+    );
+    revalidatePath(
+      "/parent/preorders",
+    );
+    revalidatePath(
+      "/parent/wallet",
+    );
+    revalidatePath(
+      "/admin/orders",
+    );
+
+    return result;
   } catch (error) {
     return {
       ok: false,
