@@ -94,6 +94,16 @@ export default function PreOrderQueue({
     setRefundAmount,
   ] = useState("");
 
+  const [
+    cancelReason,
+    setCancelReason,
+  ] = useState("");
+
+  const [
+    cancelNote,
+    setCancelNote,
+  ] = useState("");
+
   const [showFilters, setShowFilters] =
     useState(false);
 
@@ -169,6 +179,13 @@ export default function PreOrderQueue({
       return;
     }
 
+    if (!cancelReason) {
+      setMessage(
+        "Please select a cancellation reason.",
+      );
+      return;
+    }
+
     if (refund) {
       const parsedRefundAmount =
         Number(refundAmount);
@@ -207,6 +224,10 @@ export default function PreOrderQueue({
           refund
             ? Number(refundAmount)
             : undefined,
+          cancelReason,
+          cancelReason === "Other"
+            ? cancelNote.trim()
+            : undefined,
         );
 
       if (!result.ok) {
@@ -227,6 +248,8 @@ export default function PreOrderQueue({
 
       setCancelOrder(null);
       setRefundAmount("");
+      setCancelReason("");
+      setCancelNote("");
 
       setMessage(
         refund
@@ -1044,6 +1067,8 @@ export default function PreOrderQueue({
                               2,
                             ),
                           );
+                          setCancelReason("");
+                          setCancelNote("");
                           setCancelOrder(
                             order,
                           );
@@ -1182,6 +1207,8 @@ export default function PreOrderQueue({
             if (!cancelling) {
               setCancelOrder(null);
               setRefundAmount("");
+              setCancelReason("");
+              setCancelNote("");
             }
           }}
           style={{
@@ -1240,6 +1267,84 @@ export default function PreOrderQueue({
                   .lastName
               }
             </p>
+
+            <p
+              style={{
+                margin:
+                  "0 0 12px",
+              }}
+            >
+              Select a cancellation reason.
+            </p>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 8,
+                marginBottom: 16,
+              }}
+            >
+              {[
+                "Out of stock",
+                "Customer request",
+                "Duplicate order",
+                "Wrong order / item",
+                "Payment issue",
+                "Student unable to collect",
+                "Other",
+              ].map((reason) => (
+                <label
+                  key={reason}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="cancelReason"
+                    value={reason}
+                    checked={
+                      cancelReason === reason
+                    }
+                    disabled={cancelling}
+                    onChange={() => {
+                      setCancelReason(reason);
+                      if (reason !== "Other") {
+                        setCancelNote("");
+                      }
+                    }}
+                  />
+                  <span>{reason}</span>
+                </label>
+              ))}
+
+              {cancelReason ===
+                "Other" && (
+                <label
+                  className="label"
+                  style={{
+                    marginTop: 4,
+                  }}
+                >
+                  Note (optional)
+                  <textarea
+                    className="input"
+                    value={cancelNote}
+                    disabled={cancelling}
+                    onChange={(event) =>
+                      setCancelNote(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Add a note if needed"
+                    rows={3}
+                  />
+                </label>
+              )}
+            </div>
 
             <p
               style={{
@@ -1395,6 +1500,8 @@ export default function PreOrderQueue({
                       null,
                     );
                     setRefundAmount("");
+                    setCancelReason("");
+                    setCancelNote("");
                   }
                 }
                 style={{
