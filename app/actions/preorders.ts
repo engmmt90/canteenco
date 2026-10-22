@@ -1725,10 +1725,12 @@ export async function updatePreOrderStatus(
 export async function cancelCashierPreOrder(
   orderId: string,
   refund: boolean,
+  refundAmount?: number,
 ): Promise<
   | {
       ok: true;
       refunded: boolean;
+      refundedAmount: string | null;
       balanceAfter: string | null;
     }
   | {
@@ -1754,6 +1756,7 @@ export async function cancelCashierPreOrder(
     const result: {
       ok: true;
       refunded: boolean;
+      refundedAmount: string | null;
       balanceAfter: string | null;
     } =
       await prisma.$transaction(
@@ -1830,7 +1833,35 @@ export async function cancelCashierPreOrder(
           | Prisma.Decimal
           | null = null;
 
+        let actualRefundAmount:
+          | Prisma.Decimal
+          | null = null;
+
         if (refund) {
+          if (
+            refundAmount === undefined ||
+            !Number.isFinite(refundAmount) ||
+            refundAmount <= 0
+          ) {
+            throw new Error(
+              "Refund amount must be greater than $0.00.",
+            );
+          }
+
+          actualRefundAmount =
+            new Prisma.Decimal(
+              refundAmount.toFixed(2),
+            );
+
+          if (
+            actualRefundAmount.gt(
+              order.total,
+            )
+          ) {
+            throw new Error(
+              "Refund amount cannot exceed the order total.",
+            );
+          }
           if (!order.wallet) {
             throw new Error(
               "Wallet not found",
@@ -1839,7 +1870,7 @@ export async function cancelCashierPreOrder(
 
           balanceAfter =
             order.wallet.balance.add(
-              order.total,
+              actualRefundAmount,
             );
 
           const walletUpdated =
@@ -1876,7 +1907,7 @@ export async function cancelCashierPreOrder(
                 WalletTransactionType.REFUND,
 
               amount:
-                order.total,
+                actualRefundAmount,
 
               balanceAfter,
 
@@ -1910,9 +1941,9 @@ export async function cancelCashierPreOrder(
                 order.studentId,
               refund,
               amount:
-                refund
+                actualRefundAmount
                   ? Number(
-                      order.total,
+                      actualRefundAmount,
                     )
                   : 0,
             },
@@ -1938,7 +1969,7 @@ export async function cancelCashierPreOrder(
             "Pre-order cancelled",
 
           message: refund
-            ? `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} was cancelled and ${order.total.toFixed(2)} was refunded to the family wallet.`
+            ? `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} was cancelled and ${actualRefundAmount?.toFixed(2)} was refunded to the family wallet.`
             : `Pre-order ${order.orderNumber} for ${order.student.firstName} ${order.student.lastName} was cancelled without a refund.`,
 
           metadata: {
@@ -1949,9 +1980,9 @@ export async function cancelCashierPreOrder(
             refunded:
               refund,
             refundAmount:
-              refund
+              actualRefundAmount
                 ? Number(
-                    order.total,
+                    actualRefundAmount,
                   )
                 : 0,
           },
@@ -1964,6 +1995,10 @@ export async function cancelCashierPreOrder(
           ok: true,
           refunded:
             refund,
+          refundedAmount:
+            actualRefundAmount?.toFixed(
+              2,
+            ) ?? null,
           balanceAfter:
             balanceAfter?.toFixed(2) ??
             null,
