@@ -1726,6 +1726,8 @@ export async function cancelCashierPreOrder(
   orderId: string,
   refund: boolean,
   refundAmount?: number,
+  cancelReason?: string,
+  cancelNote?: string,
 ): Promise<
   | {
       ok: true;
@@ -1751,6 +1753,33 @@ export async function cancelCashierPreOrder(
       error: "Unauthorized",
     };
   }
+
+  const allowedCancelReasons = [
+    "Out of stock",
+    "Customer request",
+    "Duplicate order",
+    "Wrong order / item",
+    "Payment issue",
+    "Student unable to collect",
+    "Other",
+  ] as const;
+
+  if (
+    !cancelReason ||
+    !allowedCancelReasons.includes(
+      cancelReason as (typeof allowedCancelReasons)[number],
+    )
+  ) {
+    return {
+      ok: false,
+      error: "Please select a valid cancellation reason.",
+    };
+  }
+
+  const normalizedCancelNote =
+    cancelReason === "Other"
+      ? cancelNote?.trim() || null
+      : null;
 
   try {
     const result: {
@@ -1940,6 +1969,10 @@ export async function cancelCashierPreOrder(
               studentId:
                 order.studentId,
               refund,
+              reason:
+                cancelReason,
+              note:
+                normalizedCancelNote,
               amount:
                 actualRefundAmount
                   ? Number(
