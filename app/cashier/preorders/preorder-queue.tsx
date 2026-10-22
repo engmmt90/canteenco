@@ -89,6 +89,11 @@ export default function PreOrderQueue({
     setCancelling,
   ] = useState(false);
 
+  const [
+    refundAmount,
+    setRefundAmount,
+  ] = useState("");
+
   const [showFilters, setShowFilters] =
     useState(false);
 
@@ -164,6 +169,33 @@ export default function PreOrderQueue({
       return;
     }
 
+    if (refund) {
+      const parsedRefundAmount =
+        Number(refundAmount);
+
+      if (
+        !Number.isFinite(
+          parsedRefundAmount,
+        ) ||
+        parsedRefundAmount <= 0
+      ) {
+        setMessage(
+          "Refund amount must be greater than $0.00.",
+        );
+        return;
+      }
+
+      if (
+        parsedRefundAmount >
+        cancelOrder.total
+      ) {
+        setMessage(
+          "Refund amount cannot exceed the order total.",
+        );
+        return;
+      }
+    }
+
     setCancelling(true);
     setMessage("");
 
@@ -172,6 +204,9 @@ export default function PreOrderQueue({
         await cancelCashierPreOrder(
           cancelOrder.id,
           refund,
+          refund
+            ? Number(refundAmount)
+            : undefined,
         );
 
       if (!result.ok) {
@@ -191,12 +226,11 @@ export default function PreOrderQueue({
       );
 
       setCancelOrder(null);
+      setRefundAmount("");
 
       setMessage(
         refund
-          ? `Pre-order cancelled and ${cancelOrder.total.toFixed(
-              2,
-            )} refunded.`
+          ? `Pre-order cancelled and ${result.refundedAmount ?? refundAmount} refunded.`
           : "Pre-order cancelled without refund.",
       );
     } catch (error) {
@@ -1004,11 +1038,16 @@ export default function PreOrderQueue({
                     <div className="actions-row">
                       <button
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          setRefundAmount(
+                            order.total.toFixed(
+                              2,
+                            ),
+                          );
                           setCancelOrder(
                             order,
-                          )
-                        }
+                          );
+                        }}
                         style={{
                           border:
                             "1px solid #dc2626",
@@ -1142,6 +1181,7 @@ export default function PreOrderQueue({
           onClick={() => {
             if (!cancelling) {
               setCancelOrder(null);
+              setRefundAmount("");
             }
           }}
           style={{
@@ -1247,6 +1287,72 @@ export default function PreOrderQueue({
                   : "Cancel Only"}
               </button>
 
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  fontWeight: 700,
+                }}
+              >
+                Refund amount
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    border:
+                      "1px solid #d1d5db",
+                    borderRadius: 9,
+                    overflow: "hidden",
+                    background: "white",
+                  }}
+                >
+                  <span
+                    style={{
+                      padding:
+                        "10px 0 10px 12px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={
+                      cancelOrder.total
+                    }
+                    step="0.01"
+                    value={refundAmount}
+                    disabled={cancelling}
+                    onChange={(event) =>
+                      setRefundAmount(
+                        event.target.value,
+                      )
+                    }
+                    style={{
+                      width: "100%",
+                      border: 0,
+                      outline: "none",
+                      padding:
+                        "10px 12px 10px 6px",
+                      fontSize: 16,
+                    }}
+                  />
+                </div>
+                <span
+                  className="subtle"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 400,
+                  }}
+                >
+                  Maximum $
+                  {cancelOrder.total.toFixed(
+                    2,
+                  )}
+                </span>
+              </label>
+
               <button
                 type="button"
                 disabled={cancelling}
@@ -1274,9 +1380,9 @@ export default function PreOrderQueue({
               >
                 {cancelling
                   ? "Processing..."
-                  : `Cancel & Refund (${cancelOrder.total.toFixed(
-                      2,
-                    )})`}
+                  : `Cancel & Refund (${Number(
+                      refundAmount || 0,
+                    ).toFixed(2)})`}
               </button>
 
               <button
@@ -1284,9 +1390,12 @@ export default function PreOrderQueue({
                 className="secondary"
                 disabled={cancelling}
                 onClick={() =>
-                  setCancelOrder(
-                    null,
-                  )
+                  {
+                    setCancelOrder(
+                      null,
+                    );
+                    setRefundAmount("");
+                  }
                 }
                 style={{
                   width: "100%",
