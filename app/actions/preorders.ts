@@ -2078,6 +2078,7 @@ export async function markPreOrderLabelPrinted(
 ): Promise<
   | {
       ok: true;
+      printCount: number;
     }
   | {
       ok: false;
@@ -2098,48 +2099,131 @@ export async function markPreOrderLabelPrinted(
     };
   }
 
-  const order =
-    await prisma.preOrder.findUnique(
-      {
-        where: {
-          id: orderId,
-        },
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        const order =
+          await tx.preOrder.findUnique(
+            {
+              where: {
+                id: orderId,
+              },
+            },
+          );
+
+        if (!order) {
+          return {
+            ok: false as const,
+            error: "Order not found",
+          };
+        }
+
+        if (
+          session.user.role !==
+            UserRole.SUPER_ADMIN &&
+          session.user.schoolId !==
+            order.schoolId
+        ) {
+          return {
+            ok: false as const,
+            error: "Unauthorized",
+          };
+        }
+
+        const existingTrackedPrints =
+          await tx.auditLog.count({
+            where: {
+              action:
+                "PRINT_PREORDER_LABEL",
+              entityType: "PreOrder",
+              entityId: order.id,
+            },
+          });
+
+        /*
+         * Orders printed before print counting was introduced
+         * already have labelPrintedAt but no print audit rows.
+         * Backfill the original print once so the visible count
+         * remains accurate after the first reprint.
+         */
+        if (
+          order.labelPrintedAt &&
+          existingTrackedPrints === 0
+        ) {
+          await tx.auditLog.create({
+            data: {
+              actorUserId:
+                session.user.id,
+              action:
+                "PRINT_PREORDER_LABEL",
+              entityType: "PreOrder",
+              entityId: order.id,
+              metadata: {
+                orderNumber:
+                  order.orderNumber,
+                legacyBackfill: true,
+                printedAt:
+                  order.labelPrintedAt.toISOString(),
+              },
+            },
+          });
+        }
+
+        const printedAt = new Date();
+
+        await tx.preOrder.update({
+          where: {
+            id: order.id,
+          },
+
+          data: {
+            labelPrintedAt:
+              printedAt,
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            actorUserId:
+              session.user.id,
+            action:
+              "PRINT_PREORDER_LABEL",
+            entityType: "PreOrder",
+            entityId: order.id,
+            metadata: {
+              orderNumber:
+                order.orderNumber,
+              printedAt:
+                printedAt.toISOString(),
+            },
+          },
+        });
+
+        const printCount =
+          await tx.auditLog.count({
+            where: {
+              action:
+                "PRINT_PREORDER_LABEL",
+              entityType: "PreOrder",
+              entityId: order.id,
+            },
+          });
+
+        return {
+          ok: true as const,
+          printCount,
+        };
       },
     );
-
-  if (!order) {
+  } catch (error) {
     return {
       ok: false,
-      error: "Order not found",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not record label print",
     };
   }
-
-  if (
-    session.user.role !==
-      UserRole.SUPER_ADMIN &&
-    session.user.schoolId !==
-      order.schoolId
-  ) {
-    return {
-      ok: false,
-      error: "Unauthorized",
-    };
-  }
-
-  await prisma.preOrder.update({
-    where: {
-      id: order.id,
-    },
-
-    data: {
-      labelPrintedAt:
-        new Date(),
-    },
-  });
-
-  return {
-    ok: true,
-  };
 }
 
 /* ============================================================
