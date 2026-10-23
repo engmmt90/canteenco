@@ -854,7 +854,7 @@ button:disabled {
   .cashier > .print-label::after {
     content: "";
     display: block;
-    height: 15mm;
+    height: 25mm;
     width: 100%;
   }
 
