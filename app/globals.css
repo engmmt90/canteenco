@@ -819,7 +819,7 @@ button:disabled {
     min-height: 0 !important;
 
     margin: 0 !important;
-    padding: 4mm 4mm 15mm !important;
+    padding: 4mm 4mm 0 !important;
 
     box-sizing: border-box !important;
 
@@ -848,6 +848,14 @@ button:disabled {
   .cashier > .print-label:not(:last-child) {
     page-break-after: always !important;
     break-after: page !important;
+  }
+
+  /* Force real paper feed below the last printed line before the cutter. */
+  .cashier > .print-label::after {
+    content: "";
+    display: block;
+    height: 15mm;
+    width: 100%;
   }
 
   /*
