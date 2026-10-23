@@ -107,6 +107,13 @@ export default function PreOrderQueue({
   const [showFilters, setShowFilters] =
     useState(false);
 
+  const [
+    expandedOrderIds,
+    setExpandedOrderIds,
+  ] = useState<Set<string>>(
+    () => new Set(),
+  );
+
   const [selectedClass, setSelectedClass] =
     useState("");
 
@@ -843,320 +850,424 @@ export default function PreOrderQueue({
                     }
                   >
                     {/* ----------------------------------------
-                     * ORDER HEADER
+                     * COMPACT ORDER ROW
                      * -------------------------------------- */}
 
-                    <div className="request-head">
-                      <div>
-                        <strong>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent:
+                          "space-between",
+                        gap: 12,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <div
+                        style={{
+                          minWidth: 180,
+                          flex: "1 1 260px",
+                        }}
+                      >
+                        <strong
+                          style={{
+                            fontSize: 16,
+                          }}
+                        >
                           {
-                            order.orderNumber
+                            order.student
+                              .firstName
+                          }{" "}
+                          {
+                            order.student
+                              .lastName
                           }
                         </strong>
 
                         <div className="subtle compact">
+                          Pickup:{" "}
                           {
-                            order
-                              .student
-                              .firstName
-                          }{" "}
-                          {
-                            order
-                              .student
-                              .lastName
+                            order.pickupSlot
+                              .label
                           }
                           {" · "}
-                          {
-                            order
-                              .student
-                              .displayCode
-                          }
-                          {" · Class "}
-                          {
-                            order
-                              .student
-                              .classCode
-                          }
+                          {order.items
+                            .map(
+                              (item) =>
+                                item.name,
+                            )
+                            .join(" · ")}
                         </div>
                       </div>
 
-                      <span className="badge">
-                        {
-                          order.status
-                        }
-                      </span>
-                    </div>
-
-                    {/* ----------------------------------------
-                     * ORDER ITEMS
-                     * -------------------------------------- */}
-
-                    <div
-                      style={{
-                        marginTop: 14,
-                        display: "grid",
-                        gap: 12,
-                      }}
-                    >
-                      {order.items.map(
-                        (item) => (
-                          <div
-                            key={
-                              item.id
-                            }
-                            style={{
-                              padding:
-                                "12px 14px",
-                              border:
-                                "1px solid #e5e7eb",
-                              borderRadius: 12,
-                              background:
-                                "#fafafa",
-                            }}
-                          >
-                            {/* PRODUCT */}
-
-                            <div
-                              style={{
-                                display:
-                                  "flex",
-                                justifyContent:
-                                  "space-between",
-                                gap: 12,
-                                alignItems:
-                                  "flex-start",
-                              }}
-                            >
-                              <strong
-                                style={{
-                                  fontSize: 16,
-                                }}
-                              >
-                                {
-                                  item.quantity
-                                }{" "}
-                                ×{" "}
-                                {
-                                  item.name
-                                }
-                              </strong>
-
-                              {item.lineTotal !==
-                                undefined && (
-                                <strong>
-                                  $
-                                  {item.lineTotal.toFixed(
-                                    2,
-                                  )}
-                                </strong>
-                              )}
-                            </div>
-
-                            {/* OPTIONS */}
-
-                            {item.options.length >
-                              0 && (
-                              <div
-                                style={{
-                                  marginTop: 9,
-                                  paddingLeft: 4,
-                                  display:
-                                    "grid",
-                                  gap: 5,
-                                }}
-                              >
-                                {item.options.map(
-                                  (
-                                    option,
-                                  ) => (
-                                    <div
-                                      key={
-                                        option.id
-                                      }
-                                      style={{
-                                        display:
-                                          "flex",
-                                        justifyContent:
-                                          "space-between",
-                                        gap: 10,
-                                        fontSize:
-                                          14,
-                                      }}
-                                    >
-                                      <span>
-                                        <span className="subtle">
-                                          {
-                                            option.groupName
-                                          }
-                                          :
-                                        </span>{" "}
-                                        <strong>
-                                          {
-                                            option.name
-                                          }
-                                        </strong>
-                                      </span>
-
-                                      {option.additionalPrice >
-                                      0 ? (
-                                        <span className="subtle">
-                                          +$
-                                          {option.additionalPrice.toFixed(
-                                            2,
-                                          )}
-                                        </span>
-                                      ) : (
-                                        <span className="subtle">
-                                          Included
-                                        </span>
-                                      )}
-                                    </div>
-                                  ),
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        ),
-                      )}
-                    </div>
-
-                    {/* ----------------------------------------
-                     * TOTAL
-                     * -------------------------------------- */}
-
-                    <div
-                      style={{
-                        display:
-                          "flex",
-                        justifyContent:
-                          "space-between",
-                        alignItems:
-                          "center",
-                        marginTop: 14,
-                        paddingTop: 12,
-                        borderTop:
-                          "1px solid #e5e7eb",
-                      }}
-                    >
-                      <span className="subtle">
-                        Total
-                      </span>
-
-                      <strong
+                      <div
                         style={{
-                          fontSize: 18,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent:
+                            "flex-end",
+                          gap: 8,
+                          flexWrap: "wrap",
                         }}
                       >
-                        $
-                        {order.total.toFixed(
-                          2,
-                        )}
-                      </strong>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRefundAmount(
+                              order.total.toFixed(
+                                2,
+                              ),
+                            );
+                            setCancelReason("");
+                            setCancelNote("");
+                            setCancelOrder(
+                              order,
+                            );
+                          }}
+                          style={{
+                            border:
+                              "1px solid #dc2626",
+                            background:
+                              "#dc2626",
+                            color: "white",
+                            borderRadius: 8,
+                            padding:
+                              "8px 11px",
+                            fontWeight: 700,
+                            cursor:
+                              "pointer",
+                          }}
+                        >
+                          Cancel
+                        </button>
 
-                    {/* ----------------------------------------
-                     * ACTIONS
-                     * -------------------------------------- */}
-
-                    <div className="actions-row">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRefundAmount(
-                            order.total.toFixed(
-                              2,
-                            ),
-                          );
-                          setCancelReason("");
-                          setCancelNote("");
-                          setCancelOrder(
-                            order,
-                          );
-                        }}
-                        style={{
-                          border:
-                            "1px solid #dc2626",
-                          background:
-                            "#dc2626",
-                          color: "white",
-                          borderRadius: 8,
-                          padding:
-                            "9px 14px",
-                          fontWeight: 700,
-                          cursor:
-                            "pointer",
-                        }}
-                      >
-                        Cancel
-                      </button>
-
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() =>
-                          void printLabel(
-                            order,
-                          )
-                        }
-                      >
-                        Print Label
-                        {order.labelPrintedAt
-                          ? " ✓"
-                          : ""}
-                      </button>
-
-                      {order.status ===
-                        "CONFIRMED" && (
                         <button
                           type="button"
                           className="secondary"
                           onClick={() =>
-                            void move(
+                            void printLabel(
                               order,
-                              "PREPARING",
                             )
                           }
                         >
-                          Preparing
+                          Print Label
+                          {order.labelPrintedAt
+                            ? " ✓"
+                            : ""}
                         </button>
-                      )}
 
-                      {(
-                        order.status ===
-                          "CONFIRMED" ||
-                        order.status ===
-                          "PREPARING"
-                      ) && (
+                        {order.status ===
+                          "CONFIRMED" && (
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() =>
+                              void move(
+                                order,
+                                "PREPARING",
+                              )
+                            }
+                          >
+                            Preparing
+                          </button>
+                        )}
+
+                        {(
+                          order.status ===
+                            "CONFIRMED" ||
+                          order.status ===
+                            "PREPARING"
+                        ) && (
+                          <button
+                            type="button"
+                            className="primary"
+                            onClick={() =>
+                              void move(
+                                order,
+                                "READY",
+                              )
+                            }
+                          >
+                            Ready
+                          </button>
+                        )}
+
+                        {order.status ===
+                          "READY" && (
+                          <button
+                            type="button"
+                            className="primary"
+                            onClick={() =>
+                              void move(
+                                order,
+                                "PICKED_UP",
+                              )
+                            }
+                          >
+                            Picked Up
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          className="primary"
-                          onClick={() =>
-                            void move(
-                              order,
-                              "READY",
+                          className="secondary"
+                          aria-label={
+                            expandedOrderIds.has(
+                              order.id,
+                            )
+                              ? "Hide order details"
+                              : "Show order details"
+                          }
+                          aria-expanded={
+                            expandedOrderIds.has(
+                              order.id,
                             )
                           }
-                        >
-                          Ready
-                        </button>
-                      )}
+                          onClick={() =>
+                            setExpandedOrderIds(
+                              (current) => {
+                                const next =
+                                  new Set(
+                                    current,
+                                  );
 
-                      {order.status ===
-                        "READY" && (
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={() =>
-                            void move(
-                              order,
-                              "PICKED_UP",
+                                if (
+                                  next.has(
+                                    order.id,
+                                  )
+                                ) {
+                                  next.delete(
+                                    order.id,
+                                  );
+                                } else {
+                                  next.add(
+                                    order.id,
+                                  );
+                                }
+
+                                return next;
+                              },
                             )
                           }
+                          style={{
+                            minWidth: 42,
+                            padding:
+                              "8px 10px",
+                            fontSize: 18,
+                            lineHeight: 1,
+                          }}
                         >
-                          Picked Up
+                          {expandedOrderIds.has(
+                            order.id,
+                          )
+                            ? "⌃"
+                            : "⌄"}
                         </button>
-                      )}
+                      </div>
                     </div>
+
+                    {expandedOrderIds.has(
+                      order.id,
+                    ) && (
+                      <div
+                        style={{
+                          marginTop: 14,
+                          paddingTop: 14,
+                          borderTop:
+                            "1px solid #e5e7eb",
+                        }}
+                      >
+                        <div className="request-head">
+                          <div>
+                            <strong>
+                              {
+                                order.orderNumber
+                              }
+                            </strong>
+
+                            <div className="subtle compact">
+                              {
+                                order
+                                  .student
+                                  .displayCode
+                              }
+                              {" · Class "}
+                              {
+                                order
+                                  .student
+                                  .classCode
+                              }
+                              {" · "}
+                              {
+                                order.schoolName
+                              }
+                            </div>
+                          </div>
+
+                          <span className="badge">
+                            {
+                              order.status
+                            }
+                          </span>
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 14,
+                            display: "grid",
+                            gap: 12,
+                          }}
+                        >
+                          {order.items.map(
+                            (item) => (
+                              <div
+                                key={
+                                  item.id
+                                }
+                                style={{
+                                  padding:
+                                    "12px 14px",
+                                  border:
+                                    "1px solid #e5e7eb",
+                                  borderRadius: 12,
+                                  background:
+                                    "#fafafa",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display:
+                                      "flex",
+                                    justifyContent:
+                                      "space-between",
+                                    gap: 12,
+                                    alignItems:
+                                      "flex-start",
+                                  }}
+                                >
+                                  <strong
+                                    style={{
+                                      fontSize: 16,
+                                    }}
+                                  >
+                                    {
+                                      item.quantity
+                                    }{" "}
+                                    ×{" "}
+                                    {
+                                      item.name
+                                    }
+                                  </strong>
+
+                                  {item.lineTotal !==
+                                    undefined && (
+                                    <strong>
+                                      $
+                                      {item.lineTotal.toFixed(
+                                        2,
+                                      )}
+                                    </strong>
+                                  )}
+                                </div>
+
+                                {item.options.length >
+                                  0 && (
+                                  <div
+                                    style={{
+                                      marginTop: 9,
+                                      paddingLeft: 4,
+                                      display:
+                                        "grid",
+                                      gap: 5,
+                                    }}
+                                  >
+                                    {item.options.map(
+                                      (
+                                        option,
+                                      ) => (
+                                        <div
+                                          key={
+                                            option.id
+                                          }
+                                          style={{
+                                            display:
+                                              "flex",
+                                            justifyContent:
+                                              "space-between",
+                                            gap: 10,
+                                            fontSize:
+                                              14,
+                                          }}
+                                        >
+                                          <span>
+                                            <span className="subtle">
+                                              {
+                                                option.groupName
+                                              }
+                                              :
+                                            </span>{" "}
+                                            <strong>
+                                              {
+                                                option.name
+                                              }
+                                            </strong>
+                                          </span>
+
+                                          {option.additionalPrice >
+                                          0 ? (
+                                            <span className="subtle">
+                                              +$
+                                              {option.additionalPrice.toFixed(
+                                                2,
+                                              )}
+                                            </span>
+                                          ) : (
+                                            <span className="subtle">
+                                              Included
+                                            </span>
+                                          )}
+                                        </div>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ),
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display:
+                              "flex",
+                            justifyContent:
+                              "space-between",
+                            alignItems:
+                              "center",
+                            marginTop: 14,
+                            paddingTop: 12,
+                            borderTop:
+                              "1px solid #e5e7eb",
+                          }}
+                        >
+                          <span className="subtle">
+                            Total
+                          </span>
+
+                          <strong
+                            style={{
+                              fontSize: 18,
+                            }}
+                          >
+                            $
+                            {order.total.toFixed(
+                              2,
+                            )}
+                          </strong>
+                        </div>
+                      </div>
+                    )}
+
                   </article>
                 ),
               )}
