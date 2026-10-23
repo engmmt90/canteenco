@@ -845,6 +845,11 @@ button:disabled {
     break-inside: avoid !important;
   }
 
+  .cashier > .print-label:not(:last-child) {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
   /*
    * Reset elements INSIDE the label only.
    * Nothing outside .print-label is affected.
