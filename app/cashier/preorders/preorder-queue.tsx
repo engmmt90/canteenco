@@ -42,6 +42,7 @@ type O = {
   pickupDate: string;
   total: number;
   labelPrintedAt: string | null;
+  labelPrintCount: number;
 
   student: {
     id: string;
@@ -291,11 +292,23 @@ export default function PreOrderQueue({
   async function printLabel(
     order: O,
   ) {
-    setPrintOrders([order]);
+    setMessage("");
 
-    await markPreOrderLabelPrinted(
-      order.id,
-    );
+    const result =
+      await markPreOrderLabelPrinted(
+        order.id,
+      );
+
+    if (!result.ok) {
+      setMessage(
+        result.error ??
+          "Could not record label print",
+      );
+      return;
+    }
+
+    const printedAt =
+      new Date().toISOString();
 
     setOrders((current) =>
       current.map((item) =>
@@ -303,11 +316,23 @@ export default function PreOrderQueue({
           ? {
               ...item,
               labelPrintedAt:
-                new Date().toISOString(),
+                printedAt,
+              labelPrintCount:
+                result.printCount,
             }
           : item,
       ),
     );
+
+    setPrintOrders([
+      {
+        ...order,
+        labelPrintedAt:
+          printedAt,
+        labelPrintCount:
+          result.printCount,
+      },
+    ]);
 
     setTimeout(() => {
       window.print();
@@ -401,52 +426,113 @@ export default function PreOrderQueue({
   async function printAllVisible(
     visibleOrders: O[],
   ) {
-    if (
-      printingAll ||
-      visibleOrders.length === 0
-    ) {
+    if (printingAll) {
+      return;
+    }
+
+    const unprintedOrders =
+      visibleOrders.filter(
+        (order) =>
+          order.labelPrintCount === 0,
+      );
+
+    if (unprintedOrders.length === 0) {
+      setMessage(
+        "All visible pre-orders have already been printed.",
+      );
       return;
     }
 
     setPrintingAll(true);
     setMessage("");
-    setPrintOrders(
-      visibleOrders,
-    );
 
     try {
-      await Promise.allSettled(
-        visibleOrders.map(
-          (order) =>
-            markPreOrderLabelPrinted(
-              order.id,
-            ),
-        ),
-      );
-
-      const printedIds =
-        new Set(
-          visibleOrders.map(
-            (order) =>
-              order.id,
+      const results =
+        await Promise.all(
+          unprintedOrders.map(
+            async (order) => ({
+              order,
+              result:
+                await markPreOrderLabelPrinted(
+                  order.id,
+                ),
+            }),
           ),
         );
+
+      const successful =
+        results.filter(
+          (
+            item,
+          ): item is {
+            order: O;
+            result: {
+              ok: true;
+              printCount: number;
+            };
+          } => item.result.ok,
+        );
+
+      const failedCount =
+        results.length -
+        successful.length;
+
+      if (successful.length === 0) {
+        setMessage(
+          failedCount > 0
+            ? "Print All failed. No labels were printed."
+            : "No labels to print.",
+        );
+        return;
+      }
+
       const printedAt =
         new Date().toISOString();
 
+      const countById =
+        new Map(
+          successful.map(
+            ({ order, result }) => [
+              order.id,
+              result.printCount,
+            ],
+          ),
+        );
+
       setOrders((current) =>
         current.map((order) =>
-          printedIds.has(
-            order.id,
-          )
+          countById.has(order.id)
             ? {
                 ...order,
                 labelPrintedAt:
                   printedAt,
+                labelPrintCount:
+                  countById.get(
+                    order.id,
+                  ) ??
+                  order.labelPrintCount,
               }
             : order,
         ),
       );
+
+      setPrintOrders(
+        successful.map(
+          ({ order, result }) => ({
+            ...order,
+            labelPrintedAt:
+              printedAt,
+            labelPrintCount:
+              result.printCount,
+          }),
+        ),
+      );
+
+      if (failedCount > 0) {
+        setMessage(
+          `${successful.length} label${successful.length === 1 ? "" : "s"} ready to print. ${failedCount} could not be recorded.`,
+        );
+      }
 
       setTimeout(() => {
         window.print();
@@ -603,6 +689,12 @@ export default function PreOrderQueue({
       selectedClass,
       selectedPickupSlot,
     ]);
+
+  const unprintedVisibleCount =
+    filteredOrders.filter(
+      (order) =>
+        order.labelPrintCount === 0,
+    ).length;
 
   /* ==========================================================
    * CLEAR NFC
@@ -1008,7 +1100,7 @@ export default function PreOrderQueue({
             className="secondary"
             disabled={
               printingAll ||
-              filteredOrders.length ===
+              unprintedVisibleCount ===
                 0
             }
             onClick={() =>
@@ -1019,7 +1111,7 @@ export default function PreOrderQueue({
           >
             {printingAll
               ? "Printing..."
-              : `Print All (${filteredOrders.length})`}
+              : `Print All (${unprintedVisibleCount})`}
           </button>
         </div>
       )}
@@ -1144,6 +1236,45 @@ export default function PreOrderQueue({
                           Cancel
                         </button>
 
+                        {order.labelPrintCount >
+                          0 && (
+                          <span
+                            title={`Printed ${order.labelPrintCount} time${order.labelPrintCount === 1 ? "" : "s"}`}
+                            aria-label={`Printed ${order.labelPrintCount} time${order.labelPrintCount === 1 ? "" : "s"}`}
+                            style={{
+                              display:
+                                "inline-flex",
+                              alignItems:
+                                "center",
+                              gap: 3,
+                              padding:
+                                "2px 6px",
+                              borderRadius:
+                                999,
+                              background:
+                                "#f3f4f6",
+                              color:
+                                "#4b5563",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              lineHeight: 1.3,
+                              whiteSpace:
+                                "nowrap",
+                            }}
+                          >
+                            <span
+                              aria-hidden="true"
+                            >
+                              🖨
+                            </span>
+                            <span>
+                              {
+                                order.labelPrintCount
+                              }
+                            </span>
+                          </span>
+                        )}
+
                         <button
                           type="button"
                           className="secondary"
@@ -1153,10 +1284,10 @@ export default function PreOrderQueue({
                             )
                           }
                         >
-                          Print Label
-                          {order.labelPrintedAt
-                            ? " ✓"
-                            : ""}
+                          {order.labelPrintCount >
+                          0
+                            ? "Reprint"
+                            : "Print Label"}
                         </button>
 
                         {order.status ===
