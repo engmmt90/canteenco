@@ -70,6 +70,38 @@ export default async function CashierPreOrdersPage() {
       ],
     });
 
+  const printEvents =
+    orders.length > 0
+      ? await prisma.auditLog.findMany({
+          where: {
+            action:
+              "PRINT_PREORDER_LABEL",
+            entityType: "PreOrder",
+            entityId: {
+              in: orders.map(
+                (order) => order.id,
+              ),
+            },
+          },
+          select: {
+            entityId: true,
+          },
+        })
+      : [];
+
+  const printCountByOrder =
+    printEvents.reduce<
+      Record<string, number>
+    >((counts, event) => {
+      if (event.entityId) {
+        counts[event.entityId] =
+          (counts[event.entityId] ?? 0) +
+          1;
+      }
+
+      return counts;
+    }, {});
+
   const plain = orders.map(
     (order) => ({
       id: order.id,
@@ -90,6 +122,16 @@ export default async function CashierPreOrdersPage() {
         order.labelPrintedAt
           ? order.labelPrintedAt.toISOString()
           : null,
+
+      labelPrintCount:
+        Math.max(
+          printCountByOrder[
+            order.id
+          ] ?? 0,
+          order.labelPrintedAt
+            ? 1
+            : 0,
+        ),
 
       student: {
         id:
