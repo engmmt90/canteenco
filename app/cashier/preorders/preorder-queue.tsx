@@ -76,8 +76,18 @@ export default function PreOrderQueue({
   const [message, setMessage] =
     useState("");
 
-  const [printOrder, setPrintOrder] =
-    useState<O | null>(null);
+  const [printOrders, setPrintOrders] =
+    useState<O[]>([]);
+
+  const [
+    preparingAll,
+    setPreparingAll,
+  ] = useState(false);
+
+  const [
+    printingAll,
+    setPrintingAll,
+  ] = useState(false);
 
   const [
     cancelOrder,
@@ -281,7 +291,7 @@ export default function PreOrderQueue({
   async function printLabel(
     order: O,
   ) {
-    setPrintOrder(order);
+    setPrintOrders([order]);
 
     await markPreOrderLabelPrinted(
       order.id,
@@ -302,6 +312,154 @@ export default function PreOrderQueue({
     setTimeout(() => {
       window.print();
     }, 50);
+  }
+
+  async function prepareAll() {
+    if (preparingAll) {
+      return;
+    }
+
+    const pendingOrders =
+      orders.filter(
+        (order) =>
+          order.status ===
+          "CONFIRMED",
+      );
+
+    if (pendingOrders.length === 0) {
+      setMessage(
+        "All pre-orders are already in progress.",
+      );
+      return;
+    }
+
+    setPreparingAll(true);
+    setMessage("");
+
+    try {
+      const results =
+        await Promise.all(
+          pendingOrders.map(
+            async (order) => ({
+              order,
+              result:
+                await updatePreOrderStatus(
+                  order.id,
+                  "PREPARING",
+                ),
+            }),
+          ),
+        );
+
+      const successfulIds =
+        new Set(
+          results
+            .filter(
+              ({ result }) =>
+                result.ok,
+            )
+            .map(
+              ({ order }) =>
+                order.id,
+            ),
+        );
+
+      setOrders((current) =>
+        current.map((order) =>
+          successfulIds.has(
+            order.id,
+          )
+            ? {
+                ...order,
+                status:
+                  "PREPARING",
+              }
+            : order,
+        ),
+      );
+
+      const failedCount =
+        results.length -
+        successfulIds.size;
+
+      setMessage(
+        failedCount > 0
+          ? `${successfulIds.size} pre-order${successfulIds.size === 1 ? "" : "s"} set to Preparing. ${failedCount} could not be updated.`
+          : `${successfulIds.size} pre-order${successfulIds.size === 1 ? "" : "s"} set to Preparing.`,
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Prepare All failed",
+      );
+    } finally {
+      setPreparingAll(false);
+    }
+  }
+
+  async function printAllVisible(
+    visibleOrders: O[],
+  ) {
+    if (
+      printingAll ||
+      visibleOrders.length === 0
+    ) {
+      return;
+    }
+
+    setPrintingAll(true);
+    setMessage("");
+    setPrintOrders(
+      visibleOrders,
+    );
+
+    try {
+      await Promise.allSettled(
+        visibleOrders.map(
+          (order) =>
+            markPreOrderLabelPrinted(
+              order.id,
+            ),
+        ),
+      );
+
+      const printedIds =
+        new Set(
+          visibleOrders.map(
+            (order) =>
+              order.id,
+          ),
+        );
+      const printedAt =
+        new Date().toISOString();
+
+      setOrders((current) =>
+        current.map((order) =>
+          printedIds.has(
+            order.id,
+          )
+            ? {
+                ...order,
+                labelPrintedAt:
+                  printedAt,
+              }
+            : order,
+        ),
+      );
+
+      setTimeout(() => {
+        window.print();
+        setPrintingAll(false);
+      }, 80);
+    } catch (error) {
+      setPrintingAll(false);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Print All failed",
+      );
+    }
   }
 
   /* ==========================================================
@@ -818,6 +976,51 @@ export default function PreOrderQueue({
           {nfcStudent
             ? ` · ${nfcStudent.firstName} ${nfcStudent.lastName}`
             : ""}
+        </div>
+      )}
+
+      {/* ======================================================
+       * BULK ACTIONS
+       * ==================================================== */}
+
+      {orders.length > 0 && (
+        <div
+          className="actions-row"
+          style={{
+            marginBottom: 14,
+          }}
+        >
+          <button
+            type="button"
+            className="primary"
+            disabled={preparingAll}
+            onClick={() =>
+              void prepareAll()
+            }
+          >
+            {preparingAll
+              ? "Preparing..."
+              : "Prepare All"}
+          </button>
+
+          <button
+            type="button"
+            className="secondary"
+            disabled={
+              printingAll ||
+              filteredOrders.length ===
+                0
+            }
+            onClick={() =>
+              void printAllVisible(
+                filteredOrders,
+              )
+            }
+          >
+            {printingAll
+              ? "Printing..."
+              : `Print All (${filteredOrders.length})`}
+          </button>
         </div>
       )}
 
@@ -1630,102 +1833,105 @@ export default function PreOrderQueue({
        * PRINT LABEL
        * ==================================================== */}
 
-      {printOrder && (
-        <div className="print-label">
-          <strong className="label-order">
-            {
-              printOrder.orderNumber
-            }
-          </strong>
-
-          <strong>
-            {
-              printOrder.student
-                .firstName
-            }{" "}
-            {
-              printOrder.student
-                .lastName
-            }
-          </strong>
-
-          <span>
-            {
-              printOrder.student
-                .displayCode
-            }
-            {" · Class "}
-            {
-              printOrder.student
-                .classCode
-            }
-          </span>
-
-          <span>
-            Pickup:{" "}
-            {
-              printOrder
-                .pickupSlot.label
-            }
-          </span>
-
-          {/* PRINT ITEMS */}
-
+      {printOrders.map(
+        (printOrder) => (
           <div
-            style={{
-              marginTop: 8,
-              display: "grid",
-              gap: 5,
-            }}
+            className="print-label"
+            key={printOrder.id}
           >
-            {printOrder.items.map(
-              (item) => (
-                <div
-                  key={item.id}
-                >
-                  <strong>
-                    {
-                      item.quantity
-                    }{" "}
-                    ×{" "}
-                    {
-                      item.name
-                    }
-                  </strong>
+            <strong className="label-order">
+              {
+                printOrder.orderNumber
+              }
+            </strong>
 
-                  {item.options.length >
-                    0 && (
-                    <div
-                      style={{
-                        marginLeft: 8,
-                      }}
-                    >
-                      {item.options.map(
-                        (
-                          option,
-                        ) => (
-                          <div
-                            key={
-                              option.id
-                            }
-                          >
-                            {
-                              option.groupName
-                            }
-                            :{" "}
-                            {
-                              option.name
-                            }
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  )}
-                </div>
-              ),
-            )}
+            <strong>
+              {
+                printOrder.student
+                  .firstName
+              }{" "}
+              {
+                printOrder.student
+                  .lastName
+              }
+            </strong>
+
+            <span>
+              {
+                printOrder.student
+                  .displayCode
+              }
+              {" · Class "}
+              {
+                printOrder.student
+                  .classCode
+              }
+            </span>
+
+            <span>
+              Pickup:{" "}
+              {
+                printOrder
+                  .pickupSlot.label
+              }
+            </span>
+
+            <div
+              style={{
+                marginTop: 8,
+                display: "grid",
+                gap: 5,
+              }}
+            >
+              {printOrder.items.map(
+                (item) => (
+                  <div
+                    key={item.id}
+                  >
+                    <strong>
+                      {
+                        item.quantity
+                      }{" "}
+                      ×{" "}
+                      {
+                        item.name
+                      }
+                    </strong>
+
+                    {item.options.length >
+                      0 && (
+                      <div
+                        style={{
+                          marginLeft: 8,
+                        }}
+                      >
+                        {item.options.map(
+                          (
+                            option,
+                          ) => (
+                            <div
+                              key={
+                                option.id
+                              }
+                            >
+                              {
+                                option.groupName
+                              }
+                              :{" "}
+                              {
+                                option.name
+                              }
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ),
+              )}
+            </div>
           </div>
-        </div>
+        ),
       )}
     </main>
   );
