@@ -36,6 +36,12 @@ function buildClassCode(
     .toUpperCase();
 }
 
+const classCodeCollator =
+  new Intl.Collator("en", {
+    numeric: true,
+    sensitivity: "base",
+  });
+
 async function assertSchoolAccess(
   schoolId: string,
 ) {
@@ -396,6 +402,15 @@ export default async function SchoolSettingsPage({
   if (!school) {
     notFound();
   }
+
+  const sortedClasses =
+    [...school.classes].sort(
+      (a, b) =>
+        classCodeCollator.compare(
+          a.classCode,
+          b.classCode,
+        ),
+    );
 
   const s =
     school.settings;
@@ -861,7 +876,7 @@ export default async function SchoolSettingsPage({
 
               <div className="divider" />
 
-              {school.classes.length ===
+              {sortedClasses.length ===
               0 ? (
                 <p className="subtle">
                   No classes configured
@@ -874,7 +889,7 @@ export default async function SchoolSettingsPage({
                     gap: 10,
                   }}
                 >
-                  {school.classes.map(
+                  {sortedClasses.map(
                     (schoolClass) => (
                       <details
                         key={
