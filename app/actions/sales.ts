@@ -687,7 +687,15 @@ export async function getRecentCashierSales(
 
         items: {
           include: {
-            options: true,
+            options: {
+              include: {
+                productOption: {
+                  include: {
+                    group: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -728,6 +736,8 @@ export async function getRecentCashierSales(
 
         options: item.options.map(
           (option) => ({
+            groupName:
+              option.productOption.group.name,
             optionName:
               option.optionName,
             additionalPrice:
