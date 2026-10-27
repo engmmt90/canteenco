@@ -4812,17 +4812,17 @@ export default function CashierClient() {
         <section
           className="print-label"
           style={{
-            fontSize: 10,
-            lineHeight: 1.18,
+            fontSize: 9,
+            lineHeight: 1.12,
           }}
         >
           <div
             style={{
               textAlign: "center",
               fontWeight: 800,
-              fontSize: 14,
-              lineHeight: 1.05,
-              marginBottom: 2,
+              fontSize: 12,
+              lineHeight: 1,
+              marginBottom: 1,
             }}
           >
             CanteenGo
@@ -4831,10 +4831,10 @@ export default function CashierClient() {
           <div
             style={{
               textAlign: "center",
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: 700,
-              lineHeight: 1.05,
-              marginBottom: 4,
+              lineHeight: 1,
+              marginBottom: 2,
             }}
           >
             Order #{printLabel.saleNumber}
@@ -4842,8 +4842,8 @@ export default function CashierClient() {
 
           <div
             style={{
-              fontSize: 9,
-              lineHeight: 1.12,
+              fontSize: 8,
+              lineHeight: 1.05,
             }}
           >
             <strong>Customer:</strong>{" "}
@@ -4872,9 +4872,9 @@ export default function CashierClient() {
 
           <div
             style={{
-              fontSize: 9,
-              lineHeight: 1.12,
-              marginBottom: 5,
+              fontSize: 8,
+              lineHeight: 1.05,
+              marginBottom: 3,
             }}
           >
             <strong>Time:</strong>{" "}
@@ -4884,16 +4884,16 @@ export default function CashierClient() {
           <div
             style={{
               borderTop: "1px dashed #000",
-              paddingTop: 6,
+              paddingTop: 5,
             }}
           >
             {printLabel.lines.map((line, index) => (
               <div
                 key={`${line.name}-${index}`}
                 style={{
-                  marginBottom: 10,
-                  fontSize: 15,
-                  lineHeight: 1.16,
+                  marginBottom: 9,
+                  fontSize: 16,
+                  lineHeight: 1.14,
                 }}
               >
                 <div
@@ -4916,14 +4916,16 @@ export default function CashierClient() {
                   <div
                     key={`${option.groupName}-${option.optionName}-${optionIndex}`}
                     style={{
-                      paddingLeft: 12,
+                      paddingLeft: 10,
                       marginTop: 2,
-                      fontSize: 13,
-                      lineHeight: 1.15,
-                      fontWeight: 600,
+                      fontSize: 14,
+                      lineHeight: 1.12,
+                      fontWeight: 650,
                     }}
                   >
-                    {option.groupName}:{" "}
+                    {option.groupName.trim().toLowerCase() !== "option" && (
+                      <><strong>{option.groupName}:</strong>{" "}</>
+                    )}
                     {option.quantity > 1
                       ? `${option.quantity} × `
                       : ""}
@@ -4939,13 +4941,13 @@ export default function CashierClient() {
           <div
             style={{
               borderTop: "1px dashed #000",
-              paddingTop: 7,
-              marginTop: 5,
+              paddingTop: 6,
+              marginTop: 4,
               display: "flex",
               justifyContent: "space-between",
               fontWeight: 900,
-              fontSize: 16,
-              lineHeight: 1.1,
+              fontSize: 15,
+              lineHeight: 1.05,
             }}
           >
             <span>Total</span>
