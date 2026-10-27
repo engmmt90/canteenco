@@ -1705,7 +1705,8 @@ export default function CashierClient() {
         ),
         options: item.options.map(
           (option) => ({
-            groupName: "Option",
+            groupName:
+              option.groupName,
             optionName:
               option.optionName,
             additionalPrice:
@@ -4930,8 +4931,7 @@ export default function CashierClient() {
                       ? `${option.quantity} × `
                       : ""}
                     {option.optionName}
-                    {option.additionalPrice > 0 &&
-                      ` (+$${option.additionalPrice.toFixed(2)})`}
+
                   </div>
                 ))}
               </div>
