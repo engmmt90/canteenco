@@ -4809,13 +4809,20 @@ export default function CashierClient() {
       ====================================================== */}
 
       {printLabel && (
-        <section className="print-label">
+        <section
+          className="print-label"
+          style={{
+            fontSize: 10,
+            lineHeight: 1.18,
+          }}
+        >
           <div
             style={{
               textAlign: "center",
               fontWeight: 800,
-              fontSize: 17,
-              marginBottom: 8,
+              fontSize: 14,
+              lineHeight: 1.05,
+              marginBottom: 2,
             }}
           >
             CanteenGo
@@ -4824,28 +4831,52 @@ export default function CashierClient() {
           <div
             style={{
               textAlign: "center",
-              marginBottom: 10,
+              fontSize: 12,
+              fontWeight: 700,
+              lineHeight: 1.05,
+              marginBottom: 4,
             }}
           >
             Order #{printLabel.saleNumber}
           </div>
 
-          <div>
+          <div
+            style={{
+              fontSize: 9,
+              lineHeight: 1.12,
+            }}
+          >
             <strong>Customer:</strong>{" "}
             {printLabel.customerName}
           </div>
 
-          <div>
+          <div
+            style={{
+              fontSize: 9,
+              lineHeight: 1.12,
+            }}
+          >
             <strong>Code:</strong>{" "}
             {printLabel.customerCode}
           </div>
 
-          <div>
+          <div
+            style={{
+              fontSize: 9,
+              lineHeight: 1.12,
+            }}
+          >
             <strong>Payment:</strong>{" "}
             {printLabel.paymentMethod}
           </div>
 
-          <div style={{ marginBottom: 10 }}>
+          <div
+            style={{
+              fontSize: 9,
+              lineHeight: 1.12,
+              marginBottom: 5,
+            }}
+          >
             <strong>Time:</strong>{" "}
             {printLabel.createdAt}
           </div>
@@ -4853,20 +4884,24 @@ export default function CashierClient() {
           <div
             style={{
               borderTop: "1px dashed #000",
-              paddingTop: 8,
+              paddingTop: 6,
             }}
           >
             {printLabel.lines.map((line, index) => (
               <div
                 key={`${line.name}-${index}`}
-                style={{ marginBottom: 9 }}
+                style={{
+                  marginBottom: 10,
+                  fontSize: 15,
+                  lineHeight: 1.16,
+                }}
               >
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
                     gap: 8,
-                    fontWeight: 700,
+                    fontWeight: 800,
                   }}
                 >
                   <span>
@@ -4881,8 +4916,11 @@ export default function CashierClient() {
                   <div
                     key={`${option.groupName}-${option.optionName}-${optionIndex}`}
                     style={{
-                      paddingLeft: 10,
-                      fontSize: 11,
+                      paddingLeft: 12,
+                      marginTop: 2,
+                      fontSize: 13,
+                      lineHeight: 1.15,
+                      fontWeight: 600,
                     }}
                   >
                     {option.groupName}:{" "}
@@ -4901,12 +4939,13 @@ export default function CashierClient() {
           <div
             style={{
               borderTop: "1px dashed #000",
-              paddingTop: 8,
-              marginTop: 4,
+              paddingTop: 7,
+              marginTop: 5,
               display: "flex",
               justifyContent: "space-between",
-              fontWeight: 800,
-              fontSize: 14,
+              fontWeight: 900,
+              fontSize: 16,
+              lineHeight: 1.1,
             }}
           >
             <span>Total</span>
