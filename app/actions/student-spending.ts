@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { UserRole } from "@/generated/prisma/client";
+import { DEFAULT_SCHOOL_TIMEZONE, getSchoolDayBounds } from "@/lib/school-day";
 
 const STAFF_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
@@ -36,6 +37,15 @@ export async function getStudentDailySpending(
       select: {
         id: true,
         dailySpendLimit: true,
+        school: {
+          select: {
+            settings: {
+              select: {
+                timezone: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -43,17 +53,12 @@ export async function getStudentDailySpending(
     throw new Error("Student not found");
   }
 
-  const now = new Date();
-
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-
-  const startOfTomorrow =
-    new Date(startOfToday);
-
-  startOfTomorrow.setDate(
-    startOfTomorrow.getDate() + 1,
-  );
+  const { start: startOfToday, end: startOfTomorrow } =
+    getSchoolDayBounds(
+      new Date(),
+      student.school.settings?.timezone ??
+        DEFAULT_SCHOOL_TIMEZONE,
+    );
 
   const [
     salesToday,
