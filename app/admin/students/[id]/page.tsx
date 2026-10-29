@@ -6,6 +6,7 @@ import {
   setStudentStatus,
   updateStudent,
 } from "@/app/actions/admin-parents-students";
+import PrintNfcLabelButton from "./print-nfc-label-button";
 
 export default async function Page({
   params,
@@ -256,6 +257,29 @@ export default async function Page({
           >
             Save Changes
           </button>
+
+          {student.nfcCardNumber ? (
+            <div
+              style={{
+                marginTop: 10,
+                paddingTop: 10,
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <p
+                className="subtle compact"
+                style={{ marginBottom: 8 }}
+              >
+                NFC card saved. Print a 50 × 30 mm label for the card.
+              </p>
+
+              <PrintNfcLabelButton
+                studentName={`${student.firstName} ${student.lastName}`}
+                className={student.classCode}
+                nfcCardNumber={student.nfcCardNumber}
+              />
+            </div>
+          ) : null}
         </form>
 
         <section className="panel">
