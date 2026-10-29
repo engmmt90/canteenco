@@ -9,6 +9,7 @@ import { queueParentNotification } from "@/lib/notifications";
 import { ensureProductSchoolAvailabilityTable, getBlockedProductIds } from "@/lib/product-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 import { getBlockedProductOptionIds } from "@/lib/product-option-availability";
+import { DEFAULT_SCHOOL_TIMEZONE, getSchoolDayBounds } from "@/lib/school-day";
 
 import {
   NotificationEvent,
@@ -1087,27 +1088,14 @@ export async function createCashierSale(
           student.dailySpendLimit !==
           null
         ) {
-          const now =
-            new Date();
-
-          const startOfToday =
-            new Date(now);
-
-          startOfToday.setHours(
-            0,
-            0,
-            0,
-            0,
-          );
-
-          const startOfTomorrow =
-            new Date(
-              startOfToday,
-            );
-
-          startOfTomorrow.setDate(
-            startOfTomorrow.getDate() +
-              1,
+          const {
+            start: startOfToday,
+            end: startOfTomorrow,
+          } = getSchoolDayBounds(
+            new Date(),
+            student.school.settings
+              ?.timezone ??
+              DEFAULT_SCHOOL_TIMEZONE,
           );
 
           const [
