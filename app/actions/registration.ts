@@ -14,6 +14,8 @@ export type RegistrationFormState = {
   error?: string;
 };
 
+const SUPPORT_EMAIL = "support@canteengo.com.au";
+
 const parentSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
   email: z.string().trim().email().transform((value) => value.toLowerCase()),
@@ -32,6 +34,90 @@ const studentSchema = z.object({
 function formString(formData: FormData, key: string) {
   const raw = formData.get(key);
   return typeof raw === "string" ? raw.trim() : "";
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function sendNewRegistrationAdminEmail(input: {
+  fullName: string;
+  email: string;
+  phone?: string;
+  students: Array<{
+    firstName: string;
+    lastName: string;
+    grade: string;
+    classSection: string;
+  }>;
+}) {
+  try {
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const from = process.env.NOTIFICATION_EMAIL_FROM?.trim();
+
+    if (!apiKey || !from) {
+      console.error("New registration email provider is not configured.");
+      return;
+    }
+
+    const studentRows = input.students
+      .map(
+        (student) => `
+          <li>
+            <strong>${escapeHtml(student.firstName)} ${escapeHtml(student.lastName)}</strong>
+            — Class ${escapeHtml(student.grade)}${escapeHtml(student.classSection)}
+          </li>
+        `,
+      )
+      .join("");
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>New CanteenGo Parent Registration</h2>
+        <p>A new parent account is waiting for approval.</p>
+        <hr />
+        <p><strong>Parent:</strong> ${escapeHtml(input.fullName)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(input.email)}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(input.phone || "Not provided")}</p>
+        <h3>Students</h3>
+        <ul>${studentRows}</ul>
+        <p><strong>Action required:</strong> Sign in to CanteenGo Admin and open Pending Registrations to review and approve the account.</p>
+      </div>
+    `;
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [SUPPORT_EMAIL],
+        reply_to: input.email,
+        subject: `New Parent Registration – ${input.fullName} – Approval Required`,
+        html,
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        "New registration email error:",
+        response.status,
+        errorText,
+      );
+    }
+  } catch (error) {
+    // Email is only an admin alert. Registration must still succeed if delivery fails.
+    console.error("New registration admin email failed:", error);
+  }
 }
 
 export async function submitParentRegistration(
@@ -167,6 +253,18 @@ export async function submitParentRegistration(
         })),
       },
     },
+  });
+
+  await sendNewRegistrationAdminEmail({
+    fullName: parent.data.fullName,
+    email: parent.data.email,
+    phone: parent.data.phone,
+    students: studentsWithClass.map((student) => ({
+      firstName: student!.firstName,
+      lastName: student!.lastName,
+      grade: student!.grade,
+      classSection: student!.classSection,
+    })),
   });
 
   redirect("/parent/register?submitted=1");
