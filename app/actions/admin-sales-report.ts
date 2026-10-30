@@ -104,7 +104,7 @@ export async function emailSalesReportToMe(
       `Attached is your CanteenCo sales report.\n\n` +
       `Transactions: ${report.rows.length}\n` +
       `Total sales: $${report.totalSales.toFixed(2)}\n` +
-      `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
+      `Generated: ${formatBrisbaneDateTime(report.generatedAt, report.timeZone)}`,
     attachments: [
       {
         filename:
