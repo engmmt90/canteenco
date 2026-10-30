@@ -77,6 +77,9 @@ export default async function ReportsPage({
       gte: todayStart,
       lt: tomorrowStart,
     },
+    status: {
+      not: "CANCELLED",
+    },
     ...(schoolId
       ? { schoolId }
       : {}),
@@ -163,6 +166,7 @@ export default async function ReportsPage({
     cashAgg,
     cardAgg,
     preorders,
+    preorderAgg,
     students,
     schools,
     negativeWallets,
@@ -207,6 +211,12 @@ export default async function ReportsPage({
     }),
     prisma.preOrder.count({
       where: preorderWhere,
+    }),
+    prisma.preOrder.aggregate({
+      where: preorderWhere,
+      _sum: {
+        total: true,
+      },
     }),
     prisma.student.count({
       where: studentWhere,
@@ -277,6 +287,19 @@ export default async function ReportsPage({
       take: 50,
     }),
   ]);
+
+  const preorderTotal =
+    Number(
+      preorderAgg._sum.total || 0,
+    );
+
+  const salesTotal =
+    Number(
+      salesAgg._sum.total || 0,
+    );
+
+  const combinedSalesTotal =
+    salesTotal + preorderTotal;
 
   const exportParams =
     new URLSearchParams();
@@ -388,7 +411,7 @@ export default async function ReportsPage({
           Today’s sales
           <strong>
             {money(
-              salesAgg._sum.total || 0,
+              combinedSalesTotal,
             )}
           </strong>
           <span>
@@ -426,6 +449,11 @@ export default async function ReportsPage({
         <div className="stat">
           Pre-orders today
           <strong>{preorders}</strong>
+          <span>
+            Total: {money(
+              preorderTotal,
+            )}
+          </span>
         </div>
 
         <div className="stat">
