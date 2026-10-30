@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin, requireParent } from "@/lib/authz";
 import { queueParentNotification } from "@/lib/notifications";
 import { NotificationEvent } from "@/generated/prisma/client";
+import { sendNewTopUpAdminEmail } from "@/lib/admin-topup-email";
 
 export type TopUpFormState = {
   error?: string;
@@ -87,7 +88,11 @@ export async function createTopUpRequest(
 
   const parent = await prisma.parentProfile.findUnique({
     where: { userId: session.user.id },
-    include: { wallet: true },
+    include: {
+      wallet: true,
+      user: { select: { fullName: true, email: true } },
+      students: { select: { firstName: true, lastName: true } },
+    },
   });
 
   if (!parent?.wallet) return { error: "Your family wallet is not available yet." };
@@ -115,6 +120,15 @@ export async function createTopUpRequest(
     });
 
     return created;
+  });
+
+  await sendNewTopUpAdminEmail({
+    parentName: parent.user.fullName,
+    parentEmail: parent.user.email,
+    studentNames: parent.students.map((student) =>
+      `${student.firstName} ${student.lastName}`.trim(),
+    ),
+    amount: Number(request.amount),
   });
 
   revalidatePath("/parent/wallet");
