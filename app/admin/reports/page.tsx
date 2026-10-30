@@ -2,12 +2,10 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 import { adminSchoolScope } from "@/lib/admin-scope";
-
-function startOfToday() {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
+import {
+  DEFAULT_SCHOOL_TIMEZONE,
+  getSchoolDayBounds,
+} from "@/lib/school-day";
 
 function money(value: unknown) {
   return `$${Number(value).toFixed(2)}`;
@@ -40,11 +38,30 @@ export default async function ReportsPage({
   const paymentMethod =
     params.paymentMethod || "";
 
-  const today = startOfToday();
+  const selectedSchoolSettings =
+    schoolId
+      ? await prisma.schoolSettings.findUnique({
+          where: { schoolId },
+          select: { timezone: true },
+        })
+      : null;
+
+  const timeZone =
+    selectedSchoolSettings?.timezone ||
+    DEFAULT_SCHOOL_TIMEZONE;
+
+  const {
+    start: todayStart,
+    end: tomorrowStart,
+  } = getSchoolDayBounds(
+    new Date(),
+    timeZone,
+  );
 
   const saleWhere: any = {
     createdAt: {
-      gte: today,
+      gte: todayStart,
+      lt: tomorrowStart,
     },
     status: "COMPLETED",
     ...(schoolId
@@ -57,11 +74,8 @@ export default async function ReportsPage({
 
   const preorderWhere: any = {
     pickupDate: {
-      gte: today,
-      lt: new Date(
-        today.getTime() +
-          86400000,
-      ),
+      gte: todayStart,
+      lt: tomorrowStart,
     },
     ...(schoolId
       ? { schoolId }
@@ -246,7 +260,15 @@ export default async function ReportsPage({
       where: recentSaleWhere,
       include: {
         student: true,
-        school: true,
+        school: {
+          include: {
+            settings: {
+              select: {
+                timezone: true,
+              },
+            },
+          },
+        },
         cashier: true,
       },
       orderBy: {
@@ -459,6 +481,11 @@ export default async function ReportsPage({
                     {sale.paymentMethod} ·{" "}
                     {sale.createdAt.toLocaleString(
                       "en-AU",
+                      {
+                        timeZone:
+                          sale.school.settings?.timezone ||
+                          timeZone,
+                      },
                     )}
                   </div>
                 </div>
