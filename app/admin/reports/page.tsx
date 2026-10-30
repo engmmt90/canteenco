@@ -18,6 +18,7 @@ export default async function ReportsPage({
     school?: string;
     q?: string;
     paymentMethod?: string;
+    transactionType?: string;
   }>;
 }) {
   const {
@@ -37,6 +38,9 @@ export default async function ReportsPage({
 
   const paymentMethod =
     params.paymentMethod || "";
+
+  const transactionType =
+    params.transactionType || "SALES";
 
   const selectedSchoolSettings =
     schoolId
@@ -159,6 +163,50 @@ export default async function ReportsPage({
       : {}),
   };
 
+
+
+  const recentPreorderWhere: any = {
+    ...preorderWhere,
+    ...(q
+      ? {
+          OR: [
+            {
+              orderNumber: {
+                contains: q,
+                mode: "insensitive",
+              },
+            },
+            {
+              student: {
+                is: {
+                  OR: [
+                    {
+                      displayCode: {
+                        contains: q,
+                        mode: "insensitive",
+                      },
+                    },
+                    {
+                      firstName: {
+                        contains: q,
+                        mode: "insensitive",
+                      },
+                    },
+                    {
+                      lastName: {
+                        contains: q,
+                        mode: "insensitive",
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
   const [
     salesAgg,
     salesCount,
@@ -172,6 +220,7 @@ export default async function ReportsPage({
     negativeWallets,
     walletBalanceAgg,
     recentSales,
+    recentPreorders,
   ] = await Promise.all([
     prisma.sale.aggregate({
       where: saleWhere,
@@ -286,6 +335,25 @@ export default async function ReportsPage({
       },
       take: 50,
     }),
+    prisma.preOrder.findMany({
+      where: recentPreorderWhere,
+      include: {
+        student: true,
+        school: {
+          include: {
+            settings: {
+              select: {
+                timezone: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        pickupDate: "desc",
+      },
+      take: 100,
+    }),
   ]);
 
   const preorderTotal =
@@ -373,8 +441,22 @@ export default async function ReportsPage({
 
         <select
           className="input"
+          name="transactionType"
+          defaultValue={transactionType}
+        >
+          <option value="SALES">
+            Sales
+          </option>
+          <option value="PREORDERS">
+            Pre-orders
+          </option>
+        </select>
+
+        <select
+          className="input"
           name="paymentMethod"
           defaultValue={paymentMethod}
+          disabled={transactionType === "PREORDERS"}
         >
           <option value="">
             All payment methods
@@ -483,10 +565,53 @@ export default async function ReportsPage({
         className="panel"
         style={{ marginTop: 18 }}
       >
-        <h2>Recent sales</h2>
+        <h2>
+          {transactionType === "PREORDERS"
+            ? "Today’s pre-orders"
+            : "Recent sales"}
+        </h2>
 
         <div className="request-list">
-          {recentSales.length === 0 ? (
+          {transactionType === "PREORDERS" ? (
+            recentPreorders.length === 0 ? (
+              <p className="subtle">
+                No matching pre-orders today.
+              </p>
+            ) : (
+              recentPreorders.map((order) => (
+                <div
+                  className="list-row"
+                  key={order.id}
+                >
+                  <div>
+                    <strong>
+                      {order.orderNumber} ·{" "}
+                      {order.student.firstName}{" "}
+                      {order.student.lastName} ·{" "}
+                      {order.student.displayCode}
+                    </strong>
+
+                    <div className="subtle compact">
+                      {order.school.name} ·{" "}
+                      {order.status} · Pickup{" "}
+                      {order.pickupDate.toLocaleString(
+                        "en-AU",
+                        {
+                          timeZone:
+                            order.school.settings?.timezone ||
+                            timeZone,
+                        },
+                      )}
+                    </div>
+                  </div>
+
+                  <strong>
+                    {money(order.total)}
+                  </strong>
+                </div>
+              ))
+            )
+          ) : recentSales.length === 0 ? (
             <p className="subtle">
               No matching sales.
             </p>
