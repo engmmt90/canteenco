@@ -581,7 +581,7 @@ export default async function Page({
                       "en-AU",
                       {
                         timeZone:
-                          "Australia/Brisbane",
+                          report.timeZone,
                       },
                     )}
                   </div>
