@@ -9,6 +9,7 @@ import { queueParentNotification } from "@/lib/notifications";
 import {
   NotificationEvent,
 } from "@/generated/prisma/client";
+import { sendNewTopUpAdminEmail } from "@/lib/admin-topup-email";
 
 export const runtime = "nodejs";
 
@@ -95,6 +96,8 @@ async function getParentWallet(
         role: true,
         status: true,
         sessionVersion: true,
+        fullName: true,
+        email: true,
 
         parentProfile: {
           select: {
@@ -105,6 +108,13 @@ async function getParentWallet(
                 id: true,
                 status: true,
                 balance: true,
+              },
+            },
+
+            students: {
+              select: {
+                firstName: true,
+                lastName: true,
               },
             },
           },
@@ -127,6 +137,15 @@ async function getParentWallet(
     userId: user.id,
     parentId:
       user.parentProfile.id,
+    parentName:
+      user.fullName,
+    parentEmail:
+      user.email,
+    studentNames:
+      user.parentProfile.students.map(
+        (student) =>
+          `${student.firstName} ${student.lastName}`.trim(),
+      ),
     wallet:
       user.parentProfile.wallet,
   };
@@ -350,6 +369,17 @@ export async function POST(
         return request;
       },
     );
+
+  await sendNewTopUpAdminEmail({
+    parentName:
+      parent.parentName,
+    parentEmail:
+      parent.parentEmail,
+    studentNames:
+      parent.studentNames,
+    amount:
+      Number(created.amount),
+  });
 
   return NextResponse.json(
     {
