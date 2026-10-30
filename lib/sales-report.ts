@@ -6,6 +6,11 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { adminSchoolScope } from "@/lib/admin-scope";
+import {
+  DEFAULT_SCHOOL_TIMEZONE,
+  getSchoolDateBounds,
+  getSchoolDateParts,
+} from "@/lib/school-day";
 
 export type SalesReportParams = {
   q?: string;
@@ -43,6 +48,7 @@ export type SalesReportData = {
   customerType: string;
   schoolId: string | null;
   schoolName: string | null;
+  timeZone: string;
   logoSchoolId: string | null;
   logoData: Uint8Array | null;
   logoMimeType: string | null;
@@ -55,161 +61,99 @@ export type SalesReportData = {
 
 export function formatBrisbaneDateTime(
   date: Date,
+  timeZone = DEFAULT_SCHOOL_TIMEZONE,
 ) {
   return date.toLocaleString(
     "en-AU",
     {
-      timeZone:
-        "Australia/Brisbane",
+      timeZone,
     },
   );
 }
 
-function brisbaneDateParts(
-  date = new Date(),
+function localDateParts(
+  date: Date,
+  timeZone: string,
 ) {
-  const parts =
+  const parts = getSchoolDateParts(
+    date,
+    timeZone,
+  );
+
+  const weekday =
     new Intl.DateTimeFormat(
-      "en-CA",
+      "en-US",
       {
-        timeZone:
-          "Australia/Brisbane",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
+        timeZone,
         weekday: "short",
       },
-    ).formatToParts(date);
-
-  const get = (
-    type: string,
-  ) =>
-    parts.find(
-      (part) =>
-        part.type === type,
-    )?.value ?? "";
+    ).format(date);
 
   return {
-    year: Number(
-      get("year"),
-    ),
-    month: Number(
-      get("month"),
-    ),
-    day: Number(
-      get("day"),
-    ),
-    weekday:
-      get("weekday"),
+    ...parts,
+    weekday,
   };
 }
 
-function brisbaneStartUtc(
-  year: number,
-  month: number,
-  day: number,
-) {
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day,
-      -10,
-      0,
-      0,
-      0,
-    ),
-  );
-}
-
-function brisbaneEndUtc(
-  year: number,
-  month: number,
-  day: number,
-) {
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day,
-      13,
-      59,
-      59,
-      999,
-    ),
-  );
-}
-
 function parseDateInput(
-  value?: string,
+  value: string | undefined,
+  timeZone: string,
   end = false,
 ) {
   if (!value) {
     return undefined;
   }
 
-  const [
-    year,
-    month,
-    day,
-  ] = value
-    .split("-")
-    .map(Number);
+  const [year, month, day] =
+    value.split("-").map(Number);
 
-  if (
-    !year ||
-    !month ||
-    !day
-  ) {
+  if (!year || !month || !day) {
     return undefined;
   }
 
+  const bounds = getSchoolDateBounds(
+    year,
+    month,
+    day,
+    timeZone,
+  );
+
   return end
-    ? brisbaneEndUtc(
-        year,
-        month,
-        day,
-      )
-    : brisbaneStartUtc(
-        year,
-        month,
-        day,
-      );
+    ? bounds.end
+    : bounds.start;
 }
 
 function getDateRange(
   params: SalesReportParams,
+  timeZone: string,
 ) {
   const range =
     params.range ||
     "today";
 
-  const today =
-    brisbaneDateParts();
+  const now = new Date();
+  const today = localDateParts(
+    now,
+    timeZone,
+  );
 
-  if (
-    range === "today"
-  ) {
+  if (range === "today") {
+    const bounds =
+      getSchoolDateBounds(
+        today.year,
+        today.month,
+        today.day,
+        timeZone,
+      );
+
     return {
       range,
-      dateFrom:
-        brisbaneStartUtc(
-          today.year,
-          today.month,
-          today.day,
-        ),
-      dateTo:
-        brisbaneEndUtc(
-          today.year,
-          today.month,
-          today.day,
-        ),
+      dateFrom: bounds.start,
+      dateToExclusive: bounds.end,
     };
   }
 
-  if (
-    range === "week"
-  ) {
+  if (range === "week") {
     const weekdayIndex: Record<
       string,
       number
@@ -228,68 +172,71 @@ function getDateRange(
         today.weekday
       ] ?? 0;
 
-    const current =
-      new Date(
-        Date.UTC(
-          today.year,
-          today.month - 1,
-          today.day,
-        ),
-      );
-
-    current.setUTCDate(
-      current.getUTCDate() -
-        mondayOffset,
+    const monday = new Date(
+      Date.UTC(
+        today.year,
+        today.month - 1,
+        today.day - mondayOffset,
+      ),
     );
+
+    const from =
+      getSchoolDateBounds(
+        monday.getUTCFullYear(),
+        monday.getUTCMonth() + 1,
+        monday.getUTCDate(),
+        timeZone,
+      ).start;
+
+    const toExclusive =
+      getSchoolDateBounds(
+        today.year,
+        today.month,
+        today.day,
+        timeZone,
+      ).end;
 
     return {
       range,
-      dateFrom:
-        brisbaneStartUtc(
-          current.getUTCFullYear(),
-          current.getUTCMonth() +
-            1,
-          current.getUTCDate(),
-        ),
-      dateTo:
-        brisbaneEndUtc(
-          today.year,
-          today.month,
-          today.day,
-        ),
+      dateFrom: from,
+      dateToExclusive: toExclusive,
     };
   }
 
-  if (
-    range === "month"
-  ) {
+  if (range === "month") {
+    const from =
+      getSchoolDateBounds(
+        today.year,
+        today.month,
+        1,
+        timeZone,
+      ).start;
+
+    const toExclusive =
+      getSchoolDateBounds(
+        today.year,
+        today.month,
+        today.day,
+        timeZone,
+      ).end;
+
     return {
       range,
-      dateFrom:
-        brisbaneStartUtc(
-          today.year,
-          today.month,
-          1,
-        ),
-      dateTo:
-        brisbaneEndUtc(
-          today.year,
-          today.month,
-          today.day,
-        ),
+      dateFrom: from,
+      dateToExclusive: toExclusive,
     };
   }
 
   return {
-    range:
-      "custom",
-    dateFrom:
-      parseDateInput(
-        params.from,
-      ),
-    dateTo:
+    range: "custom",
+    dateFrom: parseDateInput(
+      params.from,
+      timeZone,
+    ),
+    dateToExclusive:
       parseDateInput(
         params.to,
+        timeZone,
         true,
       ),
   };
@@ -362,12 +309,26 @@ export async function getSalesReportData(
   const customerType =
     params.customerType || "";
 
+  const schoolSettings = schoolId
+    ? await prisma.schoolSettings.findUnique({
+        where: { schoolId },
+        select: { timezone: true },
+      })
+    : null;
+
+  const timeZone =
+    schoolSettings?.timezone ||
+    DEFAULT_SCHOOL_TIMEZONE;
+
   const {
     range,
     dateFrom,
-    dateTo,
+    dateToExclusive,
   } =
-    getDateRange(params);
+    getDateRange(
+      params,
+      timeZone,
+    );
 
   const where: any = {
     ...(schoolId
@@ -395,7 +356,7 @@ export async function getSalesReportData(
       : {}),
 
     ...(dateFrom ||
-    dateTo
+    dateToExclusive
       ? {
           createdAt: {
             ...(dateFrom
@@ -405,10 +366,10 @@ export async function getSalesReportData(
                 }
               : {}),
 
-            ...(dateTo
+            ...(dateToExclusive
               ? {
-                  lte:
-                    dateTo,
+                  lt:
+                    dateToExclusive,
                 }
               : {}),
           },
@@ -513,6 +474,7 @@ export async function getSalesReportData(
             select: {
               logoData: true,
               logoMimeType: true,
+              timezone: true,
             },
           },
         },
@@ -683,6 +645,7 @@ export async function getSalesReportData(
     schoolId:
       schoolId ?? null,
     schoolName,
+    timeZone,
     logoSchoolId,
     logoData,
     logoMimeType,
@@ -1017,6 +980,7 @@ export async function buildSalesReportPdf(
       safePdfText(
         `Generated: ${formatBrisbaneDateTime(
           report.generatedAt,
+          report.timeZone,
         )}`,
       ),
       {
@@ -1143,6 +1107,7 @@ export async function buildSalesReportPdf(
       [
         formatBrisbaneDateTime(
           row.createdAt,
+          report.timeZone,
         ),
         24,
       ],
