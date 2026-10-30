@@ -9,7 +9,7 @@ type DateParts = {
   second: number;
 };
 
-function zonedParts(date: Date, timeZone: string): DateParts {
+export function getSchoolDateParts(date: Date, timeZone = DEFAULT_SCHOOL_TIMEZONE): DateParts {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -35,7 +35,7 @@ function zonedParts(date: Date, timeZone: string): DateParts {
 }
 
 function timeZoneOffsetMs(date: Date, timeZone: string) {
-  const parts = zonedParts(date, timeZone);
+  const parts = getSchoolDateParts(date, timeZone);
 
   return (
     Date.UTC(
@@ -50,7 +50,7 @@ function timeZoneOffsetMs(date: Date, timeZone: string) {
   );
 }
 
-function zonedMidnightUtc(
+export function getSchoolDateStartUtc(
   year: number,
   month: number,
   day: number,
@@ -73,7 +73,7 @@ export function getSchoolDayBounds(
 ) {
   const parts = zonedParts(now, timeZone);
 
-  const start = zonedMidnightUtc(
+  const start = getSchoolDateStartUtc(
     parts.year,
     parts.month,
     parts.day,
@@ -84,7 +84,35 @@ export function getSchoolDayBounds(
     Date.UTC(parts.year, parts.month - 1, parts.day + 1),
   );
 
-  const end = zonedMidnightUtc(
+  const end = getSchoolDateStartUtc(
+    nextLocalDate.getUTCFullYear(),
+    nextLocalDate.getUTCMonth() + 1,
+    nextLocalDate.getUTCDate(),
+    timeZone,
+  );
+
+  return { start, end };
+}
+
+
+export function getSchoolDateBounds(
+  year: number,
+  month: number,
+  day: number,
+  timeZone = DEFAULT_SCHOOL_TIMEZONE,
+) {
+  const start = getSchoolDateStartUtc(
+    year,
+    month,
+    day,
+    timeZone,
+  );
+
+  const nextLocalDate = new Date(
+    Date.UTC(year, month - 1, day + 1),
+  );
+
+  const end = getSchoolDateStartUtc(
     nextLocalDate.getUTCFullYear(),
     nextLocalDate.getUTCMonth() + 1,
     nextLocalDate.getUTCDate(),
