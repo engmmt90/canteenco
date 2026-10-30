@@ -71,7 +71,7 @@ export function getSchoolDayBounds(
   now: Date,
   timeZone = DEFAULT_SCHOOL_TIMEZONE,
 ) {
-  const parts = zonedParts(now, timeZone);
+  const parts = getSchoolDateParts(now, timeZone);
 
   const start = getSchoolDateStartUtc(
     parts.year,
