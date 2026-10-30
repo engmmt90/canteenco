@@ -130,6 +130,7 @@ export default async function SalesPrintPage({
             <strong>
               {formatBrisbaneDateTime(
                 report.generatedAt,
+                report.timeZone,
               )}
             </strong>
           </span>
@@ -223,6 +224,7 @@ export default async function SalesPrintPage({
                   <td>
                     {formatBrisbaneDateTime(
                       row.createdAt,
+                      report.timeZone,
                     )}
                   </td>
 
