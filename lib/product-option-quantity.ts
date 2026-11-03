@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 
-export async function ensureProductOptionQuantityTable() {
+let tableReady: Promise<void> | null = null;
+
+export function ensureProductOptionQuantityTable(): Promise<void> {
+  if (!tableReady) {
+    tableReady = (async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "ProductOptionQuantitySetting" (
       "optionId" TEXT PRIMARY KEY,
@@ -8,6 +12,14 @@ export async function ensureProductOptionQuantityTable() {
       "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+
+    })().catch((error) => {
+      tableReady = null;
+      throw error;
+    });
+  }
+
+  return tableReady;
 }
 
 export async function getProductOptionQuantitySettings() {

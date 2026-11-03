@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 
-export async function ensureProductSchoolAvailabilityTable() {
+let tableReady: Promise<void> | null = null;
+
+export function ensureProductSchoolAvailabilityTable(): Promise<void> {
+  if (!tableReady) {
+    tableReady = (async () => {
   await prisma.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "ProductSchoolAvailability" (
       "productId" TEXT NOT NULL,
@@ -17,6 +21,14 @@ export async function ensureProductSchoolAvailabilityTable() {
       "ProductSchoolAvailability_schoolId_idx"
     ON "ProductSchoolAvailability" ("schoolId")
   `);
+
+    })().catch((error) => {
+      tableReady = null;
+      throw error;
+    });
+  }
+
+  return tableReady;
 }
 
 export async function getBlockedProductIds(
