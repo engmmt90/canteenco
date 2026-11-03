@@ -295,6 +295,7 @@ async function buildValidatedSaleLines(
   tx: Prisma.TransactionClient,
   cleanItems: CartLine[],
   schoolId: string,
+  quantitySettings: Map<string, boolean>,
 ) {
   const uniqueProductIds = [
     ...new Set(
@@ -385,9 +386,6 @@ async function buildValidatedSaleLines(
         (row) => row.optionId,
       ),
     );
-
-  const quantitySettings =
-    await getProductOptionQuantitySettings();
 
   const productMap = new Map(
     products.map((product) => [
@@ -878,6 +876,9 @@ export async function createCashierSale(
     await ensureProductSchoolAvailabilityTable();
     mark("table_setup");
 
+    const quantitySettings = await getProductOptionQuantitySettings();
+    mark("quantity_settings");
+
     return await prisma.$transaction(
       async (tx) => {
         mark("transaction_started");
@@ -963,6 +964,7 @@ export async function createCashierSale(
               tx,
               cleanItems,
               school.id,
+              quantitySettings,
             );
 
           const sale =
@@ -1089,6 +1091,7 @@ export async function createCashierSale(
             tx,
             cleanItems,
             student.schoolId,
+            quantitySettings,
           );
         mark("product_validation");
 
