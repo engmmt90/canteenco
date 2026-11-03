@@ -769,7 +769,14 @@ export async function createCashierSale(
     adminPassword?: string;
   },
 ): Promise<CashierSaleResult> {
+  const startedAt = Date.now();
+  const timings: Record<string, number> = {};
+  const mark = (phase: string) => {
+    timings[phase] = Date.now() - startedAt;
+  };
+
   const session = await auth();
+  mark("auth");
 
   if (
     !session?.user?.id ||
@@ -869,9 +876,11 @@ export async function createCashierSale(
 
   try {
     await ensureProductSchoolAvailabilityTable();
+    mark("table_setup");
 
     return await prisma.$transaction(
       async (tx) => {
+        mark("transaction_started");
         /*
          * ------------------------------------------------------------
          * IDEMPOTENCY
@@ -891,6 +900,8 @@ export async function createCashierSale(
                 : {}),
             },
           });
+
+        mark("idempotency_lookup");
 
         if (existingSale) {
           return {
@@ -1036,6 +1047,8 @@ export async function createCashierSale(
             },
           });
 
+        mark("student_lookup");
+
         if (
           !student ||
           student.status !==
@@ -1077,6 +1090,7 @@ export async function createCashierSale(
             cleanItems,
             student.schoolId,
           );
+        mark("product_validation");
 
         /*
          * ------------------------------------------------------------
@@ -1203,6 +1217,8 @@ export async function createCashierSale(
          * ------------------------------------------------------------
          */
 
+        mark("spending_limit");
+
         const proposedBalance =
           wallet.balance.sub(
             total,
@@ -1320,6 +1336,8 @@ export async function createCashierSale(
                 proposedBalance,
             },
           });
+
+        mark("wallet_update");
 
         if (
           guardedWalletUpdate.count !==
@@ -1541,6 +1559,8 @@ export async function createCashierSale(
           });
         }
 
+        mark("notifications_queued");
+
         /*
          * ------------------------------------------------------------
          * SUCCESS
@@ -1586,5 +1606,7 @@ export async function createCashierSale(
           ? error.message
           : "Sale failed",
     };
+  } finally {
+    console.info("cashier-sale-timing", JSON.stringify({ totalMs: Date.now() - startedAt, phases: timings }));
   }
 }
