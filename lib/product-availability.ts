@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 let tableReady: Promise<void> | null = null;
 
-export function ensureProductSchoolAvailabilityTable(): Promise<void> {
+export async function ensureProductSchoolAvailabilityTable(): Promise<void> {
   if (!tableReady) {
     tableReady = (async () => {
   await prisma.$executeRawUnsafe(`
