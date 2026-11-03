@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { queueParentNotification } from "@/lib/notifications";
 import { ensureProductSchoolAvailabilityTable, getBlockedProductIds } from "@/lib/product-availability";
-import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
+import { ensureProductOptionQuantityTable, getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 import { getBlockedProductOptionIds } from "@/lib/product-option-availability";
 import { DEFAULT_SCHOOL_TIMEZONE, getSchoolDayBounds } from "@/lib/school-day";
 
@@ -295,7 +295,6 @@ async function buildValidatedSaleLines(
   tx: Prisma.TransactionClient,
   cleanItems: CartLine[],
   schoolId: string,
-  quantitySettings: Map<string, boolean>,
 ) {
   const uniqueProductIds = [
     ...new Set(
@@ -339,25 +338,45 @@ async function buildValidatedSaleLines(
       },
     });
 
-  const unavailable = await tx.$queryRaw<
-    Array<{ kind: string; id: string }>
+  const validationRows = await tx.$queryRaw<
+    Array<{ kind: string; id: string; quantityEnabled: boolean | null }>
   >`
-    SELECT 'product'::text AS kind, "productId" AS id
+    SELECT 'product'::text AS kind, "productId" AS id,
+      NULL::boolean AS "quantityEnabled"
     FROM "ProductSchoolAvailability"
-    WHERE "schoolId" = ${schoolId}
-      AND "isAvailable" = FALSE
+    WHERE "schoolId" = ${schoolId} AND "isAvailable" = FALSE
     UNION ALL
-    SELECT 'option'::text AS kind, "optionId" AS id
+    SELECT 'option'::text AS kind, "optionId" AS id,
+      NULL::boolean AS "quantityEnabled"
     FROM "ProductOptionSchoolAvailability"
-    WHERE "schoolId" = ${schoolId}
-      AND "isAvailable" = FALSE
+    WHERE "schoolId" = ${schoolId} AND "isAvailable" = FALSE
+    UNION ALL
+    SELECT 'setting'::text AS kind, "optionId" AS id,
+      "quantityEnabled"
+    FROM "ProductOptionQuantitySetting"
+    UNION ALL
+    SELECT 'school'::text AS kind, ${schoolId}::text AS id,
+      NULL::boolean AS "quantityEnabled"
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "School"
+      WHERE id = ${schoolId} AND "isActive" = TRUE AND "deletedAt" IS NULL
+    )
   `;
 
+  if (validationRows.some((row) => row.kind === "school")) {
+    throw new Error("School is not active or unavailable");
+  }
+
   const blockedProductIds = new Set(
-    unavailable.filter((row) => row.kind === "product").map((row) => row.id),
+    validationRows.filter((row) => row.kind === "product").map((row) => row.id),
   );
   const blockedOptionIds = new Set(
-    unavailable.filter((row) => row.kind === "option").map((row) => row.id),
+    validationRows.filter((row) => row.kind === "option").map((row) => row.id),
+  );
+  const quantitySettings = new Map(
+    validationRows
+      .filter((row) => row.kind === "setting")
+      .map((row) => [row.id, row.quantityEnabled === true] as const),
   );
 
   if (
@@ -861,11 +880,11 @@ export async function createCashierSale(
   }
 
   try {
-    await ensureProductSchoolAvailabilityTable();
+    await Promise.all([
+      ensureProductSchoolAvailabilityTable(),
+      ensureProductOptionQuantityTable(),
+    ]);
     mark("table_setup");
-
-    const quantitySettings = await getProductOptionQuantitySettings();
-    mark("quantity_settings");
 
     return await prisma.$transaction(
       async (tx) => {
@@ -924,28 +943,6 @@ export async function createCashierSale(
             };
           }
 
-          const school =
-            await tx.school.findFirst({
-              where: {
-                id: guestSchoolId,
-                isActive: true,
-                deletedAt: null,
-              },
-              select: {
-                id: true,
-              },
-            });
-
-          mark("guest_school_lookup");
-
-          if (!school) {
-            return {
-              ok: false,
-              error:
-                "School is not active or unavailable",
-            };
-          }
-
           const {
             normalizedItems,
             total,
@@ -953,8 +950,7 @@ export async function createCashierSale(
             await buildValidatedSaleLines(
               tx,
               cleanItems,
-              school.id,
-              quantitySettings,
+              guestSchoolId,
             );
           mark("guest_product_validation");
 
@@ -969,7 +965,7 @@ export async function createCashierSale(
                 idempotencyKey:
                   input.idempotencyKey,
                 schoolId:
-                  school.id,
+                  guestSchoolId,
                 studentId: null,
                 walletId: null,
                 cashierUserId:
@@ -1085,7 +1081,6 @@ export async function createCashierSale(
             tx,
             cleanItems,
             student.schoolId,
-            quantitySettings,
           );
         mark("product_validation");
 
