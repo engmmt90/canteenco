@@ -307,6 +307,7 @@ async function buildValidatedSaleLines(
 
   const products =
     await tx.product.findMany({
+      relationLoadStrategy: "join",
       where: {
         id: {
           in: uniqueProductIds,
@@ -338,22 +339,26 @@ async function buildValidatedSaleLines(
       },
     });
 
-  const blockedRows =
-    await tx.$queryRaw<
-      Array<{ productId: string }>
-    >`
-      SELECT "productId"
-      FROM "ProductSchoolAvailability"
-      WHERE "schoolId" = ${schoolId}
-        AND "isAvailable" = FALSE
-    `;
+  const unavailable = await tx.$queryRaw<
+    Array<{ kind: string; id: string }>
+  >`
+    SELECT 'product'::text AS kind, "productId" AS id
+    FROM "ProductSchoolAvailability"
+    WHERE "schoolId" = ${schoolId}
+      AND "isAvailable" = FALSE
+    UNION ALL
+    SELECT 'option'::text AS kind, "optionId" AS id
+    FROM "ProductOptionSchoolAvailability"
+    WHERE "schoolId" = ${schoolId}
+      AND "isAvailable" = FALSE
+  `;
 
-  const blockedProductIds =
-    new Set(
-      blockedRows.map(
-        (row) => row.productId,
-      ),
-    );
+  const blockedProductIds = new Set(
+    unavailable.filter((row) => row.kind === "product").map((row) => row.id),
+  );
+  const blockedOptionIds = new Set(
+    unavailable.filter((row) => row.kind === "option").map((row) => row.id),
+  );
 
   if (
     products.length !==
@@ -369,23 +374,6 @@ async function buildValidatedSaleLines(
       "A product is unavailable",
     );
   }
-
-  const blockedOptionRows =
-    await tx.$queryRaw<
-      Array<{ optionId: string }>
-    >`
-      SELECT "optionId"
-      FROM "ProductOptionSchoolAvailability"
-      WHERE "schoolId" = ${schoolId}
-        AND "isAvailable" = FALSE
-    `;
-
-  const blockedOptionIds =
-    new Set(
-      blockedOptionRows.map(
-        (row) => row.optionId,
-      ),
-    );
 
   const productMap = new Map(
     products.map((product) => [
