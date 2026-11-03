@@ -33,7 +33,7 @@ export async function GET() {
         neonMs.push(await measure(neonPrisma));
       }
     }
-    return Response.json({ neonMs, pgMs });
+    return Response.json({ region: process.env.VERCEL_REGION, neonMs, pgMs });
   } catch {
     return Response.json({ error: "Benchmark unavailable" }, { status: 500 });
   }
