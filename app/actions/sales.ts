@@ -948,6 +948,8 @@ export async function createCashierSale(
               },
             });
 
+          mark("guest_school_lookup");
+
           if (!school) {
             return {
               ok: false,
@@ -966,6 +968,7 @@ export async function createCashierSale(
               school.id,
               quantitySettings,
             );
+          mark("guest_product_validation");
 
           const sale =
             await tx.sale.create({
@@ -995,11 +998,14 @@ export async function createCashierSale(
               },
             });
 
+          mark("guest_sale_insert");
+
           await createSaleItems(
             tx,
             sale.id,
             normalizedItems,
           );
+          mark("guest_items_insert");
 
           return {
             ok: true,
@@ -1402,11 +1408,14 @@ export async function createCashierSale(
             },
           });
 
+        mark("student_sale_insert");
+
         await createSaleItems(
           tx,
           sale.id,
           normalizedItems,
         );
+        mark("student_items_insert");
 
         /*
          * ------------------------------------------------------------
@@ -1442,6 +1451,8 @@ export async function createCashierSale(
             },
           },
         );
+
+        mark("wallet_transaction_insert");
 
         /*
          * ------------------------------------------------------------
