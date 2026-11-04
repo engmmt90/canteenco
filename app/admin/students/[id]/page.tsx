@@ -7,6 +7,7 @@ import {
   updateStudent,
 } from "@/app/actions/admin-parents-students";
 import PrintNfcLabelButton from "./print-nfc-label-button";
+import NfcCardInput from "./nfc-card-input";
 
 export default async function Page({
   params,
@@ -242,16 +243,7 @@ export default async function Page({
           <label className="label">
             NFC Card Number
 
-            <input
-              className="input"
-              name="nfcCardNumber"
-              defaultValue={
-                student.nfcCardNumber ?? ""
-              }
-              placeholder="Tap NFC card on reader"
-              autoComplete="off"
-              inputMode="text"
-            />
+            <NfcCardInput defaultValue={student.nfcCardNumber ?? ""} />
           </label>
 
           <p className="subtle compact">
