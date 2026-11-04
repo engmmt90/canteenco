@@ -10,11 +10,14 @@ import PrintNfcLabelButton from "./print-nfc-label-button";
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ nfcError?: string }>;
 }) {
   const session = await requireAdmin();
   const { id } = await params;
+  const { nfcError } = await searchParams;
 
   const student = await prisma.student.findUnique({
     where: {
@@ -154,6 +157,12 @@ export default async function Page({
           className="panel form"
         >
           <h2>Edit Student</h2>
+
+          {nfcError === "assigned" ? (
+            <p className="alert" role="alert">
+              This NFC card is already assigned to another student or staff member. No changes were saved. Please try another card.
+            </p>
+          ) : null}
 
           <input
             type="hidden"

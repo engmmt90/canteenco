@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import {
@@ -76,7 +77,8 @@ export async function updateStudent(
     );
   }
 
-  await prisma.$transaction(
+  try {
+    await prisma.$transaction(
     async (tx) => {
       const student =
         await tx.student.findUnique({
@@ -103,6 +105,13 @@ export async function updateStudent(
       }
 
       if (nfcCardNumber) {
+        const staffCard = await tx.user.findUnique({
+          where: { nfcCardNumber },
+          select: { id: true },
+        });
+        if (staffCard) {
+          throw new Error("NFC_CARD_IN_USE");
+        }
         const existingCard =
           await tx.student.findFirst({
             where: {
@@ -120,9 +129,7 @@ export async function updateStudent(
           });
 
         if (existingCard) {
-          throw new Error(
-            `NFC card is already assigned to ${existingCard.firstName} ${existingCard.lastName} (${existingCard.displayCode}).`,
-          );
+          throw new Error("NFC_CARD_IN_USE");
         }
       }
 
@@ -210,7 +217,19 @@ export async function updateStudent(
         },
       });
     },
-  );
+    );
+  } catch (error) {
+    const uniqueTarget = error && typeof error === "object" && "meta" in error
+      ? (error.meta as { target?: unknown } | undefined)?.target
+      : undefined;
+    const nfcUniqueConflict = error && typeof error === "object" && "code" in error
+      && error.code === "P2002" && Array.isArray(uniqueTarget)
+      && uniqueTarget.includes("nfcCardNumber");
+    if (error instanceof Error && error.message === "NFC_CARD_IN_USE" || nfcUniqueConflict) {
+      redirect(`/admin/students/${encodeURIComponent(id)}?nfcError=assigned`);
+    }
+    throw error;
+  }
 
   revalidatePath(
     "/admin/students",
