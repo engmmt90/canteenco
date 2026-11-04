@@ -36,7 +36,12 @@ export default function PrintNfcLabelButton({
 
     const safeName = escapeHtml(studentName);
     const nameLength = studentName.trim().length;
-    const nameSizeClass = nameLength > 28 ? "name very-long" : nameLength > 20 ? "name long" : "name";
+    const longestWordLength = Math.max(0, ...studentName.trim().split(/\s+/).map((word) => word.length));
+    const nameSizeClass = nameLength > 28 || longestWordLength > 16
+      ? "name very-long"
+      : nameLength > 20 || longestWordLength > 11
+        ? "name long"
+        : "name";
     const safeClass = escapeHtml(className);
     const safeNfc = escapeHtml(nfcCardNumber);
 
@@ -91,11 +96,11 @@ export default function PrintNfcLabelButton({
       font-weight: 800;
       line-height: 1.05;
       margin-bottom: 1.8mm;
-      overflow-wrap: anywhere;
+      overflow-wrap: normal;
     }
 
-    .name.long { font-size: 10pt; }
-    .name.very-long { font-size: 9pt; }
+    .name.long { font-size: 9pt; }
+    .name.very-long { font-size: 8pt; overflow-wrap: anywhere; }
 
     .row {
       font-size: 10pt;
