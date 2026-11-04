@@ -60,7 +60,7 @@ export default function PrintNfcLabelButton({
       font-family: Arial, sans-serif;
     }
 
-    .label {
+    .toolbar { padding: 12px; font: 14px Arial, sans-serif; }\n    .toolbar button { padding: 8px 14px; cursor: pointer; }\n\n    .label {
       width: 50mm;
       height: 30mm;
       box-sizing: border-box;
@@ -103,19 +103,12 @@ export default function PrintNfcLabelButton({
   </style>
 </head>
 <body>
-  <div class="label">
+  <div class="toolbar"><button type="button" onclick="window.print()">Print label</button> Select the label printer in the print dialog.</div>\n  <div class="label">
     <div class="name">${safeName}</div>
     <div class="row">Class: ${safeClass}</div>
     <div class="nfc">NFC: ${safeNfc}</div>
   </div>
-  <script>
-    window.addEventListener("load", function () {
-      window.print();
-      window.setTimeout(function () {
-        window.close();
-      }, 250);
-    });
-  </script>
+  
 </body>
 </html>`);
 
