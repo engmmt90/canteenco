@@ -67,15 +67,17 @@ export default function PrintNfcLabelButton({
       width: 56mm;
       height: 50.8mm;
       box-sizing: border-box;
-      padding: 4mm 5mm;
+      padding: 6mm 11mm;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;
+      text-align: center;
       overflow: hidden;
     }
 
     .name {
-      font-size: 14pt;
+      font-size: 12pt;
       font-weight: 800;
       line-height: 1.05;
       margin-bottom: 1.8mm;
