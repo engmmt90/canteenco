@@ -76,6 +76,8 @@ export default function PrintNfcLabelButton({
       overflow: hidden;
     }
 
+    .label > * { position: relative; left: 3mm; }
+
     .name {
       font-size: 12pt;
       font-weight: 800;
