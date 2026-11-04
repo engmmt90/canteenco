@@ -45,14 +45,14 @@ export default function PrintNfcLabelButton({
   <title>NFC Label - ${safeName}</title>
   <style>
     @page {
-      size: 50mm 30mm;
+      size: 56mm 50.8mm;
       margin: 0;
     }
 
     html,
     body {
-      width: 50mm;
-      height: 30mm;
+      width: 56mm;
+      height: 50.8mm;
       margin: 0;
       padding: 0;
       background: white;
@@ -64,10 +64,10 @@ export default function PrintNfcLabelButton({
     .toolbar button { padding: 8px 14px; cursor: pointer; }
 
     .label {
-      width: 50mm;
-      height: 30mm;
+      width: 56mm;
+      height: 50.8mm;
       box-sizing: border-box;
-      padding: 2.5mm 3mm;
+      padding: 4mm 5mm;
       display: flex;
       flex-direction: column;
       justify-content: center;
