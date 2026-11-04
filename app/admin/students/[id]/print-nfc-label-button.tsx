@@ -35,6 +35,8 @@ export default function PrintNfcLabelButton({
     }
 
     const safeName = escapeHtml(studentName);
+    const nameLength = studentName.trim().length;
+    const nameSizeClass = nameLength > 28 ? "name very-long" : nameLength > 20 ? "name long" : "name";
     const safeClass = escapeHtml(className);
     const safeNfc = escapeHtml(nfcCardNumber);
 
@@ -76,7 +78,13 @@ export default function PrintNfcLabelButton({
       overflow: hidden;
     }
 
-    .label > * { position: relative; left: 3mm; }
+    .label > * {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      position: relative;
+      left: 3mm;
+    }
 
     .name {
       font-size: 12pt;
@@ -85,6 +93,9 @@ export default function PrintNfcLabelButton({
       margin-bottom: 1.8mm;
       overflow-wrap: anywhere;
     }
+
+    .name.long { font-size: 10pt; }
+    .name.very-long { font-size: 9pt; }
 
     .row {
       font-size: 10pt;
@@ -111,7 +122,7 @@ export default function PrintNfcLabelButton({
 <body>
   <div class="toolbar"><button type="button" onclick="window.print()">Print label</button> Select the label printer in the print dialog.</div>
   <div class="label">
-    <div class="name">${safeName}</div>
+    <div class="${nameSizeClass}">${safeName}</div>
     <div class="row">Class: ${safeClass}</div>
     <div class="nfc">NFC: ${safeNfc}</div>
   </div>
