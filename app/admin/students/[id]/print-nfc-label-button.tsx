@@ -74,7 +74,7 @@ export default function PrintNfcLabelButton({
       width: 56mm;
       height: 50.8mm;
       box-sizing: border-box;
-      padding: 9mm 9mm;
+      padding: 6mm 11mm;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -92,25 +92,25 @@ export default function PrintNfcLabelButton({
     }
 
     .name {
-      font-size: 13pt;
+      font-size: 12pt;
       font-weight: 800;
       line-height: 1.05;
-      margin-bottom: 3mm;
+      margin-bottom: 1.8mm;
       overflow-wrap: normal;
     }
 
-    .name.long { font-size: 10pt; }
+    .name.long { font-size: 9pt; }
     .name.very-long { font-size: 8pt; overflow-wrap: anywhere; }
 
     .row {
-      font-size: 11pt;
+      font-size: 10pt;
       font-weight: 700;
       line-height: 1.2;
     }
 
     .nfc {
-      margin-top: 3mm;
-      font-size: 9pt;
+      margin-top: 1.2mm;
+      font-size: 8.5pt;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }
