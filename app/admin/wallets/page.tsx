@@ -251,8 +251,8 @@ export default async function WalletsPage({
         ) : null}
       </section>
 
-      <section className="panel" style={{ marginBottom: 18 }}>
-        <h2>Daily Wallet PDF Email</h2>
+      <details className="panel" style={{ marginBottom: 18 }} open={p.reportSchedule === "saved"}>
+        <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: "1.25rem" }}>Daily Wallet PDF Email</summary>
         <p className="subtle">Save a daily send time and an optional additional recipient. The admin account always receives the report.</p>
         <form action={saveDailyWalletReportSettings} className="form">
           <label className="label">
@@ -286,7 +286,7 @@ export default async function WalletsPage({
           <button className="primary" type="submit">Save daily email settings</button>
         </form>
         {p.reportSchedule === "saved" ? <p className="success">Daily email settings saved.</p> : null}
-      </section>
+      </details>
 
       {/* SEARCH */}
 
