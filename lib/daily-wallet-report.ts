@@ -9,6 +9,7 @@ export type WalletReportSettings = {
   enabled: boolean;
   sendTime: string;
   additionalEmail: string | null;
+  timezone: string;
 };
 
 export function validEmail(value: string) {
@@ -24,6 +25,7 @@ function parseSettings(value: unknown): WalletReportSettings {
       ? data.sendTime : "23:59",
     additionalEmail: typeof data.additionalEmail === "string" && validEmail(data.additionalEmail)
       ? data.additionalEmail : null,
+    timezone: typeof data.timezone === "string" ? data.timezone : "Australia/Brisbane",
   };
 }
 
@@ -51,9 +53,9 @@ export async function saveWalletReportSettings(
   });
 }
 
-function brisbaneNow(date: Date) {
+function localNow(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Australia/Brisbane",
+    timeZone: timezone,
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(date);
@@ -65,7 +67,6 @@ function brisbaneNow(date: Date) {
 }
 
 export async function processDailyWalletReports(now = new Date()) {
-  const local = brisbaneNow(now);
   const records = await prisma.auditLog.findMany({
     where: { entityType: SETTINGS_TYPE },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -79,7 +80,7 @@ export async function processDailyWalletReports(now = new Date()) {
     if (!userId || seen.has(userId)) continue;
     seen.add(userId);
     const settings = parseSettings(record.metadata);
-    if (!settings.enabled || local.time < settings.sendTime) continue;
+    if (!settings.enabled) continue;
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -89,6 +90,12 @@ export async function processDailyWalletReports(now = new Date()) {
     });
     if (!user || user.deletedAt || user.status !== "ACTIVE" ||
       (user.role !== "SUPER_ADMIN" && user.role !== "SCHOOL_ADMIN")) continue;
+    const schoolTimezone = user.role === "SCHOOL_ADMIN" && user.schoolId
+      ? (await prisma.schoolSettings.findUnique({ where: { schoolId: user.schoolId }, select: { timezone: true } }))?.timezone
+      : null;
+    const timezone = schoolTimezone || settings.timezone;
+    const local = localNow(now, timezone);
+    if (local.time < settings.sendTime) continue;
     const deliveryId = `${userId}:${local.date}`;
     const alreadySent = await prisma.auditLog.findFirst({
       where: { entityType: SENT_TYPE, entityId: deliveryId },
