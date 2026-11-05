@@ -52,14 +52,14 @@ export default function PrintNfcLabelButton({
   <title>NFC Label - ${safeName}</title>
   <style>
     @page {
-      size: 56mm 50.8mm;
+      size: 57mm 32mm;
       margin: 0;
     }
 
     html,
     body {
-      width: 56mm;
-      height: 50.8mm;
+      width: 57mm;
+      height: 32mm;
       margin: 0;
       padding: 0;
       background: white;
@@ -71,10 +71,10 @@ export default function PrintNfcLabelButton({
     .toolbar button { padding: 8px 14px; cursor: pointer; }
 
     .label {
-      width: 56mm;
-      height: 50.8mm;
+      width: 57mm;
+      height: 32mm;
       box-sizing: border-box;
-      padding: 6mm 11mm;
+      padding: 2.5mm 4mm;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -88,29 +88,29 @@ export default function PrintNfcLabelButton({
       min-width: 0;
       box-sizing: border-box;
       position: relative;
-      left: 3mm;
+      left: 0;
     }
 
     .name {
-      font-size: 12pt;
+      font-size: 14pt;
       font-weight: 800;
       line-height: 1.05;
-      margin-bottom: 1.8mm;
+      margin-bottom: 1.3mm;
       overflow-wrap: normal;
     }
 
-    .name.long { font-size: 9pt; }
-    .name.very-long { font-size: 8pt; overflow-wrap: anywhere; }
+    .name.long { font-size: 11pt; }
+    .name.very-long { font-size: 9pt; overflow-wrap: anywhere; }
 
     .row {
-      font-size: 10pt;
+      font-size: 11pt;
       font-weight: 700;
       line-height: 1.2;
     }
 
     .nfc {
-      margin-top: 1.2mm;
-      font-size: 8.5pt;
+      margin-top: 1mm;
+      font-size: 9pt;
       line-height: 1.15;
       overflow-wrap: anywhere;
     }
