@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { requireParent } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
-import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
+import { getBlockedPreOrderSchoolIdsByProduct } from "@/lib/product-preorder-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 import { getBlockedSchoolIdsByProductOption } from "@/lib/product-option-availability";
 import {
@@ -186,7 +186,7 @@ export default async function ParentPreOrdersPage() {
         },
       ],
       }),
-      getBlockedSchoolIdsByProduct(),
+      getBlockedPreOrderSchoolIdsByProduct(),
       getBlockedSchoolIdsByProductOption(),
       getProductOptionQuantitySettings(),
     ]);

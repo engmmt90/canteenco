@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { saveProduct } from "@/app/actions/admin-management";
 import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
+import { getBlockedPreOrderSchoolIdsByProduct } from "@/lib/product-preorder-availability";
 import ProductReorder from "./product-reorder";
 
 export default async function Page({
@@ -22,7 +23,7 @@ export default async function Page({
   const showAddForm = params.add === "1";
   const showReorder = params.reorder === "1";
 
-  const [products, schools, blockedRows] = await Promise.all([
+  const [products, schools, blockedRows, blockedPreOrderRows] = await Promise.all([
     prisma.product.findMany({
     where: {
       deletedAt: null,
@@ -49,7 +50,12 @@ export default async function Page({
       select: { id: true, name: true },
     }),
     getBlockedSchoolIdsByProduct(),
+    getBlockedPreOrderSchoolIdsByProduct(),
   ]);
+
+  const blockedPreOrderSchools = new Set(
+    blockedPreOrderRows.map((row) => `${row.productId}:${row.schoolId}`),
+  );
 
   const blockedSchoolIdsByProduct =
     new Map<string, Set<string>>();
@@ -318,13 +324,11 @@ export default async function Page({
           }}
         >
           <strong>
-            Available for sale at
+            Available at each school
           </strong>
 
           <p className="subtle compact">
-            Choose the schools where this
-            product should appear for sales
-            and pre-orders.
+            Choose cashier sales and parent pre-orders separately for each school.
           </p>
 
           <div
@@ -346,22 +350,26 @@ export default async function Page({
                   : false;
 
               return (
-                <label
+                <div
                   key={school.id}
                   style={{
                     display: "flex",
-                    alignItems: "center",
-                    gap: 8,
+                    alignItems: "center", gap: 16, flexWrap: "wrap",
                   }}
                 >
-                  <input
-                    type="checkbox"
-                    name="availableSchoolIds"
-                    value={school.id}
-                    defaultChecked={!blocked}
-                  />{" "}
-                  {school.name}
-                </label>
+                  <strong style={{ minWidth: 160 }}>{school.name}</strong>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" name="availableSchoolIds"
+                      value={school.id} defaultChecked={!blocked} />
+                    Available at cashier
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input type="checkbox" name="preOrderSchoolIds"
+                      value={school.id}
+                      defaultChecked={!editingProduct || !blockedPreOrderSchools.has(`${editingProduct.id}:${school.id}`)} />
+                    Available for pre-orders
+                  </label>
+                </div>
               );
             })}
           </div>

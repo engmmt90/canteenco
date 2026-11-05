@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureProductSchoolAvailabilityTable } from "@/lib/product-availability";
+import { ensureProductPreOrderAvailabilityTable } from "@/lib/product-preorder-availability";
 import { getProductOptionQuantitySettings } from "@/lib/product-option-quantity";
 import { ensureProductOptionSchoolAvailabilityTable } from "@/lib/product-option-availability";
 import { isSchoolPreOrderDayEnabled } from "@/lib/school-preorder-days";
@@ -396,6 +397,7 @@ export async function createParentPreOrder(
   try {
     await Promise.all([
       ensureProductSchoolAvailabilityTable(),
+      ensureProductPreOrderAvailabilityTable(),
       ensureProductOptionSchoolAvailabilityTable(),
     ]);
 
@@ -722,10 +724,16 @@ export async function createParentPreOrder(
           tx.$queryRaw<
             Array<{ productId: string }>
           >`
-            SELECT "productId"
-            FROM "ProductSchoolAvailability"
-            WHERE "schoolId" = ${student.schoolId}
-              AND "isAvailable" = FALSE
+            SELECT legacy."productId"
+            FROM "ProductSchoolAvailability" legacy
+            LEFT JOIN "ProductPreOrderAvailability" override
+              ON override."productId" = legacy."productId"
+              AND override."schoolId" = legacy."schoolId"
+            WHERE legacy."schoolId" = ${student.schoolId}
+              AND COALESCE(override."isAvailable", legacy."isAvailable") = FALSE
+            UNION
+            SELECT "productId" FROM "ProductPreOrderAvailability"
+            WHERE "schoolId" = ${student.schoolId} AND "isAvailable" = FALSE
           `,
           tx.$queryRaw<
             Array<{ optionId: string }>
