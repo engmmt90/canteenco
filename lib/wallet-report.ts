@@ -41,9 +41,12 @@ export function formatBrisbaneDateTime(
   );
 }
 
-export async function getWalletReportData(): Promise<WalletReportData> {
-  const { schoolId } =
-    await adminSchoolScope();
+export async function getWalletReportData(
+  scope?: { schoolId: string | null },
+): Promise<WalletReportData> {
+  const schoolId = scope === undefined
+    ? (await adminSchoolScope()).schoolId
+    : scope.schoolId;
 
   let schoolName:
     | string
