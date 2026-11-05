@@ -34,7 +34,7 @@ export async function emailWalletReportToMe(formData: FormData) {
 
   const additionalEmail = String(formData.get("additionalEmail") ?? "").trim();
 
-  if (additionalEmail && (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(additionalEmail) || additionalEmail.length > 254)) {
+  if (additionalEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(additionalEmail) || additionalEmail.length > 254)) {
     throw new Error("Enter a valid additional email address.");
   }
 
