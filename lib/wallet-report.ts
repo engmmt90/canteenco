@@ -20,6 +20,7 @@ export type WalletReportRow = {
 
 export type WalletReportData = {
   generatedAt: Date;
+  timezone: string;
   schoolId: string | null;
   schoolName: string | null;
   logoSchoolId: string | null;
@@ -31,12 +32,13 @@ export type WalletReportData = {
 
 export function formatBrisbaneDateTime(
   date: Date,
+  timezone = "Australia/Brisbane",
 ) {
   return date.toLocaleString(
     "en-AU",
     {
       timeZone:
-        "Australia/Brisbane",
+        timezone,
     },
   );
 }
@@ -47,6 +49,8 @@ export async function getWalletReportData(
   const schoolId = scope === undefined
     ? (await adminSchoolScope()).schoolId
     : scope.schoolId;
+
+  let timezone = "Australia/Brisbane";
 
   let schoolName:
     | string
@@ -79,6 +83,7 @@ export async function getWalletReportData(
             select: {
               logoData: true,
               logoMimeType: true,
+              timezone: true,
             },
           },
         },
@@ -86,6 +91,7 @@ export async function getWalletReportData(
 
     schoolName =
       branding?.name ?? null;
+    timezone = branding?.settings?.timezone ?? timezone;
 
     if (
       branding?.settings
@@ -239,6 +245,7 @@ export async function getWalletReportData(
 
   return {
     generatedAt: new Date(),
+    timezone,
     schoolId:
       schoolId ?? null,
     schoolName,
@@ -477,7 +484,7 @@ export async function buildWalletReportPdf(
     }
 
     page.drawText(
-      `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
+      `Generated: ${formatBrisbaneDateTime(report.generatedAt, report.timezone)}`,
       {
         x: titleX,
         y:
