@@ -65,7 +65,7 @@ export async function emailWalletReportToMe(formData: FormData) {
       `Attached is the CanteenCo wallet balance report.\n\n` +
       `Wallets: ${report.rows.length}\n` +
       `Total balance: $${report.totalBalance.toFixed(2)}\n\n` +
-      `Generated: ${formatBrisbaneDateTime(report.generatedAt)}`,
+      `Generated: ${formatBrisbaneDateTime(report.generatedAt, report.timezone)}`,
     attachments: [
       {
         filename:
