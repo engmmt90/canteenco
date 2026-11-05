@@ -11,7 +11,7 @@ import {
 } from "@/lib/wallet-report";
 import { sendEmail } from "@/lib/notification-providers";
 
-export async function emailWalletReportToMe() {
+export async function emailWalletReportToMe(formData: FormData) {
   const session =
     await requireAdmin();
 
@@ -32,6 +32,16 @@ export async function emailWalletReportToMe() {
     );
   }
 
+  const additionalEmail = String(formData.get("additionalEmail") ?? "").trim();
+
+  if (additionalEmail && (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(additionalEmail) || additionalEmail.length > 254)) {
+    throw new Error("Enter a valid additional email address.");
+  }
+
+  const recipients = additionalEmail && additionalEmail.toLowerCase() !== user.email.toLowerCase()
+    ? [user.email, additionalEmail]
+    : [user.email];
+
   const report =
     await getWalletReportData();
 
@@ -46,7 +56,7 @@ export async function emailWalletReportToMe() {
       .slice(0, 10);
 
   await sendEmail({
-    to: user.email,
+    to: recipients,
     subject:
       "CanteenCo Wallet Balance Report",
     text:
