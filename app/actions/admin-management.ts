@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/authz";
 import { setProductAvailabilityForSchools } from "@/lib/product-availability";
+import { setProductPreOrderAvailabilityForSchools } from "@/lib/product-preorder-availability";
 
 function str(f: FormData, k: string) {
   return String(f.get(k) ?? "").trim();
@@ -201,6 +202,15 @@ export async function saveProduct(f: FormData) {
     savedProduct.id,
     managedSchoolIds,
     availableSchoolIds,
+  );
+
+  const preOrderSchoolIds = f.getAll("preOrderSchoolIds")
+    .map((value) => String(value).trim())
+    .filter((schoolId) => managedSchoolIds.includes(schoolId));
+  await setProductPreOrderAvailabilityForSchools(
+    savedProduct.id,
+    managedSchoolIds,
+    preOrderSchoolIds,
   );
 
   revalidatePath("/admin/products");
