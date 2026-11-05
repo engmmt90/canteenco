@@ -98,7 +98,7 @@ export async function saveDailyWalletReportSettings(formData: FormData) {
   if (additionalEmail && !validEmail(additionalEmail)) {
     throw new Error("Enter a valid additional email address.");
   }
-  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(sendTime)) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(sendTime)) {
     throw new Error("Enter a valid time.");
   }
   try {
