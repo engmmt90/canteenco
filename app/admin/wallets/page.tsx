@@ -255,9 +255,9 @@ export default async function WalletsPage({
         <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: "1.25rem" }}>Daily Wallet PDF Email</summary>
         <p className="subtle">Save a daily send time and an optional additional recipient. The admin account always receives the report.</p>
         <form action={saveDailyWalletReportSettings} className="form">
-          <label className="label">
-            <input type="checkbox" name="enabled" defaultChecked={dailySettings.enabled} />
-            {" "}Send automatically every day
+          <label className="label" style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start" }}>
+            <input type="checkbox" name="enabled" defaultChecked={dailySettings.enabled} style={{ width: "auto", margin: 0, flex: "none" }} />
+            <span>Send automatically every day</span>
           </label>
           <label className="label">
             Send time ({schoolTimezone ? `school timezone: ${schoolTimezone}` : "selected timezone"})
