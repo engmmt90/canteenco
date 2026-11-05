@@ -8,7 +8,7 @@ type EmailAttachment = {
 };
 
 export async function sendEmail(args: {
-  to: string;
+  to: string | string[];
   subject: string;
   text: string;
   attachments?: EmailAttachment[];
@@ -37,7 +37,7 @@ export async function sendEmail(args: {
       },
       body: JSON.stringify({
         from,
-        to: [args.to],
+        to: Array.isArray(args.to) ? args.to : [args.to],
         subject: args.subject,
         text: args.text,
         ...(args.attachments?.length
