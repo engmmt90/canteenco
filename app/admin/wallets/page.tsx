@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getWalletReportSettings } from "@/lib/daily-wallet-report";
 
 import { prisma } from "@/lib/prisma";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/app/actions/admin-wallet";
 import {
   emailWalletReportToMe,
+  saveDailyWalletReportSettings,
 } from "@/app/actions/admin-wallet-report";
 
 type SearchParams = {
@@ -17,6 +19,7 @@ type SearchParams = {
   negative?: string;
   credit?: string;
   reportEmail?: string;
+  reportSchedule?: string;
 };
 
 export default async function WalletsPage({
@@ -26,8 +29,13 @@ export default async function WalletsPage({
 }) {
   const {
     schoolId,
+    session,
   } =
     await adminSchoolScope();
+  const dailySettings = await getWalletReportSettings(session.user.id);
+  const schoolTimezone = schoolId
+    ? (await prisma.schoolSettings.findUnique({ where: { schoolId }, select: { timezone: true } }))?.timezone
+    : null;
 
   const p =
     await searchParams;
@@ -241,6 +249,43 @@ export default async function WalletsPage({
             Wallet report PDF was sent to your admin email.
           </p>
         ) : null}
+      </section>
+
+      <section className="panel" style={{ marginBottom: 18 }}>
+        <h2>Daily Wallet PDF Email</h2>
+        <p className="subtle">Save a daily send time and an optional additional recipient. The admin account always receives the report.</p>
+        <form action={saveDailyWalletReportSettings} className="form">
+          <label className="label">
+            <input type="checkbox" name="enabled" defaultChecked={dailySettings.enabled} />
+            {" "}Send automatically every day
+          </label>
+          <label className="label">
+            Send time ({schoolTimezone ? `school timezone: ${schoolTimezone}` : "selected timezone"})
+            <input className="input" type="time" name="sendTime" defaultValue={dailySettings.sendTime} required />
+          </label>
+          {schoolTimezone ? (
+            <input type="hidden" name="timezone" value={schoolTimezone} />
+          ) : (
+            <label className="label">
+              Timezone
+              <select className="input" name="timezone" defaultValue={dailySettings.timezone}>
+                <option value="Australia/Brisbane">Brisbane</option>
+                <option value="Australia/Sydney">Sydney / Melbourne</option>
+                <option value="Australia/Adelaide">Adelaide</option>
+                <option value="Australia/Perth">Perth</option>
+                <option value="Australia/Darwin">Darwin</option>
+                <option value="Australia/Hobart">Hobart</option>
+              </select>
+            </label>
+          )}
+          <label className="label">
+            Additional recipient (optional)
+            <input className="input" type="email" name="additionalEmail" maxLength={254}
+              defaultValue={dailySettings.additionalEmail ?? ""} placeholder="name@example.com" />
+          </label>
+          <button className="primary" type="submit">Save daily email settings</button>
+        </form>
+        {p.reportSchedule === "saved" ? <p className="success">Daily email settings saved.</p> : null}
       </section>
 
       {/* SEARCH */}
