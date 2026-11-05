@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
-import { getBlockedSchoolIdsByProduct } from "@/lib/product-availability";
+import { getBlockedPreOrderSchoolIdsByProduct } from "@/lib/product-preorder-availability";
 import {
   verifyAccessToken,
 } from "@/lib/mobile-auth/tokens";
@@ -218,7 +218,7 @@ export async function GET(
         },
       },
       }),
-      getBlockedSchoolIdsByProduct(),
+      getBlockedPreOrderSchoolIdsByProduct(),
     ]);
 
   const blockedSchoolIdsByProduct =
