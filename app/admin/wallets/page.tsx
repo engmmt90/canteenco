@@ -209,6 +209,17 @@ export default async function WalletsPage({
                 emailWalletReportToMe
               }
             >
+              <label className="label">
+                Additional recipient (optional)
+                <input
+                  className="input"
+                  name="additionalEmail"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="name@example.com"
+                  maxLength={254}
+                />
+              </label>
               <button
                 className="primary"
                 type="submit"
