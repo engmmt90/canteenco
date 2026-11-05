@@ -9,6 +9,7 @@ import {
   sendSms,
 } from "@/lib/notification-providers";
 import { prisma } from "@/lib/prisma";
+import { processDailyWalletReports } from "@/lib/daily-wallet-report";
 
 const MAX_ATTEMPTS = 5;
 
@@ -292,7 +293,15 @@ async function processNotifications(
     }
   }
 
+  let walletReportsSent = 0;
+  try {
+    walletReportsSent = await processDailyWalletReports(now);
+  } catch (error) {
+    console.error("Daily wallet report processing failed", error);
+  }
+
   return NextResponse.json({
+    walletReportsSent,
     processed: jobs.length,
     sent,
     retried,
