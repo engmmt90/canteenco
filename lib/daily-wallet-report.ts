@@ -114,7 +114,7 @@ export async function processDailyWalletReports(now = new Date()) {
     await sendEmail({
       to: recipients,
       subject: "CanteenGo Wallet Balance Report",
-      text: `Hi ${user.fullName},\n\nAttached is the daily wallet balance report.\n\nWallets: ${report.rows.length}\nTotal balance: $${report.totalBalance.toFixed(2)}\nGenerated: ${formatBrisbaneDateTime(report.generatedAt)}`,
+      text: `Hi ${user.fullName},\n\nAttached is the daily wallet balance report.\n\nWallets: ${report.rows.length}\nTotal balance: $${report.totalBalance.toFixed(2)}\nGenerated: ${formatBrisbaneDateTime(report.generatedAt, timezone)}`,
       attachments: [{
         filename: `canteengo-wallet-report-${local.date}.pdf`,
         content: pdf.toString("base64"),
