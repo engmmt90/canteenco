@@ -13,7 +13,7 @@ export type TopUpFormState = {
 };
 
 const PRESET_AMOUNTS = new Set([50, 100, 150, 200]);
-const MIN_CUSTOM_AMOUNT = 1;
+const MIN_CUSTOM_AMOUNT = 20;
 const MAX_TOP_UP_AMOUNT = 1000;
 
 function formString(formData: FormData, key: string) {
