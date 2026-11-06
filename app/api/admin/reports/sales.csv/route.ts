@@ -150,7 +150,7 @@ export async function GET(
       "Content-Type":
         "text/csv; charset=utf-8",
       "Content-Disposition":
-        'attachment; filename="canteenco-sales.csv"',
+        'attachment; filename="canteengo-sales.csv"',
     },
   });
 }
