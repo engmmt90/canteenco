@@ -66,7 +66,7 @@ export async function GET(
           "application/pdf",
 
         "Content-Disposition":
-          `attachment; filename="canteenco-sales-report-${date}.pdf"`,
+          `attachment; filename="canteengo-sales-report-${date}.pdf"`,
 
         "Cache-Control":
           "no-store",
