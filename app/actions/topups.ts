@@ -12,7 +12,7 @@ export type TopUpFormState = {
   success?: string;
 };
 
-const PRESET_AMOUNTS = new Set([5, 10, 20, 50, 100]);
+const PRESET_AMOUNTS = new Set([50, 100, 150, 200]);
 const MIN_CUSTOM_AMOUNT = 1;
 const MAX_TOP_UP_AMOUNT = 1000;
 
