@@ -101,7 +101,7 @@ export function TopUpForm() {
       {mode === "custom" ? (
         <label className="label">
           Other amount (AUD)
-          <input className="input" inputMode="decimal" min="1" max="1000" name="customAmount" placeholder="25.00" step="0.01" type="number" required />
+          <input className="input" inputMode="decimal" min="20" max="1000" name="customAmount" placeholder="25.00" step="0.01" type="number" required />
         </label>
       ) : null}
 
