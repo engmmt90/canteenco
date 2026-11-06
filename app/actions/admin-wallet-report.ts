@@ -59,17 +59,17 @@ export async function emailWalletReportToMe(formData: FormData) {
   await sendEmail({
     to: recipients,
     subject:
-      "CanteenCo Wallet Balance Report",
+      "CanteenGo Wallet Balance Report",
     text:
       `Hi ${user.fullName},\n\n` +
-      `Attached is the CanteenCo wallet balance report.\n\n` +
+      `Attached is the CanteenGo wallet balance report.\n\n` +
       `Wallets: ${report.rows.length}\n` +
       `Total balance: $${report.totalBalance.toFixed(2)}\n\n` +
       `Generated: ${formatBrisbaneDateTime(report.generatedAt, report.timezone)}`,
     attachments: [
       {
         filename:
-          `canteenco-wallet-report-${date}.pdf`,
+          `canteengo-wallet-report-${date}.pdf`,
         content:
           pdf.toString(
             "base64",

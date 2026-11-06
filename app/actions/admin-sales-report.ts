@@ -98,17 +98,17 @@ export async function emailSalesReportToMe(
   await sendEmail({
     to: user.email,
     subject:
-      "CanteenCo Sales Report",
+      "CanteenGo Sales Report",
     text:
       `Hi ${user.fullName},\n\n` +
-      `Attached is your CanteenCo sales report.\n\n` +
+      `Attached is your CanteenGo sales report.\n\n` +
       `Transactions: ${report.rows.length}\n` +
       `Total sales: $${report.totalSales.toFixed(2)}\n` +
       `Generated: ${formatBrisbaneDateTime(report.generatedAt, report.timeZone)}`,
     attachments: [
       {
         filename:
-          `canteenco-sales-report-${date}.pdf`,
+          `canteengo-sales-report-${date}.pdf`,
         content:
           pdf.toString(
             "base64",

@@ -33,7 +33,7 @@ export async function GET() {
         "Content-Type":
           "application/pdf",
         "Content-Disposition":
-          `attachment; filename="canteenco-wallet-report-${date}.pdf"`,
+          `attachment; filename="canteengo-wallet-report-${date}.pdf"`,
         "Cache-Control":
           "no-store",
       },

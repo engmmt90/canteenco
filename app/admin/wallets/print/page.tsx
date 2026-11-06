@@ -102,7 +102,7 @@ export default async function WalletPrintPage() {
               }}
             >
               {report.schoolName ??
-                "CanteenCo"}
+                "CanteenGo"}
             </p>
           </div>
 
