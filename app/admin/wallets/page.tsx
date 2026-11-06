@@ -1,4 +1,5 @@
 import Link from "next/link";
+import WalletReportDialog from "./WalletReportDialog";
 import { getWalletReportSettings } from "@/lib/daily-wallet-report";
 
 import { prisma } from "@/lib/prisma";
@@ -212,29 +213,17 @@ export default async function WalletsPage({
               Export PDF
             </a>
 
-            <form
-              action={
-                emailWalletReportToMe
-              }
-            >
-              <label className="label">
-                Additional recipient (optional)
-                <input
-                  className="input"
-                  name="additionalEmail"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="name@example.com"
-                  maxLength={254}
-                />
-              </label>
-              <button
-                className="primary"
-                type="submit"
-              >
-                Email PDF to Me
-              </button>
-            </form>
+            <WalletReportDialog title="Email Wallet PDF" buttonLabel="Email PDF to Me">
+              <p className="subtle">Send the report to your admin email, with an optional additional recipient.</p>
+              <form action={emailWalletReportToMe} className="form">
+                <label className="label">
+                  Additional recipient (optional)
+                  <input className="input" name="additionalEmail" type="email" autoComplete="email"
+                    placeholder="name@example.com" maxLength={254} />
+                </label>
+                <button className="primary" type="submit">Send PDF email</button>
+              </form>
+            </WalletReportDialog>
           </div>
         </div>
 
@@ -251,9 +240,9 @@ export default async function WalletsPage({
         ) : null}
       </section>
 
-      <details className="panel" style={{ marginBottom: 18 }} open={p.reportSchedule === "saved"}>
-        <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: "1.25rem" }}>Daily Wallet PDF Email</summary>
-        <p className="subtle">Save a daily send time and an optional additional recipient. The admin account always receives the report.</p>
+      <section className="panel" style={{ marginBottom: 18 }}>
+        <WalletReportDialog title="Daily Wallet PDF Email" buttonLabel="Daily email settings" openOnLoad={p.reportSchedule === "saved"}>
+          <p className="subtle">Set the daily send time and an optional additional recipient. The admin account always receives the report.</p>
         <form action={saveDailyWalletReportSettings} className="form">
           <label className="label" style={{ display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start" }}>
             <input type="checkbox" name="enabled" defaultChecked={dailySettings.enabled} style={{ width: "auto", margin: 0, flex: "none" }} />
@@ -285,8 +274,9 @@ export default async function WalletsPage({
           </label>
           <button className="primary" type="submit">Save daily email settings</button>
         </form>
-        {p.reportSchedule === "saved" ? <p className="success">Daily email settings saved.</p> : null}
-      </details>
+          {p.reportSchedule === "saved" ? <p className="success" role="status">Daily email settings saved.</p> : null}
+        </WalletReportDialog>
+      </section>
 
       {/* SEARCH */}
 
