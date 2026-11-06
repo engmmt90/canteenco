@@ -459,7 +459,7 @@ export default async function SaleDetailPage({
           <p className="subtle">
             {isWalletSale
               ? "The sale amount will be returned to the family wallet."
-              : `This will mark the ${sale.paymentMethod.toLowerCase()} sale as refunded in CanteenCo. Complete the physical payment refund separately.`}
+              : `This will mark the ${sale.paymentMethod.toLowerCase()} sale as refunded in CanteenGo. Complete the physical payment refund separately.`}
           </p>
 
           <form
