@@ -5,12 +5,12 @@ import { useActionState, useState } from "react";
 import { createTopUpRequest, type TopUpFormState } from "@/app/actions/topups";
 
 const initialState: TopUpFormState = {};
-const presets = [5, 10, 20, 50, 100];
+const presets = [50, 100, 150, 200];
 
 export function TopUpForm() {
   const [state, formAction, pending] = useActionState(createTopUpRequest, initialState);
   const [mode, setMode] = useState<"preset" | "custom">("preset");
-  const [preset, setPreset] = useState("20");
+  const [preset, setPreset] = useState("100");
   const [noticeAccepted, setNoticeAccepted] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
 
